@@ -46,7 +46,7 @@
     }
   },
   "taxpayer_support_and_concentration": {
-    "definition": "Base-2024 net gains after float32 engine input conversion, strictly above the 2024 £3,000 AEA; reconstructed household rows match the captured candidate matrix.",
+    "definition": "Base-2024 net gains after float32 engine input conversion, strictly above the 2024 \u00a33,000 AEA; reconstructed household rows match the captured candidate matrix.",
     "source_skeleton_key": [
       "source_year",
       "source_household_id"
@@ -4363,7 +4363,7 @@
                 "adjudication": "microcosm#875",
                 "approved_by": "juaristi22",
                 "expires_on": "2026-10-05",
-                "reason": "Vintage conflict, not a fit defect: the Chronicle re-pin (microcosm#874) put HMRC's 2024-25 CGT outturn on the feed (£127.3bn of chargeable gains, 584k taxpayers, against £69.9bn / 403k in 2023-24 — the forestalling year ahead of the 30 October 2024 rate rise) and the doctrine binds it at face value at the 2025 period; the frame fits both HMRC rows within 0.3% and 2025-26 rates on those gains give £31.4bn of liability (24.7% effective) against OBR's £21.8bn FY2025-26 receipts and HMRC's realised 19.0% on the same gains (+44.2% at the composed calibration; −25% with the 2023-24 gains). The facts stay bound as published; the deliverable is a declared 2024-25 → 2025 translation of the gains total under the WS-C reconciliation layer (#875: the index ruling, applying uprating_index in the compile step, the taxpayer count flat at 584k, the cash-lag mapping for self-assessed OBR lines). While in force the calibrated 2025-26 base carries ~40% more CGT liability than OBR expects.",
+                "reason": "Vintage conflict, not a fit defect: the Chronicle re-pin (microcosm#874) put HMRC's 2024-25 CGT outturn on the feed (\u00a3127.3bn of chargeable gains, 584k taxpayers, against \u00a369.9bn / 403k in 2023-24 \u2014 the forestalling year ahead of the 30 October 2024 rate rise) and the doctrine binds it at face value at the 2025 period; the frame fits both HMRC rows within 0.3% and 2025-26 rates on those gains give \u00a331.4bn of liability (24.7% effective) against OBR's \u00a321.8bn FY2025-26 receipts and HMRC's realised 19.0% on the same gains (+44.2% at the composed calibration; \u221225% with the 2023-24 gains). The facts stay bound as published; the deliverable is a declared 2024-25 \u2192 2025 translation of the gains total under the WS-C reconciliation layer (#875: the index ruling, applying uprating_index in the compile step, the taxpayer count flat at 584k, the cash-lag mapping for self-assessed OBR lines). While in force the calibrated 2025-26 base carries ~40% more CGT liability than OBR expects.",
                 "relative_error": 0.447710376098256
               }
             },
@@ -5038,7 +5038,7 @@
       "status": "retired_from_active_register_for_observed_FY2024_25_contract",
       "retirement_reason": "The replaced FY2025-26 cash row is no longer fitted. The accepted FY2024-25 deliverable binds individual HMRC gains, taxpayers and liability; retaining its former cash-fit deferral as dormant would misstate the active surface. HMRC liability has no replacement exemption. This does not close or amend issue #875 or settle its general forward-year cash-lag rule.",
       "original_entry": {
-        "reason": "Vintage conflict, not a fit defect: the Chronicle re-pin (microcosm#874) put HMRC's 2024-25 CGT outturn on the feed (£127.3bn of chargeable gains, 584k taxpayers, against £69.9bn / 403k in 2023-24 — the forestalling year ahead of the 30 October 2024 rate rise) and the doctrine binds it at face value at the 2025 period; the frame fits both HMRC rows within 0.3% and 2025-26 rates on those gains give £31.4bn of liability (24.7% effective) against OBR's £21.8bn FY2025-26 receipts and HMRC's realised 19.0% on the same gains (+44.2% at the composed calibration; −25% with the 2023-24 gains). The facts stay bound as published; the deliverable is a declared 2024-25 → 2025 translation of the gains total under the WS-C reconciliation layer (#875: the index ruling, applying uprating_index in the compile step, the taxpayer count flat at 584k, the cash-lag mapping for self-assessed OBR lines). While in force the calibrated 2025-26 base carries ~40% more CGT liability than OBR expects.",
+        "reason": "Vintage conflict, not a fit defect: the Chronicle re-pin (microcosm#874) put HMRC's 2024-25 CGT outturn on the feed (\u00a3127.3bn of chargeable gains, 584k taxpayers, against \u00a369.9bn / 403k in 2023-24 \u2014 the forestalling year ahead of the 30 October 2024 rate rise) and the doctrine binds it at face value at the 2025 period; the frame fits both HMRC rows within 0.3% and 2025-26 rates on those gains give \u00a331.4bn of liability (24.7% effective) against OBR's \u00a321.8bn FY2025-26 receipts and HMRC's realised 19.0% on the same gains (+44.2% at the composed calibration; \u221225% with the 2023-24 gains). The facts stay bound as published; the deliverable is a declared 2024-25 \u2192 2025 translation of the gains total under the WS-C reconciliation layer (#875: the index ruling, applying uprating_index in the compile step, the taxpayer count flat at 584k, the cash-lag mapping for self-assessed OBR lines). While in force the calibrated 2025-26 base carries ~40% more CGT liability than OBR expects.",
         "approved_by": "juaristi22",
         "adjudication": "microcosm#875",
         "approved_on": "2026-09-05",
@@ -5054,8 +5054,12 @@
   "target_comparison_csv": {
     "path": "target-comparison.csv",
     "rows": 363,
-    "sha256": "e3c07b97bb805e15d2f100fe2d8c1b1b6c06286ac61b3b2285ace339bcf2c449",
-    "all_rows_have_identical_source_coefficients_and_target_values": true
+    "sha256": "44c8d59a9452935991f9e2f6fb6b5f186191ebeb71d9687381c1c4a81d5b88b4",
+    "all_rows_have_identical_source_coefficients_and_target_values": true,
+    "line_endings": "LF",
+    "source_export_sha256": "e3c07b97bb805e15d2f100fe2d8c1b1b6c06286ac61b3b2285ace339bcf2c449",
+    "source_export_line_endings": "CRLF",
+    "parsed_header_and_all_rows_equal_source_export": true
   },
   "reproduction_provenance": {
     "family_weighting": "family_equal",
