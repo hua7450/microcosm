@@ -9,13 +9,10 @@ import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 
-from huggingface_hub import HfApi, hf_hub_download
+from huggingface_hub import HfApi
 from huggingface_hub.errors import HfHubHTTPError
 
 from microcosm.build.staging_v2 import DEFAULT_UK_STAGING_REPO
-
-ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_CARD = ROOT / "docs/templates/populace-uk-staging-README.md"
 
 
 def _settings(api: HfApi, repo_id: str) -> dict[str, object]:
@@ -35,7 +32,7 @@ def _require_private_manual(settings: dict[str, object]) -> None:
         )
 
 
-def _apply(api: HfApi, repo_id: str, card: Path) -> dict[str, object]:
+def _apply(api: HfApi, repo_id: str) -> dict[str, object]:
     api.create_repo(
         repo_id=repo_id,
         repo_type="dataset",
@@ -49,16 +46,9 @@ def _apply(api: HfApi, repo_id: str, card: Path) -> dict[str, object]:
             private=True,
             gated="manual",
         )
-        api.upload_file(
-            path_or_fileobj=card,
-            path_in_repo="README.md",
-            repo_id=repo_id,
-            repo_type="dataset",
-            commit_message="Document UK staging telemetry content policy",
-        )
     except BaseException:
         # Configuration is fail-closed: no recovery path ever selects public
-        # visibility, even if the manual-approval update or card upload fails.
+        # visibility, even if the manual-approval update fails.
         try:
             api.update_repo_settings(
                 repo_id=repo_id,
@@ -80,19 +70,13 @@ def _verify_access(api: HfApi, repo_id: str) -> dict[str, object]:
     except HfHubHTTPError:
         anonymous_refused = True
     if not anonymous_refused:
-        raise RuntimeError("Anonymous access unexpectedly reached the private repository.")
+        raise RuntimeError(
+            "Anonymous access unexpectedly reached the private repository."
+        )
     info = api.repo_info(repo_id=repo_id, repo_type="dataset")
-    card_path = hf_hub_download(
-        repo_id=repo_id,
-        filename="README.md",
-        repo_type="dataset",
-        token=api.token,
-        force_download=True,
-    )
     return {
         "anonymous_access_refused": True,
         "approved_access_succeeded": bool(info.private),
-        "repository_card_bytes": Path(card_path).stat().st_size,
     }
 
 
@@ -125,22 +109,15 @@ def _verify_write(api: HfApi, repo_id: str) -> dict[str, object]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-id", default=DEFAULT_UK_STAGING_REPO)
-    parser.add_argument("--card", type=Path, default=DEFAULT_CARD)
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--verify-access", action="store_true")
     parser.add_argument("--verify-write", action="store_true")
     args = parser.parse_args(argv)
     if args.verify_write and not args.verify_access:
         parser.error("--verify-write requires --verify-access.")
-    if not args.card.is_file():
-        parser.error(f"repository card does not exist: {args.card}")
 
     api = HfApi()
-    result = (
-        _apply(api, args.repo_id, args.card)
-        if args.apply
-        else _settings(api, args.repo_id)
-    )
+    result = _apply(api, args.repo_id) if args.apply else _settings(api, args.repo_id)
     _require_private_manual(result)
     if args.verify_access:
         result.update(_verify_access(api, args.repo_id))

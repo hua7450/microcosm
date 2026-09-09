@@ -47,35 +47,36 @@ class _FakeHuggingFaceApi:
         return SimpleNamespace(private=self.private, gated=self.gated)
 
 
-def test_hugging_face_setup_is_idempotent_and_private(tmp_path: Path) -> None:
+def test_hugging_face_setup_is_idempotent_and_private() -> None:
     tool = _load_tool("provision_uk_staging_repository")
-    card = tmp_path / "README.md"
-    card.write_text("private telemetry\n", encoding="utf-8")
     api = _FakeHuggingFaceApi()
 
-    first = tool._apply(api, "policyengine/populace-uk-staging", card)
-    second = tool._apply(api, "policyengine/populace-uk-staging", card)
+    first = tool._apply(api, "policyengine/populace-uk-staging")
+    second = tool._apply(api, "policyengine/populace-uk-staging")
 
-    assert first == second == {
-        "repo_id": "policyengine/populace-uk-staging",
-        "private": True,
-        "gated": "manual",
-    }
+    assert (
+        first
+        == second
+        == {
+            "repo_id": "policyengine/populace-uk-staging",
+            "private": True,
+            "gated": "manual",
+        }
+    )
     creates = [payload for name, payload in api.calls if name == "create_repo"]
     assert len(creates) == 2
-    assert all(payload["private"] is True and payload["exist_ok"] is True for payload in creates)
+    assert all(
+        payload["private"] is True and payload["exist_ok"] is True
+        for payload in creates
+    )
 
 
-def test_hugging_face_setup_failure_never_selects_public_visibility(
-    tmp_path: Path,
-) -> None:
+def test_hugging_face_setup_failure_never_selects_public_visibility() -> None:
     tool = _load_tool("provision_uk_staging_repository")
-    card = tmp_path / "README.md"
-    card.write_text("private telemetry\n", encoding="utf-8")
     api = _FakeHuggingFaceApi(fail_manual=True)
 
     with pytest.raises(RuntimeError, match="manual approval unavailable"):
-        tool._apply(api, "policyengine/populace-uk-staging", card)
+        tool._apply(api, "policyengine/populace-uk-staging")
 
     settings_updates = [
         payload for name, payload in api.calls if name == "update_repo_settings"
@@ -110,9 +111,7 @@ def test_github_environment_audit_allows_only_optional_read_secret(
         tool, "_secret_names", lambda repository: ["HF_STAGING_READ_TOKEN"]
     )
 
-    result = tool._audit(
-        "PolicyEngine/microcosm", ("anth-volk", "MaxGhenis")
-    )
+    result = tool._audit("PolicyEngine/microcosm", ("anth-volk", "MaxGhenis"))
 
     assert result["prevent_self_review"] is True
     assert result["external_writer_secret_present"] is False
@@ -123,7 +122,9 @@ def test_github_environment_audit_rejects_writer_secret(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     tool = _load_tool("configure_github_staging_environment")
-    monkeypatch.setattr(tool, "_environment", lambda repository: {"protection_rules": []})
+    monkeypatch.setattr(
+        tool, "_environment", lambda repository: {"protection_rules": []}
+    )
     monkeypatch.setattr(
         tool, "_secret_names", lambda repository: ["HF_STAGING_WRITE_TOKEN"]
     )

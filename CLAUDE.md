@@ -75,9 +75,10 @@ writes only under the runner's temporary directory, and is not part of
 does not reference a protected GitHub environment, and receives no external
 writer credential. Fork pull requests run the synthetic test without secrets.
 An optional repository-level `HF_STAGING_READ_TOKEN` permits a separate
-repository-card read. The workflow invokes `tools/run_integration_tests.sh` so
+private-repository access check. The workflow invokes
+`tools/run_integration_tests.sh` so
 its shell logic remains locally executable. Run it locally without the optional
-repository read with:
+repository access check with:
 
 ```bash
 HF_STAGING_READ_TOKEN= bash tools/run_integration_tests.sh

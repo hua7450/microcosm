@@ -38,8 +38,8 @@ uv run python tools/configure_github_staging_environment.py --apply
 
 The setup permits no environment secret except `HF_STAGING_READ_TOKEN`. The
 general integration-test workflow instead reads that optional name as a
-repository-level Actions secret, where it may read only the private repository
-card. Fork pull requests do not receive it. The integration build itself
+repository-level Actions secret, where it may inspect the private repository's
+settings. Fork pull requests do not receive it. The integration build itself
 receives no external service writer credential.
 
 ## Contract fixture ownership
@@ -65,9 +65,8 @@ uv run python tools/generate_staging_contract_fixtures.py --check
 
 ## Repository provisioning
 
-The repository card template is
-`docs/templates/populace-uk-staging-README.md`. An authorized Hugging Face
-organization administrator provisions or reconciles the repository with:
+An authorized Hugging Face organization administrator provisions or reconciles
+the repository with:
 
 ```bash
 uv run python tools/provision_uk_staging_repository.py --apply
@@ -77,7 +76,7 @@ uv run python tools/provision_uk_staging_repository.py --verify-access --verify-
 
 The procedure creates the dataset repository with private visibility first,
 then applies the Hugging Face setting `gated="manual"`, which means each access
-request requires individual approval. If the setting or card update fails, the
+request requires individual approval. If the settings update fails, the
 recovery operation selects private visibility again and never selects public
 visibility. The write probe is optional, uses only
 `verification/operator-write-probe.json`, and deletes that probe after a
@@ -88,20 +87,20 @@ The procedure was run successfully on 2026-09-08 while authenticated as
 `policyengine/populace-uk-staging` dataset reported `private: true` and
 `gated: "manual"`; in concrete terms, the repository is not publicly readable
 and individual access requests require explicit approval. Anonymous repository
-inspection was refused, authenticated repository-card download returned the
-888-byte card, and the operator write probe succeeded and was removed. This
-confirms that the organization supports the required combination of private
-visibility and individual manual approval.
+inspection was refused, authenticated repository inspection succeeded, and the
+operator write probe succeeded and was removed. This confirms that the
+organization supports the required combination of private visibility and
+individual manual approval.
 
 The bootstrap credential was then replaced on 2026-09-08 by the local token
 named `microcosm-uk-staging-local-writer`. Hugging Face reported its role as
-`fineGrained`; authenticated repository-card download and the temporary write
+`fineGrained`; authenticated repository inspection and the temporary write
 probe both succeeded, and the probe was removed. The token was configured by
 the operator for this dataset only; its secret value was not printed or written
 to the worktree. This establishes the scoped local-writer check, but the
 complete access-control task still requires a separate authenticated user that
 has not been approved to demonstrate refusal. Calibration Diagnostics and the
-optional GitHub repository-card check each require their own fine-grained
+optional GitHub repository access check each require their own fine-grained
 read-only credential.
 
 ## Command modes and files
@@ -383,16 +382,6 @@ UK remote output remains disabled until that change is reviewed, merged,
 deployed with the separate read credential, and verified against both contract
 fixture versions.
 
-## Retention
-
-Staging run directories are retained for 90 days, with at least the ten most
-recent runs retained even when they are older. PolicyEngine Hugging Face
-organization administrators own the monthly cleanup. Cleanup first writes a
-new `runs.json` that omits expired identifiers, verifies that the retained
-entries remain readable, and only then removes the expired run directories.
-`latest_staging.json` must always reference a retained run. Cleanup never
-touches production repositories or local operator evidence.
-
 ## Access-control verification
 
 Hugging Face currently documents both `private=True` and `gated="manual"` on
@@ -400,8 +389,8 @@ the repository-settings API, and documents individual approval for gated
 datasets. This establishes API support, but not the effective behavior of the
 PolicyEngine organization. Before remote output is enabled, the provisioning
 procedure must verify the combined settings with an organization writer and
-then prove anonymous or unapproved refusal, approved repository-card download,
-and narrowly scoped writer access. If any check fails, the repository remains
+then prove anonymous or unapproved refusal, approved authenticated access, and
+narrowly scoped writer access. If any check fails, the repository remains
 private and UK remote output remains disabled.
 
 References:

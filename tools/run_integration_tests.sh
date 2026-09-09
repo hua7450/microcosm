@@ -8,7 +8,8 @@ uv run --no-sync pytest \
   -q -s -p no:cacheprovider
 
 if [[ -z "${HF_STAGING_READ_TOKEN:-}" ]]; then
-  echo "HF_STAGING_READ_TOKEN is unavailable; skipping the optional private repository read."
+  echo \
+    "HF_STAGING_READ_TOKEN is unavailable; skipping the optional private repository access check."
   exit 0
 fi
 
