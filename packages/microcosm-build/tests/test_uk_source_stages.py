@@ -585,6 +585,7 @@ class TestE3ManifestLockstep:
         ]
         assert [op.kind for op in stages["frs_education_grant_split"].operations] == [
             "materialize_rules_engine_predictors",
+            "materialize_rules_engine_predictors",
             "derive",
         ]
         assert [op.kind for op in stages["frs_take_up"].operations] == [
@@ -721,6 +722,7 @@ class TestE3ManifestLockstep:
         from microcosm.build.uk_runtime.etb_vat import UK_ETB_VAT_PREDICTORS
         from microcosm.build.uk_runtime.frs_brma import UK_BRMA_PREDICTORS
         from microcosm.build.uk_runtime.frs_education_grants import (
+            DISABLED_STUDENTS_ALLOWANCE_ELIGIBILITY_VARIABLES,
             FRS_EDUCATION_GRANT_REWRITES,
             UK_EDUCATION_GRANT_CAPACITY_PREDICTORS,
         )
@@ -755,8 +757,14 @@ class TestE3ManifestLockstep:
         grant_predictors = (
             stages["frs_education_grant_split"].operations[0].parameters["predictors"]
         )
+        dsa_predictors = (
+            stages["frs_education_grant_split"].operations[1].parameters["predictors"]
+        )
         assert tuple(legacy_predictors) == UK_LEGACY_PROXY_PREDICTORS
         assert tuple(grant_predictors) == UK_EDUCATION_GRANT_CAPACITY_PREDICTORS
+        assert tuple(dsa_predictors) == (
+            DISABLED_STUDENTS_ALLOWANCE_ELIGIBILITY_VARIABLES
+        )
         assert (
             stages["frs_education_grant_split"].rewrites == FRS_EDUCATION_GRANT_REWRITES
         )

@@ -157,6 +157,24 @@ class TestCommittedRegister:
             ),
         }
 
+    def test_dsa_entry_pins_calibration_year_seed(self) -> None:
+        register = load_uk_spine_swap_signed_differences()
+
+        entry = register.matching(
+            surface="nonzero_shares",
+            column="disabled_students_allowance_eligible_expenses",
+            expectation="column_missing_in_reference",
+            entity="person",
+        )
+        assert entry is not None
+        assert entry.id == "dsa-eligible-expenses-seeded-at-calibration-year"
+        assert entry.difference_class == "defect_fix"
+        assert entry.quantitative == {
+            "structural": {
+                "expected_columns": ["disabled_students_allowance_eligible_expenses"]
+            }
+        }
+
     def test_committed_entries_are_precisely_scoped(self) -> None:
         # A surface-wide entry (empty columns) signs every column on that
         # surface. That is a real capability for entity_counts, but on a

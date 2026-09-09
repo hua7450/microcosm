@@ -65,13 +65,9 @@ class ResolutionAdapter:
 
 class StubMeasureProvider:
     contract_targets = {
-        "needs_input_a": {
-            "bindings": {"policyengine": {"value_variable": "input_a"}}
-        },
+        "needs_input_a": {"bindings": {"policyengine": {"value_variable": "input_a"}}},
         "needs_input_a_and_b": {
-            "bindings": {
-                "policyengine": {"value_expression": "input_a + input_b"}
-            }
+            "bindings": {"policyengine": {"value_expression": "input_a + input_b"}}
         },
         "needs_input_a_again": {
             "bindings": {"policyengine": {"value_variable": "input_a"}}
@@ -328,9 +324,7 @@ def test_resolve_target_measures_raises_when_provided_key_still_fails():
             period=2025,
         )
 
-    assert error.value.receipt["attached"] == {
-        "person.input_a": "stub:person.input_a"
-    }
+    assert error.value.receipt["attached"] == {"person.input_a": "stub:person.input_a"}
     assert error.value.receipt["skips"][-1]["name"] == "needs_input_a"
 
 
@@ -507,8 +501,7 @@ def test_bands_slice_the_population_and_partition_it():
     assert list(adapter.tables["person"]["income_band_40"]) == [0.0, 0.0, 0.0]
     # Every record lands in exactly one band: the bands partition the surface.
     total = sum(
-        adapter.tables["person"][f"income_band_{label}"]
-        for label in ("0", "20", "40")
+        adapter.tables["person"][f"income_band_{label}"] for label in ("0", "20", "40")
     )
     assert list(total) == [1.0, 1.0, 1.0]
 
@@ -701,6 +694,72 @@ def test_published_range_label_edges_survive_sibling_exclusion():
     assert list(adapter.tables["person"]["award_low"]) == [0.0, 1.0, 0.0]
 
 
+@pytest.mark.parametrize("inclusive", [True, False])
+def test_declared_finite_band_ceiling_does_not_absorb_unbound_source_tail(inclusive):
+    """DWP's finite £2400.01–2500 row excludes its separate £2500.01+ row."""
+    adapter = StubAdapter()
+    adapter.tables["person"]["income"] = np.array(
+        [np.nextafter(30_000.0, -np.inf), 30_000.0, np.nextafter(30_000.0, np.inf)]
+    )
+    spec = TargetSpec(
+        name="finite_top",
+        entity="person",
+        measure="finite_top",
+        value=1.0,
+        source="DWP Monthly Award Amount (payment bands)",
+        metadata={
+            "contract_target_id": "uc.finite_bands",
+            "ledger_filter_monthly_award_bands": "£2400.01 to £2500.00",
+        },
+    )
+    registry = TargetRegistry([spec], country="uk")
+    contract = {
+        "uc.finite_bands": {
+            "bindings": {
+                "policyengine": {
+                    "value_variable": "person_count",
+                    "groupby_variable": "income",
+                    "from_entity": "person",
+                    "band_period_factor": 12,
+                    "band_upper_bound": 2500,
+                    "band_upper_bound_inclusive": inclusive,
+                }
+            }
+        }
+    }
+    result = materialize_target_bindings(adapter, registry, contract, period=2025)
+    assert not result.skipped
+    assert adapter.tables["person"]["finite_top"].tolist() == [1, int(inclusive), 0]
+
+
+@pytest.mark.parametrize(
+    "bound_fields",
+    [
+        {"band_upper_bound": 2500},
+        {"band_upper_bound_inclusive": True},
+        {"band_upper_bound": np.inf, "band_upper_bound_inclusive": True},
+        {"band_upper_bound": 0, "band_upper_bound_inclusive": True},
+        {"band_upper_bound": 2500, "band_upper_bound_inclusive": "yes"},
+        {
+            "band_upper_bound": 2500,
+            "band_upper_bound_inclusive": True,
+            "band_period_factor": 0,
+        },
+    ],
+)
+def test_invalid_declared_band_ceiling_refuses_materialization(bound_fields):
+    from copy import deepcopy
+
+    contract = deepcopy(_BANDED_CONTRACT)
+    target_id = _banded_registry().specs[0].metadata["contract_target_id"]
+    contract[target_id]["bindings"]["policyengine"].update(bound_fields)
+    result = materialize_target_bindings(
+        StubAdapter(), _banded_registry(), contract, period=2025
+    )
+    assert result.skipped
+    assert all("band_upper_bound" in skip.reason for skip in result.skipped)
+
+
 def test_band_bounds_refuse_a_spec_absent_from_the_band_edge_register():
     # A register that cannot bound a spec is a wrong-register problem for the
     # whole run: it must propagate as a refusal, never degrade into a skipped
@@ -768,9 +827,7 @@ def test_resolve_target_measures_threads_the_band_edge_registry():
         band_edge_registry=registry,
     )
 
-    assert resolution.receipt["attached"] == {
-        "person.input_a": "stub:person.input_a"
-    }
+    assert resolution.receipt["attached"] == {"person.input_a": "stub:person.input_a"}
     assert list(probes[-1].tables["person"]["income_band_0"]) == [1.0, 0.0, 0.0]
     assert list(probes[-1].tables["person"]["income_band_40"]) == [0.0, 0.0, 0.0]
 

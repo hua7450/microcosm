@@ -1,13 +1,14 @@
 {
   "country": "uk",
-  "description": "UK active-subset Ledger target references for the FRS 2024-25 line. Rows are generated from the national rows in uk_population_targets.json: name is the contract target_id or an incumbent-compatible fan-out row name; ledger_selector is the contract selector plus geography pins; entity is from_entity, then map_to, then household; measure is the prepared-column metric name or fan-out row name; family is the contract family; period is 2025 (opening-year convention for the FRS 2024-25 survey line). Observed values stay in Ledger facts and resolve by identity unless the reference declares value_operation=sum for a genuine multi-fact residue. Deferred classes and geography-pin decisions are recorded in uk/target_reference_membership.json. metadata.measure_kind records that measures are prepared columns produced from the contract binding payload referenced by metadata.contract_target_id.",
+  "description": "UK active-subset Ledger target references for the FRS 2024-25 line. Rows are generated from the national rows in uk_population_targets.json: name is the contract target_id or an incumbent-compatible fan-out row name; ledger_selector is the contract selector plus geography pins; entity is from_entity, then map_to, then household; measure is the prepared-column metric name or fan-out row name; family is the contract family; period is the model and calibration year 2025. Observation windows are declared separately from the FRS 2024-25 survey vintage. Observed values stay in Ledger facts and resolve through each reference's declared value operation. Deferred classes and geography-pin decisions are recorded in uk/target_reference_membership.json. metadata.measure_kind records that measures are prepared columns produced from the contract binding payload referenced by metadata.contract_target_id.",
   "allowed_value_operations": [
     "identity",
     "sum",
     "difference",
     "calendar_year_average",
     "latest_plateau",
-    "count_x_mean"
+    "count_x_mean",
+    "monthly_window_sum_average"
   ],
   "target_references": [
     {
@@ -4146,11 +4147,31 @@
         "source_concept": "dwp.uc_households",
         "groupby_dimension": "dwp.uc_number_of_children",
         "dimensions": [
-          "number_of_children"
+          "number_of_children",
+          "payment_indicator",
+          "child_entitlement"
         ],
         "dimension_values": {
-          "number_of_children": 1
+          "number_of_children": 1,
+          "payment_indicator": "Yes",
+          "child_entitlement": "all"
         },
+        "source_measure_id": "total_benefit_units",
+        "period_type": "month",
+        "period_value": [
+          "2025-01",
+          "2025-02",
+          "2025-03",
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
+        ],
         "geography_level": "country",
         "geography_id": "K03000001"
       },
@@ -4160,7 +4181,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.households_children_1",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-01\",\"2025-02\",\"2025-03\",\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -4173,11 +4195,31 @@
         "source_concept": "dwp.uc_households",
         "groupby_dimension": "dwp.uc_number_of_children",
         "dimensions": [
-          "number_of_children"
+          "number_of_children",
+          "payment_indicator",
+          "child_entitlement"
         ],
         "dimension_values": {
-          "number_of_children": 2
+          "number_of_children": 2,
+          "payment_indicator": "Yes",
+          "child_entitlement": "all"
         },
+        "source_measure_id": "total_benefit_units",
+        "period_type": "month",
+        "period_value": [
+          "2025-01",
+          "2025-02",
+          "2025-03",
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
+        ],
         "geography_level": "country",
         "geography_id": "K03000001"
       },
@@ -4187,7 +4229,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.households_children_2",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-01\",\"2025-02\",\"2025-03\",\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -4200,11 +4243,31 @@
         "source_concept": "dwp.uc_households",
         "groupby_dimension": "dwp.uc_number_of_children",
         "dimensions": [
-          "number_of_children"
+          "number_of_children",
+          "payment_indicator",
+          "child_entitlement"
         ],
         "dimension_values": {
-          "number_of_children": 3
+          "number_of_children": 3,
+          "payment_indicator": "Yes",
+          "child_entitlement": "all"
         },
+        "source_measure_id": "total_benefit_units",
+        "period_type": "month",
+        "period_value": [
+          "2025-01",
+          "2025-02",
+          "2025-03",
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
+        ],
         "geography_level": "country",
         "geography_id": "K03000001"
       },
@@ -4214,7 +4277,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.households_children_3",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-01\",\"2025-02\",\"2025-03\",\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -4227,11 +4291,31 @@
         "source_concept": "dwp.uc_households",
         "groupby_dimension": "dwp.uc_number_of_children",
         "dimensions": [
-          "number_of_children"
+          "number_of_children",
+          "payment_indicator",
+          "child_entitlement"
         ],
         "dimension_values": {
-          "number_of_children": 4
+          "number_of_children": 4,
+          "payment_indicator": "Yes",
+          "child_entitlement": "all"
         },
+        "source_measure_id": "total_benefit_units",
+        "period_type": "month",
+        "period_value": [
+          "2025-01",
+          "2025-02",
+          "2025-03",
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
+        ],
         "geography_level": "country",
         "geography_id": "K03000001"
       },
@@ -4241,7 +4325,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.households_children_4",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-01\",\"2025-02\",\"2025-03\",\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -4254,11 +4339,31 @@
         "source_concept": "dwp.uc_households",
         "groupby_dimension": "dwp.uc_number_of_children",
         "dimensions": [
-          "number_of_children"
+          "number_of_children",
+          "payment_indicator",
+          "child_entitlement"
         ],
         "dimension_values": {
-          "number_of_children": "5 or more"
+          "number_of_children": "5 or more",
+          "payment_indicator": "Yes",
+          "child_entitlement": "all"
         },
+        "source_measure_id": "total_benefit_units",
+        "period_type": "month",
+        "period_value": [
+          "2025-01",
+          "2025-02",
+          "2025-03",
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
+        ],
         "geography_level": "country",
         "geography_id": "K03000001"
       },
@@ -4268,7 +4373,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.households_children_5_or_more",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-01\",\"2025-02\",\"2025-03\",\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -4279,13 +4385,36 @@
       "ledger_selector": {
         "source_name": "dwp",
         "source_concept": "dwp.uc_households",
+        "source_measure_id": "benefit_units",
         "groupby_dimension": "dwp.uc_family_type",
         "dimensions": [
-          "family_type"
+          "family_type",
+          "payment_indicator",
+          "child_entitlement"
         ],
         "dimension_values": {
+          "payment_indicator": "Yes",
+          "child_entitlement": [
+            "No",
+            "Yes"
+          ],
           "family_type": "Single, no children"
         },
+        "period_type": "month",
+        "period_value": [
+          "2025-01",
+          "2025-02",
+          "2025-03",
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
+        ],
         "geography_level": "country",
         "geography_id": "K03000001"
       },
@@ -4295,24 +4424,63 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.households_single_no_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-01\",\"2025-02\",\"2025-03\",\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
-      "value_operation": "calendar_year_average",
-      "uprating_from_period": "2025-12",
-      "uprating_to_period": 2025
+      "period_match_policy": "source_window",
+      "value_operation": "monthly_window_sum_average",
+      "value_operands": [
+        {
+          "dimension_values": {
+            "family_type": "Single, no children",
+            "payment_indicator": "Yes",
+            "child_entitlement": "No"
+          }
+        },
+        {
+          "dimension_values": {
+            "family_type": "Single, no children",
+            "payment_indicator": "Yes",
+            "child_entitlement": "Yes"
+          }
+        }
+      ]
     },
     {
       "name": "dwp.uc.households_single_with_children",
       "ledger_selector": {
         "source_name": "dwp",
         "source_concept": "dwp.uc_households",
+        "source_measure_id": "benefit_units",
         "groupby_dimension": "dwp.uc_family_type",
         "dimensions": [
-          "family_type"
+          "family_type",
+          "payment_indicator",
+          "child_entitlement"
         ],
         "dimension_values": {
+          "payment_indicator": "Yes",
+          "child_entitlement": [
+            "No",
+            "Yes"
+          ],
           "family_type": "Single, with children"
         },
+        "period_type": "month",
+        "period_value": [
+          "2025-01",
+          "2025-02",
+          "2025-03",
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
+        ],
         "geography_level": "country",
         "geography_id": "K03000001"
       },
@@ -4322,24 +4490,63 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.households_single_with_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-01\",\"2025-02\",\"2025-03\",\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
-      "value_operation": "calendar_year_average",
-      "uprating_from_period": "2025-12",
-      "uprating_to_period": 2025
+      "period_match_policy": "source_window",
+      "value_operation": "monthly_window_sum_average",
+      "value_operands": [
+        {
+          "dimension_values": {
+            "family_type": "Single, with children",
+            "payment_indicator": "Yes",
+            "child_entitlement": "No"
+          }
+        },
+        {
+          "dimension_values": {
+            "family_type": "Single, with children",
+            "payment_indicator": "Yes",
+            "child_entitlement": "Yes"
+          }
+        }
+      ]
     },
     {
       "name": "dwp.uc.households_couple_no_children",
       "ledger_selector": {
         "source_name": "dwp",
         "source_concept": "dwp.uc_households",
+        "source_measure_id": "benefit_units",
         "groupby_dimension": "dwp.uc_family_type",
         "dimensions": [
-          "family_type"
+          "family_type",
+          "payment_indicator",
+          "child_entitlement"
         ],
         "dimension_values": {
+          "payment_indicator": "Yes",
+          "child_entitlement": [
+            "No",
+            "Yes"
+          ],
           "family_type": "Couple, no children"
         },
+        "period_type": "month",
+        "period_value": [
+          "2025-01",
+          "2025-02",
+          "2025-03",
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
+        ],
         "geography_level": "country",
         "geography_id": "K03000001"
       },
@@ -4349,24 +4556,63 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.households_couple_no_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-01\",\"2025-02\",\"2025-03\",\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
-      "value_operation": "calendar_year_average",
-      "uprating_from_period": "2025-12",
-      "uprating_to_period": 2025
+      "period_match_policy": "source_window",
+      "value_operation": "monthly_window_sum_average",
+      "value_operands": [
+        {
+          "dimension_values": {
+            "family_type": "Couple, no children",
+            "payment_indicator": "Yes",
+            "child_entitlement": "No"
+          }
+        },
+        {
+          "dimension_values": {
+            "family_type": "Couple, no children",
+            "payment_indicator": "Yes",
+            "child_entitlement": "Yes"
+          }
+        }
+      ]
     },
     {
       "name": "dwp.uc.households_couple_with_children",
       "ledger_selector": {
         "source_name": "dwp",
         "source_concept": "dwp.uc_households",
+        "source_measure_id": "benefit_units",
         "groupby_dimension": "dwp.uc_family_type",
         "dimensions": [
-          "family_type"
+          "family_type",
+          "payment_indicator",
+          "child_entitlement"
         ],
         "dimension_values": {
+          "payment_indicator": "Yes",
+          "child_entitlement": [
+            "No",
+            "Yes"
+          ],
           "family_type": "Couple, with children"
         },
+        "period_type": "month",
+        "period_value": [
+          "2025-01",
+          "2025-02",
+          "2025-03",
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
+        ],
         "geography_level": "country",
         "geography_id": "K03000001"
       },
@@ -4376,11 +4622,27 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.households_couple_with_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-01\",\"2025-02\",\"2025-03\",\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
-      "value_operation": "calendar_year_average",
-      "uprating_from_period": "2025-12",
-      "uprating_to_period": 2025
+      "period_match_policy": "source_window",
+      "value_operation": "monthly_window_sum_average",
+      "value_operands": [
+        {
+          "dimension_values": {
+            "family_type": "Couple, with children",
+            "payment_indicator": "Yes",
+            "child_entitlement": "No"
+          }
+        },
+        {
+          "dimension_values": {
+            "family_type": "Couple, with children",
+            "payment_indicator": "Yes",
+            "child_entitlement": "Yes"
+          }
+        }
+      ]
     },
     {
       "name": "dwp/uc_payment_dist/SINGLE_annual_payment_0_to_1_200",
@@ -4405,7 +4667,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_single",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -4434,7 +4697,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_single",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -4463,7 +4727,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_single",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -4492,7 +4757,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_single",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -4521,7 +4787,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_single",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -4550,7 +4817,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_single",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -4579,7 +4847,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_single",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -4608,7 +4877,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_single",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -4637,7 +4907,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_single",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -4666,7 +4937,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_single",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -4695,7 +4967,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_single",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -4724,7 +4997,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_single",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -4753,7 +5027,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_single",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -4782,7 +5057,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_single",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -4811,7 +5087,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_single",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -4840,7 +5117,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_single",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -4869,7 +5147,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_single",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -4898,7 +5177,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_single",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -4927,7 +5207,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_single",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -4956,7 +5237,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_single",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -4985,7 +5267,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_single",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5014,7 +5297,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_single",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5043,7 +5327,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_single",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5072,7 +5357,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_single",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5101,7 +5387,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_single",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5130,7 +5417,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_lone_parent",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5159,7 +5447,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_lone_parent",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5188,7 +5477,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_lone_parent",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5217,7 +5507,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_lone_parent",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5246,7 +5537,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_lone_parent",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5275,7 +5567,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_lone_parent",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5304,7 +5597,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_lone_parent",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5333,7 +5627,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_lone_parent",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5362,7 +5657,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_lone_parent",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5391,7 +5687,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_lone_parent",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5420,7 +5717,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_lone_parent",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5449,7 +5747,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_lone_parent",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5478,7 +5777,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_lone_parent",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5507,7 +5807,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_lone_parent",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5536,7 +5837,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_lone_parent",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5565,7 +5867,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_lone_parent",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5594,7 +5897,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_lone_parent",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5623,7 +5927,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_lone_parent",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5652,7 +5957,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_lone_parent",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5681,7 +5987,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_lone_parent",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5710,7 +6017,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_lone_parent",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5739,7 +6047,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_lone_parent",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5768,7 +6077,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_lone_parent",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5797,7 +6107,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_lone_parent",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5826,7 +6137,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_lone_parent",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5855,7 +6167,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_no_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5884,7 +6197,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_no_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5913,7 +6227,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_no_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5942,7 +6257,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_no_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -5971,7 +6287,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_no_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6000,7 +6317,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_no_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6029,7 +6347,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_no_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6058,7 +6377,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_no_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6087,7 +6407,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_no_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6116,7 +6437,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_no_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6145,7 +6467,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_no_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6174,7 +6497,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_no_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6203,7 +6527,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_no_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6232,7 +6557,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_no_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6261,7 +6587,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_no_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6290,7 +6617,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_no_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6319,7 +6647,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_no_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6348,7 +6677,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_no_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6377,7 +6707,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_no_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6406,7 +6737,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_no_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6435,7 +6767,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_no_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6464,7 +6797,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_no_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6493,7 +6827,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_no_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6522,7 +6857,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_no_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6551,7 +6887,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_no_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6580,7 +6917,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_with_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6609,7 +6947,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_with_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6638,7 +6977,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_with_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6667,7 +7007,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_with_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6696,7 +7037,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_with_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6725,7 +7067,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_with_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6754,7 +7097,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_with_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6783,7 +7127,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_with_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6812,7 +7157,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_with_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6841,7 +7187,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_with_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6870,7 +7217,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_with_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6899,7 +7247,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_with_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6928,7 +7277,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_with_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6957,7 +7307,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_with_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -6986,7 +7337,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_with_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -7015,7 +7367,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_with_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -7044,7 +7397,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_with_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -7073,7 +7427,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_with_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -7102,7 +7457,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_with_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -7131,7 +7487,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_with_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -7160,7 +7517,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_with_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -7189,7 +7547,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_with_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -7218,7 +7577,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_with_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -7247,7 +7607,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_with_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -7276,7 +7637,8 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.payment_distribution_couple_with_children",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -7297,13 +7659,14 @@
         "geography_level": "country",
         "geography_id": "S92000003"
       },
-      "entity": "household",
+      "entity": "benunit",
       "measure": "dwp/scotland_uc_households_child_under_1",
       "family": "dwp_universal_credit",
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.scotland_households_child_under_1",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
       "value_operation": "calendar_year_average",
       "uprating_from_period": "2025-12",
@@ -7320,7 +7683,7 @@
         "geography_level": "country",
         "geography_id": "K03000001"
       },
-      "entity": "household",
+      "entity": "benunit",
       "measure": "dwp/uc/two_child_limit/households_affected",
       "family": "dwp_two_child_limit",
       "period": 2025,
@@ -7342,7 +7705,7 @@
         "geography_level": "country",
         "geography_id": "K03000001"
       },
-      "entity": "household",
+      "entity": "benunit",
       "measure": "dwp/uc/two_child_limit/children_affected",
       "family": "dwp_two_child_limit",
       "period": 2025,
@@ -7364,7 +7727,7 @@
         "geography_level": "country",
         "geography_id": "K03000001"
       },
-      "entity": "household",
+      "entity": "benunit",
       "measure": "dwp/uc/two_child_limit/children_in_affected_households",
       "family": "dwp_two_child_limit",
       "period": 2025,
@@ -7386,7 +7749,7 @@
         "geography_level": "country",
         "geography_id": "K03000001"
       },
-      "entity": "household",
+      "entity": "benunit",
       "measure": "dwp/uc/two_child_limit/3_children_households",
       "family": "dwp_two_child_limit",
       "period": 2025,
@@ -7408,7 +7771,7 @@
         "geography_level": "country",
         "geography_id": "K03000001"
       },
-      "entity": "household",
+      "entity": "benunit",
       "measure": "dwp/uc/two_child_limit/3_children_households_total_children",
       "family": "dwp_two_child_limit",
       "period": 2025,
@@ -7430,7 +7793,7 @@
         "geography_level": "country",
         "geography_id": "K03000001"
       },
-      "entity": "household",
+      "entity": "benunit",
       "measure": "dwp/uc/two_child_limit/4_children_households",
       "family": "dwp_two_child_limit",
       "period": 2025,
@@ -7452,7 +7815,7 @@
         "geography_level": "country",
         "geography_id": "K03000001"
       },
-      "entity": "household",
+      "entity": "benunit",
       "measure": "dwp/uc/two_child_limit/4_children_households_total_children",
       "family": "dwp_two_child_limit",
       "period": 2025,
@@ -7474,7 +7837,7 @@
         "geography_level": "country",
         "geography_id": "K03000001"
       },
-      "entity": "household",
+      "entity": "benunit",
       "measure": "dwp/uc/two_child_limit/5_children_households",
       "family": "dwp_two_child_limit",
       "period": 2025,
@@ -7496,7 +7859,7 @@
         "geography_level": "country",
         "geography_id": "K03000001"
       },
-      "entity": "household",
+      "entity": "benunit",
       "measure": "dwp/uc/two_child_limit/5_children_households_total_children",
       "family": "dwp_two_child_limit",
       "period": 2025,
@@ -7518,7 +7881,7 @@
         "geography_level": "country",
         "geography_id": "K03000001"
       },
-      "entity": "household",
+      "entity": "benunit",
       "measure": "dwp/uc/two_child_limit/6_children_households",
       "family": "dwp_two_child_limit",
       "period": 2025,
@@ -7540,7 +7903,7 @@
         "geography_level": "country",
         "geography_id": "K03000001"
       },
-      "entity": "household",
+      "entity": "benunit",
       "measure": "dwp/uc/two_child_limit/6_children_households_total_children",
       "family": "dwp_two_child_limit",
       "period": 2025,
@@ -7562,7 +7925,7 @@
         "geography_level": "country",
         "geography_id": "K03000001"
       },
-      "entity": "household",
+      "entity": "benunit",
       "measure": "dwp/uc/two_child_limit/adult_pip_households",
       "family": "dwp_two_child_limit",
       "period": 2025,
@@ -7584,7 +7947,7 @@
         "geography_level": "country",
         "geography_id": "K03000001"
       },
-      "entity": "household",
+      "entity": "benunit",
       "measure": "dwp/uc/two_child_limit/adult_pip_children",
       "family": "dwp_two_child_limit",
       "period": 2025,
@@ -7606,7 +7969,7 @@
         "geography_level": "country",
         "geography_id": "K03000001"
       },
-      "entity": "household",
+      "entity": "benunit",
       "measure": "dwp/uc/two_child_limit/disabled_child_element_households",
       "family": "dwp_two_child_limit",
       "period": 2025,
@@ -7628,7 +7991,7 @@
         "geography_level": "country",
         "geography_id": "K03000001"
       },
-      "entity": "household",
+      "entity": "benunit",
       "measure": "dwp/uc/two_child_limit/disabled_child_element_children",
       "family": "dwp_two_child_limit",
       "period": 2025,
@@ -10466,9 +10829,43 @@
       "name": "dwp.uc.households",
       "ledger_selector": {
         "source_name": "dwp",
-        "source_concept": "dwp.uc_benefit_units",
-        "source_measure_id": "total_units",
-        "groupby_dimension": "dwp.uc_deductions_month",
+        "source_concept": "dwp.uc_households",
+        "source_measure_id": "benefit_units",
+        "groupby_dimension": "dwp.uc_family_type",
+        "dimensions": [
+          "family_type",
+          "payment_indicator",
+          "child_entitlement"
+        ],
+        "dimension_values": {
+          "payment_indicator": "Yes",
+          "child_entitlement": [
+            "No",
+            "Yes"
+          ],
+          "family_type": [
+            "Single, no children",
+            "Single, with children",
+            "Couple, no children",
+            "Couple, with children",
+            "Unknown or missing family type"
+          ]
+        },
+        "period_type": "month",
+        "period_value": [
+          "2025-01",
+          "2025-02",
+          "2025-03",
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
+        ],
         "geography_level": "country",
         "geography_id": "K03000001"
       },
@@ -10478,11 +10875,83 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "dwp.uc.households",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "uk_uc_expected_source_months": "[\"2025-01\",\"2025-02\",\"2025-03\",\"2025-04\",\"2025-05\",\"2025-06\",\"2025-07\",\"2025-08\",\"2025-09\",\"2025-10\",\"2025-11\",\"2025-12\"]"
       },
-      "value_operation": "calendar_year_average",
-      "uprating_from_period": "2025-12",
-      "uprating_to_period": 2025
+      "period_match_policy": "source_window",
+      "value_operation": "monthly_window_sum_average",
+      "value_operands": [
+        {
+          "dimension_values": {
+            "family_type": "Single, no children",
+            "payment_indicator": "Yes",
+            "child_entitlement": "No"
+          }
+        },
+        {
+          "dimension_values": {
+            "family_type": "Single, no children",
+            "payment_indicator": "Yes",
+            "child_entitlement": "Yes"
+          }
+        },
+        {
+          "dimension_values": {
+            "family_type": "Single, with children",
+            "payment_indicator": "Yes",
+            "child_entitlement": "No"
+          }
+        },
+        {
+          "dimension_values": {
+            "family_type": "Single, with children",
+            "payment_indicator": "Yes",
+            "child_entitlement": "Yes"
+          }
+        },
+        {
+          "dimension_values": {
+            "family_type": "Couple, no children",
+            "payment_indicator": "Yes",
+            "child_entitlement": "No"
+          }
+        },
+        {
+          "dimension_values": {
+            "family_type": "Couple, no children",
+            "payment_indicator": "Yes",
+            "child_entitlement": "Yes"
+          }
+        },
+        {
+          "dimension_values": {
+            "family_type": "Couple, with children",
+            "payment_indicator": "Yes",
+            "child_entitlement": "No"
+          }
+        },
+        {
+          "dimension_values": {
+            "family_type": "Couple, with children",
+            "payment_indicator": "Yes",
+            "child_entitlement": "Yes"
+          }
+        },
+        {
+          "dimension_values": {
+            "family_type": "Unknown or missing family type",
+            "payment_indicator": "Yes",
+            "child_entitlement": "No"
+          }
+        },
+        {
+          "dimension_values": {
+            "family_type": "Unknown or missing family type",
+            "payment_indicator": "Yes",
+            "child_entitlement": "Yes"
+          }
+        }
+      ]
     },
     {
       "name": "hmrc.tfc.government_top_up",

@@ -192,6 +192,10 @@ def author_target_references(
                 "matched_fact_count_overall": len(matched),
                 "matched_fact_count_at_or_before_period": len(eligible),
             }
+            if reference.period_match_policy == "source_window":
+                entry["matched_fact_count_in_source_window"] = sum(
+                    _assertion_allowed(reference, fact) for fact in matched
+                )
             try:
                 registry = compile_ledger_target_references(
                     matched,
@@ -462,6 +466,14 @@ def target_references_resource(
             "calendar_year_average",
             "latest_plateau",
             "count_x_mean",
+            *sorted(
+                {
+                    row["value_operation"]
+                    for row in authored.references
+                    if row.get("value_operation")
+                    in {"monthly_window_average", "monthly_window_sum_average"}
+                }
+            ),
         ],
         "target_references": list(authored.references),
     }
@@ -755,6 +767,9 @@ def _reference_row(
     assertion_policy = target.get("assertion_policy")
     if assertion_policy is not None:
         row["assertion_policy"] = assertion_policy
+    period_match_policy = target.get("period_match_policy")
+    if period_match_policy is not None:
+        row["period_match_policy"] = period_match_policy
     value_operation = config.value_operation_by_target_id.get(target_id)
     if value_operation is None and target_id in config.sum_target_ids:
         value_operation = "sum"
@@ -763,6 +778,8 @@ def _reference_row(
     operands = target.get("value_operands")
     if operands is not None:
         row["value_operands"] = operands
+    if target.get("expected_member_count") is not None:
+        row["expected_member_count"] = target["expected_member_count"]
     dimension_values = selector.get("dimension_values")
     if value_operation == "sum" and isinstance(dimension_values, Mapping):
         member_count = 1
@@ -848,7 +865,7 @@ def _apply_uprating_hold(
     resolved_period: str,
     target_period: int | str,
 ) -> None:
-    if not resolved_period:
+    if not resolved_period or row.get("period_match_policy") == "source_window":
         return
     source_key = _period_key_from_value(resolved_period)
     target_key = _period_key_from_value(target_period)

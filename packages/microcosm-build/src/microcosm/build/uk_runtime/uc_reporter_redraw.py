@@ -33,6 +33,10 @@ from microcosm.build.uk_runtime.uc_capital_coherence import (
     _boolean_values,
     _household_to_benunit_weights,
 )
+from microcosm.build.uk_runtime.uc_relationships import (
+    UC_COUPLE_DEFINITION,
+    frs_uc_couple_mask,
+)
 from microcosm.fit.qrf import RegimeGatedQRF
 from microcosm.frame import Frame
 from microcosm.frame.rules import assert_rules_engine_country
@@ -51,7 +55,7 @@ UC_REPORTER_AGGREGATES = {
     "universal_credit_reported_amount": "universal_credit_reported",
 }
 UC_REPORTER_PREDICTORS = (
-    "is_married",
+    "is_uc_couple",
     "uc_child_band",
     "benunit_employment_income",
     "benunit_self_employment_income",
@@ -66,6 +70,7 @@ UC_REPORTER_NUMERIC_PREDICTORS = tuple(
 )
 UC_REPORTER_TARGET = "universal_credit_reported_amount"
 UC_REPORTER_TEMPORARY_DERIVED = {
+    "is_uc_couple": UC_COUPLE_DEFINITION,
     "uc_reported_capital": "frs_benunit_capital",
     "positive_pre_takeup_uc_award": (
         "max(0, uc_maximum_amount - uc_income_reduction) > 0"
@@ -176,6 +181,8 @@ def redraw_spi_reported_uc(
             "person_id",
             "person_benunit_id",
             "person_household_id",
+            "is_benunit_head",
+            "is_parent",
             "age",
             UC_REPORTER_REDRAW_OUTPUT,
             *_PERSON_INCOME_COLUMNS,
@@ -187,7 +194,7 @@ def redraw_spi_reported_uc(
         (
             "benunit_id",
             "frs_benunit_capital",
-            "is_married",
+            "dependent_children",
             support_channel_column("benunit"),
             support_clone_index_column("benunit"),
         ),
@@ -212,9 +219,7 @@ def redraw_spi_reported_uc(
         expected=len(benunit),
     )
     uc_child = _strict_materialized_bool(
-        materialized[
-            "is_child_or_qualifying_young_person_for_universal_credit"
-        ],
+        materialized["is_child_or_qualifying_young_person_for_universal_credit"],
         expected=len(person),
         label="UC child flag",
     )
@@ -261,7 +266,9 @@ def redraw_spi_reported_uc(
     training = base & ~is_cgt_clone & (support_clone == 0) & screen
     target = spi & screen
     if not training.any():
-        raise ValueError("UC reporter redraw has no screened canonical FRS training rows.")
+        raise ValueError(
+            "UC reporter redraw has no screened canonical FRS training rows."
+        )
     if float(weights[training].sum()) <= 0.0:
         raise ValueError("UC reporter redraw training weights must have positive mass.")
     if not target.any():
@@ -430,6 +437,12 @@ def _claimant_rows(
     uc_child: np.ndarray,
     sp_age: np.ndarray,
 ) -> np.ndarray:
+    """Choose the payment landing row, separately from claim membership.
+
+    The shared FRS mask identifies one or two claimants. This established
+    landing rule selects one eldest non-child, preferring working age, and
+    does not redefine those claimants or their partner roles.
+    """
     age = _finite_numeric(person["age"], label="person.age")
     person_id = person["person_id"].to_numpy()
     adult = ~uc_child
@@ -474,14 +487,19 @@ def _benefit_unit_predictors(
     grouped = person_numeric.groupby("person_benunit_id", sort=False)
     employment = grouped["employment_income"].sum().reindex(benunit_index)
     self_employment = grouped["self_employment_income"].sum().reindex(benunit_index)
-    investment = grouped[
-        [
-            "savings_interest_income",
-            "dividend_income",
-            "property_income",
-            "other_investment_income",
+    investment = (
+        grouped[
+            [
+                "savings_interest_income",
+                "dividend_income",
+                "property_income",
+                "other_investment_income",
+            ]
         ]
-    ].sum().sum(axis=1).reindex(benunit_index)
+        .sum()
+        .sum(axis=1)
+        .reindex(benunit_index)
+    )
     child_count = (
         pd.Series(uc_child.astype(np.int8), index=person.index)
         .groupby(person_ids, sort=False)
@@ -513,7 +531,7 @@ def _benefit_unit_predictors(
         column="region",
     )
     result = pd.DataFrame(index=benunit.index)
-    result["is_married"] = _boolean_values(benunit["is_married"]).astype(float)
+    result["is_uc_couple"] = frs_uc_couple_mask(person, benunit).astype(float)
     result["uc_child_band"] = np.minimum(child_count.to_numpy(dtype=float), 3.0)
     result["benunit_employment_income"] = employment.to_numpy(dtype=float)
     result["benunit_self_employment_income"] = self_employment.to_numpy(dtype=float)
@@ -527,7 +545,9 @@ def _benefit_unit_predictors(
     result["claimant_age"] = claimant["claimant_age"].to_numpy(dtype=float)
     result["region"] = region.to_numpy()
     if result[list(UC_REPORTER_NUMERIC_PREDICTORS)].isna().any().any():
-        raise ValueError("UC reporter redraw numeric predictors contain missing values.")
+        raise ValueError(
+            "UC reporter redraw numeric predictors contain missing values."
+        )
     if result["region"].isna().any():
         raise ValueError("UC reporter redraw region predictor contains missing values.")
     return result.loc[:, list(UC_REPORTER_PREDICTORS)]
@@ -537,9 +557,9 @@ def _benefit_unit_reporter_amounts(
     person: pd.DataFrame,
     benunit: pd.DataFrame,
 ) -> np.ndarray:
-    amounts = pd.to_numeric(
-        person[UC_REPORTER_REDRAW_OUTPUT], errors="coerce"
-    ).fillna(0.0)
+    amounts = pd.to_numeric(person[UC_REPORTER_REDRAW_OUTPUT], errors="coerce").fillna(
+        0.0
+    )
     if (amounts < 0.0).any():
         raise ValueError("universal_credit_reported must be nonnegative.")
     by_benunit = amounts.groupby(person["person_benunit_id"], sort=False).sum()
@@ -592,9 +612,7 @@ def _land_spi_draws(
     spi_people = person["person_benunit_id"].isin(spi_ids).to_numpy(dtype=bool)
     person.loc[spi_people, UC_REPORTER_REDRAW_OUTPUT] = 0.0
     draw_by_benunit = pd.Series(draws, index=benunit["benunit_id"])
-    claimant_draws = person.loc[claimant_rows, "person_benunit_id"].map(
-        draw_by_benunit
-    )
+    claimant_draws = person.loc[claimant_rows, "person_benunit_id"].map(draw_by_benunit)
     claimant_spi = claimant_rows & spi_people
     landed = claimant_draws.loc[claimant_spi[claimant_rows]].to_numpy(dtype=float)
     child_claimants = uc_child[claimant_spi]
@@ -652,8 +670,7 @@ def _assert_landing_invariants(
         )
     if np.any(positive != (expected > 0.0).astype(np.int64)):
         raise RuntimeError(
-            "UC reporter redraw must land each positive draw on exactly one "
-            "person row."
+            "UC reporter redraw must land each positive draw on exactly one person row."
         )
 
 
@@ -672,7 +689,7 @@ def _reporter_transition_receipt(
         .sum()
     )
     children = benunit["benunit_id"].map(child_count).fillna(0).to_numpy(dtype=int)
-    couple = _boolean_values(benunit["is_married"])
+    couple = frs_uc_couple_mask(person, benunit)
     # A unit with no non-child member (a 16-19 qualifying young person
     # heading their own unit) is not a lone parent: file it under its own
     # label so the with-children cells the measurement reads stay clean.
@@ -810,8 +827,7 @@ def _assert_stage_parameters(stage: SourceStageSpec) -> None:
     }
     if actual != expected:
         raise ValueError(
-            "uc_reporter_redraw parameters drifted: "
-            f"expected {expected}, got {actual}."
+            f"uc_reporter_redraw parameters drifted: expected {expected}, got {actual}."
         )
     if stage.outputs != () or stage.rewrites != (UC_REPORTER_REDRAW_OUTPUT,):
         raise ValueError(

@@ -43,6 +43,11 @@
       "schema_id": "legacy_json"
     },
     {
+      "path": "target_fit_reviewed_exclusions.json",
+      "kind": "legacy_json",
+      "schema_id": "legacy_json"
+    },
+    {
       "path": "efrs_parity_known_gaps.json",
       "kind": "legacy_json",
       "schema_id": "legacy_json"
@@ -54,6 +59,11 @@
     },
     {
       "path": "frs_release.json",
+      "kind": "legacy_json",
+      "schema_id": "legacy_json"
+    },
+    {
+      "path": "national_chronicle_feed.json",
       "kind": "legacy_json",
       "schema_id": "legacy_json"
     },

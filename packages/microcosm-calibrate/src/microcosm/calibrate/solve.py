@@ -173,6 +173,7 @@ class CalibrationResult:
         loss_trajectory: The optimizer-start loss at each epoch (length
             ``epochs``). With no warm start, the first value is the input-weight
             loss; with a warm start, the first value is the warm-start loss.
+            Best-iterate selection does not truncate this history.
         skipped: Targets that could not be compiled (carried through from the
             matrix build), each with its reason.
         problem: The compiled :class:`CalibrationProblem` (matrix, b, names).
@@ -184,7 +185,8 @@ class CalibrationResult:
         closing_loss: The capped weighted-MAPE calibration loss evaluated once on the
             *returned* weights (after the closing mass/cap projections). Exposed
             as :attr:`final_loss`; recorded separately from the trajectory, whose
-            tail is a pre-step/pre-projection value.
+            tail is a pre-step/pre-projection value and may follow an earlier
+            selected best iterate.
         target_loss_weights: The effective non-negative target-importance vector,
             aligned to :attr:`diagnostics`. Uniform defaults are materialized as
             ones so diagnostics can publish the exact final loss basis.
@@ -242,7 +244,8 @@ class CalibrationResult:
         after the closing mass/cap projections — so it describes the calibrated
         vector. It is **not** ``loss_trajectory[-1]``: the trajectory records each
         epoch's loss before that epoch's step and before the closing projections,
-        so its tail can differ (e.g. under ``mass="conserve"`` with a cap).
+        so its tail can differ (e.g. under ``mass="conserve"`` with a cap or when
+        an earlier feasible iterate has a lower loss).
         """
         return self.closing_loss
 
@@ -769,6 +772,7 @@ def _optimize(
     progress_callback: Callable[[dict[str, object]], None] | None = None,
     progress_context: Mapping[str, object] | None = None,
     return_gate_open_probabilities: bool = False,
+    selection_receipt: dict[str, object] | None = None,
 ) -> tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray | None]:
     """Run the torch optimization and return weights plus its trajectory.
 
@@ -777,6 +781,13 @@ def _optimize(
     hard constraints — mass conservation and ``max_weight_ratio`` — are applied
     by projecting the realized weights after each step, so they hold on the
     returned vector exactly, not merely in expectation.
+
+    For deterministic, unregularized free-mass runs, return the best feasible
+    iterate seen within the requested budget, including the warm start and the
+    final update. Constant-step Adam can otherwise discard an earlier better
+    fit when it oscillates across the absolute-error kink. Gated, regularized,
+    and conserved-mass runs keep their closing-state selection: their stochastic
+    penalties or closing mass projection need a different selection criterion.
 
     The private opt-in ``return_gate_open_probabilities`` adds a third return
     value without changing the two-item tuple used by existing workspace
@@ -828,6 +839,10 @@ def _optimize(
     else:
         w0_t = None
 
+    retain_best = gates is None and not conserve_mass and l2_lambda == 0.0
+    best_loss = float("inf")
+    best_epoch = 0
+    best_log_w: torch.Tensor | None = None
     trajectory = np.empty(epochs, dtype=np.float64)
     for epoch in range(epochs):
         optimizer.zero_grad()
@@ -856,6 +871,10 @@ def _optimize(
         )
         total_loss = loss + penalty + l2_lambda * l2_penalty
         trajectory[epoch] = float(loss.item())
+        if retain_best and trajectory[epoch] < best_loss:
+            best_loss = trajectory[epoch]
+            best_epoch = epoch
+            best_log_w = log_w.detach().clone()
         if progress_callback is not None:
             progress_callback(
                 {
@@ -894,6 +913,32 @@ def _optimize(
     gate_open_probabilities: np.ndarray | None = None
     with torch.no_grad():
         weights = torch.exp(log_w)
+        if best_log_w is not None:
+            closing_loss = _relative_error_loss(
+                _apply_constraint(matrix, weights),
+                targets,
+                target_loss_weights,
+                target_loss_scales,
+                target_loss_cap,
+            )
+            if float(closing_loss.item()) > best_loss:
+                weights = torch.exp(best_log_w)
+                selected_epoch = best_epoch
+                selected_loss = best_loss
+            else:
+                selected_epoch = epochs
+                selected_loss = float(closing_loss.item())
+            if selection_receipt is not None:
+                selection_receipt.update(
+                    {
+                        "rule": "best_feasible_loss",
+                        "selected_epoch": selected_epoch,
+                        "epochs_executed": epochs,
+                        "epoch_convention": "completed_optimizer_updates; zero is start",
+                        "selected_loss_float32": selected_loss,
+                        "closing_iterate_loss_float32": float(closing_loss.item()),
+                    }
+                )
         if gates is not None:
             gates.eval()
             weights = weights * gates()
@@ -1368,8 +1413,9 @@ def calibrate(
         weight_entity: Entity whose weights to calibrate (default
             ``"household"``).
         method: Optimization method. ``"adam"`` (default) runs the torch Adam
-            optimizer on the log-weights described above (smooth objective; weights
-            stay strictly positive by construction). ``"prox"`` runs proximal
+            optimizer on the log-weights described above (weights stay strictly
+            positive by construction). Unregularized free-mass runs retain their
+            best feasible fit within the requested epoch budget. ``"prox"`` runs proximal
             gradient (ISTA) on raw non-negative weight ratios with a
             soft-threshold step, the optimizer required for the nonsmooth
             ``l1_lambda`` penalty: it drives unneeded records to exact zero, so
@@ -1640,6 +1686,7 @@ def calibrate(
     )
     target_loss_scales_t = torch.tensor(target_loss_scales_np, dtype=torch.float32)
 
+    iterate_selection_receipt: dict[str, object] = {}
     if method == "prox":
         # L1 path: proximal gradient (ISTA) on raw weights. The soft-threshold
         # drives unneeded records to exact zero, so L1 selects a sparse weighted
@@ -1732,6 +1779,7 @@ def calibrate(
             temperature=temperature,
             progress_callback=progress_callback,
             return_gate_open_probabilities=True,
+            selection_receipt=iterate_selection_receipt,
         )
         n_nonzero = int((final_weights > prune_atol).sum())
         if effective_l0 > 0.0 and n_nonzero == 0:
@@ -1795,6 +1843,16 @@ def calibrate(
             "method": method,
             "epochs": epochs,
             "learning_rate": learning_rate,
+            "iterate_selection": (
+                "best_feasible_loss"
+                if method == "adam"
+                and mass == FREE_MASS
+                and l0_lambda == 0.0
+                and l2_lambda == 0.0
+                and target_records is None
+                else "closing_state"
+            ),
+            "iterate_selection_receipt": iterate_selection_receipt,
             "mass": mass,
             "mass_reason": mass_reason,
             "max_weight_ratio": max_weight_ratio,

@@ -613,6 +613,31 @@
    }
   },
   {
+   "id": "dsa-eligible-expenses-seeded-at-calibration-year",
+   "class": "defect_fix",
+   "scope": {
+    "surface": "nonzero_shares",
+    "columns": [
+     "disabled_students_allowance_eligible_expenses"
+    ],
+    "entities": [
+     "person"
+    ]
+   },
+   "expectation": "column_missing_in_reference",
+   "magnitude_evidence": "The education-grant split evaluates the DSA eligibility seed and the DfE maximum at the release calibration year (uk-data#478) instead of the frame period, so disabled_students_allowance_eligible_expenses is populated in the candidate while the pinned enhanced-FRS reference, exported before uk-data#480, lists it as a zero-share column. On the pinned FRS 2024-25 tabs the seed is 1 person record, 4,654 weighted people and GBP 83,772,000 at the GBP 18,000 maximum, moved out of the education_grants residual; disability categories and flags are unchanged row for row on the same run.",
+   "evidence": "experiments/862-policy-year-rule-receipts.md#dsa-seed-at-the-calibration-year",
+   "adjudicator": "juaristi22",
+   "adjudicated_on": "2026-09-07",
+   "quantitative": {
+    "structural": {
+     "expected_columns": [
+      "disabled_students_allowance_eligible_expenses"
+     ]
+    }
+   }
+  },
+  {
    "id": "uc-deduction-random-draw-net-new-column",
    "class": "net_new_column",
    "scope": {

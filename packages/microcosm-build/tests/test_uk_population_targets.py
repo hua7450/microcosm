@@ -50,6 +50,7 @@ NATIONAL_SELECTOR_KEYS = {
     "dimension_values",
     "entity_name",
     "period_type",
+    "period_value",
     "layout_groupby_value_id",
 }
 LOCAL_SELECTOR_KEYS = {"source_name", "source_measure_id", "record_set_spec_id"}
@@ -58,6 +59,8 @@ POLICYENGINE_BINDING_KEYS = {
     "band",
     "band_filter_dimension",
     "band_period_factor",
+    "band_upper_bound",
+    "band_upper_bound_inclusive",
     "count_of",
     "filters",
     "folded_into",
@@ -161,7 +164,13 @@ def test_uk_population_targets_shape_order_and_registry_accounting() -> None:
     resource = _load()
 
     assert resource["country"] == "uk"
-    assert resource["allowed_value_operations"] == ["identity", "sum", "difference"]
+    assert resource["allowed_value_operations"] == [
+        "identity",
+        "sum",
+        "difference",
+        "calendar_year_average",
+        "monthly_window_sum_average",
+    ]
     assert resource["resolution_defaults"] == {
         "base_period_policy": "latest_not_after_build_base_period",
         "operation": "sum",
@@ -469,6 +478,13 @@ def test_uk_population_targets_declare_chronicle_loader_guarantees() -> None:
                         target["target_id"],
                         predicate,
                     )
+                if "map_to" in predicate:
+                    assert field == "household_conditions", target["target_id"]
+                    assert predicate["map_to"] in PREDICATE_ENTITIES
+                    assert predicate["map_to"] == binding.get(
+                        "from_entity", "household"
+                    )
+                    assert "reduce" in predicate
 
         assertion_policy = target.get("assertion_policy")
         if assertion_policy is not None:
@@ -546,6 +562,7 @@ def test_uk_population_uc_households_target_counts_benunits() -> None:
     assert target["measurement"] == {
         "entity": "benunit",
         "concept": "uk.benefit_unit.count",
+        "source_months": [f"2025-{month:02}" for month in range(1, 13)],
         "filters": [
             {
                 "concept": "uk.benefits.universal_credit.amount",
@@ -565,12 +582,29 @@ def test_uk_population_uc_households_target_counts_benunits() -> None:
     ]
     assert target["ledger_selector"] == {
         "source_name": "dwp",
-        "source_concept": "dwp.uc_benefit_units",
-        "source_measure_id": "total_units",
-        "groupby_dimension": "dwp.uc_deductions_month",
+        "source_concept": "dwp.uc_households",
+        "source_measure_id": "benefit_units",
+        "groupby_dimension": "dwp.uc_family_type",
+        "dimensions": ["family_type", "payment_indicator", "child_entitlement"],
+        "dimension_values": {
+            "payment_indicator": "Yes",
+            "child_entitlement": ["No", "Yes"],
+            "family_type": [
+                "Single, no children",
+                "Single, with children",
+                "Couple, no children",
+                "Couple, with children",
+                "Unknown or missing family type",
+            ],
+        },
+        "period_type": "month",
+        "period_value": [f"2025-{month:02}" for month in range(1, 13)],
     }
-    assert "6,758,889" in target["bindings"]["policyengine"]["notes"]
-    assert "1.45%" in target["bindings"]["policyengine"]["notes"]
+    assert target["value_operation"] == "monthly_window_sum_average"
+    assert target["period_match_policy"] == "source_window"
+    assert len(target["value_operands"]) == 10
+    assert "derived" in target["bindings"]["policyengine"]["notes"]
+    assert "publisher grand Total" in target["bindings"]["policyengine"]["notes"]
 
 
 def test_uk_uc_composition_and_disability_children_targets_are_rebound() -> None:
@@ -588,30 +622,192 @@ def test_uk_uc_composition_and_disability_children_targets_are_rebound() -> None
     }
     allowed_filter_variables = {
         "universal_credit",
-        "num_children",
-        "family_type",
+        "uc_calibration_child_count",
+        "uc_calibration_administrative_family_type",
     }
 
     for target_id in composition_target_ids:
         binding = _target_by_id(resource, target_id)["bindings"]["policyengine"]
         assert binding["from_entity"] == "benunit"
         assert binding["value_variable"] == "benunit_count"
-        assert "household_conditions" not in binding
+        assert all(
+            condition["variable"] == "region" and condition["map_to"] == "benunit"
+            for condition in binding.get("household_conditions", ())
+        )
         assert "reduce" not in binding
         assert all(
             predicate["variable"] in allowed_filter_variables
             for predicate in binding["filters"]
         )
 
-    for target_id in {
-        "dwp.uc.two_child_limit.children_claimant_pip",
-        "dwp.uc.two_child_limit.children_disabled_child_element",
-    }:
+    for target_id, flag in {
+        "dwp.uc.two_child_limit.children_claimant_pip": "uc_tcl_claimant_receives_pip",
+        "dwp.uc.two_child_limit.children_disabled_child_element": (
+            "uc_tcl_receives_disabled_child_element"
+        ),
+    }.items():
         binding = _target_by_id(resource, target_id)["bindings"]["policyengine"]
-        assert binding["value_variable"] == "is_child"
-        assert binding["value_reduction"]["variable"] == "is_child"
+        assert binding["from_entity"] == "benunit"
+        assert binding["value_variable"] == "uc_tcl_qualifying_child_count"
+        assert "value_reduction" not in binding
         assert binding["kind"] == "baseline_flag_crosstab"
-        assert binding["affected_flag_variable"] == "uc_is_child_limit_affected"
+        assert binding["affected_flag_variable"] == "uc_tcl_affected_benunit_proxy"
+        assert binding["filters"] == [{"variable": flag, "operator": ">", "value": 0}]
+
+
+def test_paid_uc_targets_preserve_entitlement_margins_and_exact_calendar_months() -> (
+    None
+):
+    """#252's paid margin is broader than its paid/child-entitled joint.
+
+    No target may silently replace either entitlement status with Yes, or
+    reconstruct the independently published child-count Total from detail cells.
+    """
+    targets = _load()["targets"]
+    months = [f"2025-{month:02}" for month in range(1, 13)]
+    paid_targets = [
+        t
+        for t in targets
+        if t["target_id"] == "dwp.uc.households"
+        or t["target_id"].startswith("dwp.uc.households_children_")
+        or t["target_id"]
+        in {
+            "dwp.uc.households_single_no_children",
+            "dwp.uc.households_single_with_children",
+            "dwp.uc.households_couple_no_children",
+            "dwp.uc.households_couple_with_children",
+        }
+    ]
+    assert len(paid_targets) == 10
+    for target in paid_targets:
+        selector = target["ledger_selector"]
+        assert target["measurement"]["source_months"] == months
+        assert selector["period_type"] == "month"
+        assert selector["period_value"] == months
+        assert selector["dimension_values"]["payment_indicator"] == "Yes"
+        assert not any(
+            f["variable"] == "uc_calibration_child_entitlement"
+            for f in target["bindings"]["policyengine"]["filters"]
+        )
+        if target["target_id"].startswith("dwp.uc.households_children_"):
+            assert selector["source_measure_id"] == "total_benefit_units"
+            assert selector["dimension_values"]["child_entitlement"] == "all"
+            assert target["value_operation"] == "calendar_year_average"
+            assert "value_operands" not in target
+        else:
+            assert selector["source_measure_id"] == "benefit_units"
+            assert target["value_operation"] == "monthly_window_sum_average"
+            assert target["period_match_policy"] == "source_window"
+            terms = [o["dimension_values"] for o in target["value_operands"]]
+            assert all(
+                set(term) == {"family_type", "payment_indicator", "child_entitlement"}
+                for term in terms
+            )
+            assert {term["child_entitlement"] for term in terms} == {"No", "Yes"}
+            assert len(terms) == (
+                10 if target["target_id"] == "dwp.uc.households" else 2
+            )
+            families = selector["dimension_values"]["family_type"]
+            if isinstance(families, str):
+                families = [families]
+            assert {
+                (
+                    term["family_type"],
+                    term["payment_indicator"],
+                    term["child_entitlement"],
+                )
+                for term in terms
+            } == {
+                (family, "Yes", entitlement)
+                for family in families
+                for entitlement in ("No", "Yes")
+            }
+
+
+def test_uc_payment_bands_share_administrative_family_but_keep_source_window() -> None:
+    targets = [
+        t
+        for t in _load()["targets"]
+        if t["target_id"].startswith("dwp.uc.payment_distribution_")
+    ]
+    assert len(targets) == 4
+    for target in targets:
+        assert target["measurement"]["source_months"] == [
+            f"2025-{month:02}" for month in range(4, 13)
+        ]
+        assert (
+            target["bindings"]["policyengine"]["filters"][0]["variable"]
+            == "uc_calibration_administrative_family_type"
+        )
+        assert target["bindings"]["policyengine"]["band_upper_bound"] == 2500
+
+
+def test_paid_joint_diagnostics_do_not_add_active_targets() -> None:
+    targets = _load()["targets"]
+    assert len(targets) == 235
+    assert not any(
+        f.get("variable") == "uc_calibration_child_entitlement"
+        for target in targets
+        for f in target["bindings"]["policyengine"].get("filters", [])
+    )
+
+
+def test_uc_gb_bindings_match_the_committed_source_geography_and_finite_bands():
+    """Source K03000001 is GB; DWP £2400.01–2500 is not its £2500.01+ row."""
+    resource = _load()
+    references = json.loads(
+        importlib_resources.files("microcosm.build.uk")
+        .joinpath("target_references.json")
+        .read_text()
+    )["target_references"]
+    gb_ids = {
+        row["metadata"]["contract_target_id"]
+        for row in references
+        if row["metadata"]["contract_target_id"].startswith("dwp.uc.")
+        and row["ledger_selector"]["geography_id"] == "K03000001"
+    }
+    assert len(gb_ids) == 29
+    for target_id in gb_ids:
+        binding = _target_by_id(resource, target_id)["bindings"]["policyengine"]
+        geographic = [
+            condition
+            for condition in binding["household_conditions"]
+            if condition["variable"] == "region"
+        ]
+        assert len(geographic) == 1
+        assert geographic[0]["entity"] == "household"
+        assert geographic[0]["operator"] == "in"
+        assert set(geographic[0]["value"]) == {
+            "NORTH_EAST",
+            "NORTH_WEST",
+            "YORKSHIRE",
+            "EAST_MIDLANDS",
+            "WEST_MIDLANDS",
+            "EAST_OF_ENGLAND",
+            "LONDON",
+            "SOUTH_EAST",
+            "SOUTH_WEST",
+            "WALES",
+            "SCOTLAND",
+        }
+        assert geographic[0].get("map_to", "household") == binding.get(
+            "from_entity", "household"
+        )
+        if target_id.startswith("dwp.uc.payment_distribution_"):
+            assert binding["band_upper_bound"] == 2500
+            assert binding["band_upper_bound_inclusive"] is True
+            assert binding["band_period_factor"] == 12
+    # The omitted source top-coded row is not introduced or merged into a
+    # finite reference by these measurement-only changes.
+    payment = [
+        row for row in references if row["name"].startswith("dwp/uc_payment_dist/")
+    ]
+    assert len(payment) == 100
+    assert all(
+        "or over"
+        not in row["ledger_selector"]["dimension_values"]["monthly_award_amount_bands"]
+        for row in payment
+    )
 
 
 def test_uk_population_cgt_contract_names_match_runtime_specs() -> None:

@@ -18,6 +18,7 @@ from microcosm.build.uk_runtime.terminal_gates import (
     UKQRFTailConcentrationPolicy,
     UKZeroWeightStratumDeclaration,
     uk_default_degenerate_reviewed_exclusions,
+    uk_default_target_fit_reviewed_exclusions,
     uk_degenerate_release_surface_gate,
     uk_export_surface_gate,
     uk_input_mass_parity_gate,
@@ -31,6 +32,7 @@ from microcosm.build.uk_runtime.terminal_gates import (
 from microcosm.build.uk_runtime.weighted_integrity import (
     UK_INPUT_MASS_REFERENCE_EVIDENCE_SHA256,
     UKInputMassReferenceDescriptor,
+    UKReviewedExclusion,
 )
 
 TEST_MIN_ESS_FRACTION = 0.01
@@ -266,6 +268,147 @@ def test_ported_june_parity_gates_retain_their_named_failures() -> None:
     assert surface.name == "target_surface"
     assert not fit.passed
     assert fit.name == "target_fit"
+
+
+def test_export_surface_allows_claimant_roles_but_not_unreviewed_columns() -> None:
+    reference = {"person.age"}
+    assert uk_export_surface_gate(
+        reference | {"person.is_uc_claimant"}, reference
+    ).passed
+    unrelated = uk_export_surface_gate(
+        reference | {"person.is_uc_claimant", "person.unreviewed_extra"}, reference
+    )
+    assert not unrelated.passed
+    assert any("unreviewed_extra" in failure for failure in unrelated.failures)
+
+
+def _target_fit_exclusion(
+    *,
+    approved_on: str = "2026-08-30",
+    expires_on: str = "2026-09-30",
+) -> UKReviewedExclusion:
+    return UKReviewedExclusion(
+        reason="Deferred defect tracked elsewhere.",
+        approved_by="juaristi22",
+        adjudication="microcosm#796",
+        approved_on=approved_on,
+        expires_on=expires_on,
+    )
+
+
+def test_target_fit_in_force_exclusion_defers_the_breach() -> None:
+    fit = uk_target_fit_gate(
+        {"dwp.uc.households_children_2@2025": -0.354, "ons/population": 0.01},
+        reviewed_exclusions={
+            "dwp.uc.households_children_2@2025": _target_fit_exclusion()
+        },
+        now=date(2026, 9, 15),
+    )
+
+    assert fit.passed
+    assert fit.details["failing_targets"] == {}
+    receipt = fit.details["reviewed_exclusions"]["dwp.uc.households_children_2@2025"]
+    assert receipt["relative_error"] == -0.354
+    assert receipt["approved_by"] == "juaristi22"
+    assert receipt["expires_on"] == "2026-09-30"
+    assert fit.details["exclusions_evaluated_on"] == "2026-09-15"
+
+
+def test_target_fit_expired_exclusion_fails_with_renewal_context() -> None:
+    fit = uk_target_fit_gate(
+        {"dwp.uc.households_children_2@2025": -0.354},
+        reviewed_exclusions={
+            "dwp.uc.households_children_2@2025": _target_fit_exclusion()
+        },
+        now=date(2026, 10, 1),
+    )
+
+    assert not fit.passed
+    assert fit.details["failing_targets"] == {
+        "dwp.uc.households_children_2@2025": -0.354
+    }
+    assert fit.details["expired_exclusions"] == ["dwp.uc.households_children_2@2025"]
+    assert any("expired 2026-09-30" in failure for failure in fit.failures)
+    assert any("renew the adjudication" in failure for failure in fit.failures)
+
+
+def test_target_fit_premature_exclusion_fails_with_receipt_context() -> None:
+    fit = uk_target_fit_gate(
+        {"dwp.uc.households_children_2@2025": -0.354},
+        reviewed_exclusions={
+            "dwp.uc.households_children_2@2025": _target_fit_exclusion()
+        },
+        now=date(2026, 8, 29),
+    )
+
+    assert not fit.passed
+    assert fit.details["premature_exclusions"] == ["dwp.uc.households_children_2@2025"]
+    assert any("takes force 2026-08-30" in failure for failure in fit.failures)
+
+
+def test_target_fit_stale_exclusion_back_inside_the_bound_fails() -> None:
+    fit = uk_target_fit_gate(
+        {"dwp.uc.households_children_2@2025": -0.10},
+        reviewed_exclusions={
+            "dwp.uc.households_children_2@2025": _target_fit_exclusion()
+        },
+        now=date(2026, 9, 15),
+    )
+
+    assert not fit.passed
+    assert fit.details["stale_exclusions"] == ["dwp.uc.households_children_2@2025"]
+    assert any("back inside the bound" in failure for failure in fit.failures)
+
+
+def test_target_fit_dormant_exclusion_is_reported_not_failed() -> None:
+    fit = uk_target_fit_gate(
+        {"ons/population": 0.01},
+        reviewed_exclusions={
+            "dwp.uc.households_children_2@2025": _target_fit_exclusion()
+        },
+        now=date(2026, 9, 15),
+    )
+
+    assert fit.passed
+    assert fit.details["dormant_exclusions"] == ["dwp.uc.households_children_2@2025"]
+
+
+def test_target_fit_out_of_force_exclusion_fails_even_without_a_breach() -> None:
+    fit = uk_target_fit_gate(
+        {"ons/population": 0.01},
+        reviewed_exclusions={
+            "dwp.uc.households_children_2@2025": _target_fit_exclusion()
+        },
+        now=date(2026, 10, 2),
+    )
+
+    assert not fit.passed
+    assert fit.details["expired_exclusions"] == ["dwp.uc.households_children_2@2025"]
+
+
+def test_committed_target_fit_register_carries_the_signed_deferrals() -> None:
+    register = uk_default_target_fit_reviewed_exclusions()
+
+    assert set(register) == {
+        "dwp.uc.households_single_with_children@2025",
+        "dwp.uc.households_children_1@2025",
+        "dwp.uc.households_children_2@2025",
+        "dwp.uc.households_children_5_or_more@2025",
+        "hmrc/private_pension_income_count_income_band_100_000_to_150_000@2025",
+        "obr.capital_gains_tax@2025",
+    }
+    for name, record in register.items():
+        assert record.approved_by == "juaristi22"
+        if name == "obr.capital_gains_tax@2025":
+            # #834 composition: the 2024-25 forestalling-year gains bound at
+            # the 2025 period (microcosm#875 owns the translation).
+            assert record.adjudication == "microcosm#875"
+            assert record.approved_on == "2026-09-05"
+            assert record.expires_on == "2026-10-05"
+            continue
+        assert record.adjudication == "microcosm#796"
+        assert record.approved_on == "2026-08-30"
+        assert record.expires_on == "2026-09-30"
 
 
 def test_ported_june_parity_gates_reject_empty_evidence() -> None:

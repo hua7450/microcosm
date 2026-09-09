@@ -20,6 +20,284 @@ from microcosm.build.ledger_targets import (
 )
 from microcosm.calibrate import TargetRegistry, TargetSpec
 
+_FISCAL_MONTHS = [f"2025-{month:02d}" for month in range(4, 13)] + [
+    f"2026-{month:02d}" for month in range(1, 4)
+]
+
+
+def _window_fact_row(month, *, value):
+    row = _monthly_consumer_fact_row(month, value=value)
+    row["source"]["vintage"] = "release_2026_06"
+    row["source"]["source_file"] = "published-monthly-series.csv"
+    row["source_release_key"] = "ledger.source_release.v2:window-fixture"
+    row["source"]["source_sha256"] = "a" * 64
+    return row
+
+
+def _window_reference(**overrides):
+    fields = {
+        "name": "explicit fiscal observation window",
+        "ledger_selector": {
+            "source_name": "cms_medicaid",
+            "period_type": "month",
+            "period_value": _FISCAL_MONTHS,
+        },
+        "value_operation": "monthly_window_average",
+        "period_match_policy": "source_window",
+        "entity": "person",
+        "measure": "enrollment",
+        "period": 2025,
+    }
+    fields.update(overrides)
+    return LedgerTargetReference(**fields)
+
+
+def test_explicit_monthly_window_averages_cross_year_without_restamping_model():
+    rows = [
+        _window_fact_row(month, value=index)
+        for index, month in enumerate(_FISCAL_MONTHS)
+    ]
+    # These observations are deliberately outside the selected window.
+    rows += [
+        _window_fact_row("2025-03", value=1000),
+        _window_fact_row("2026-04", value=1000),
+    ]
+    (target,) = compile_ledger_target_references(
+        rows[::-1], [_window_reference()], country="us"
+    ).specs
+    assert target.period == 2025
+    assert target.value == 5.5  # Mean of the twelve source cells, including zero.
+    assert target.metadata["ledger_member_fact_count"] == "12"
+    assert target.metadata["ledger_fact_period"] == "2026-03"
+    assert target.metadata["ledger_period_match_policy"] == "source_window"
+    assert json.loads(target.metadata["ledger_source_months"]) == _FISCAL_MONTHS
+    assert target.metadata["ledger_source_month_count"] == "12"
+    assert (
+        target.metadata["ledger_source_release_key"]
+        == "ledger.source_release.v2:window-fixture"
+    )
+    assert target.metadata["ledger_source_sha256"] == "a" * 64
+
+
+@pytest.mark.parametrize("defect", ["missing", "duplicate", "other-series"])
+def test_monthly_window_requires_complete_unique_single_series(defect):
+    rows = [_window_fact_row(month, value=1) for month in _FISCAL_MONTHS]
+    if defect == "missing":
+        rows.pop(0)
+    elif defect == "duplicate":
+        rows.append(_window_fact_row(_FISCAL_MONTHS[0], value=2))
+        rows[-1]["aggregate_fact_key"] += "-duplicate"
+    else:
+        rows[0]["layout"]["groupby_value_id"] = "other-enrollment"
+    with pytest.raises(ValueError, match="monthly window"):
+        compile_ledger_target_references(rows, [_window_reference()], country="us")
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"value_operation": "sum"},
+        {"period_match_policy": "latest_not_after"},
+        {"period_match_policy": "exact"},
+        {"period": None},
+        {"ledger_selector": {"period_type": "year", "period_value": _FISCAL_MONTHS}},
+        {"ledger_selector": {"period_type": "month", "period_value": []}},
+        {"ledger_selector": {"period_type": "month", "period_value": "2025-04"}},
+        {"ledger_selector": {"period_type": "month", "period_value": ["2025-4"]}},
+        {"ledger_selector": {"period_type": "month", "period_value": ["2025-13"]}},
+        {
+            "ledger_selector": {
+                "period_type": "month",
+                "period_value": _FISCAL_MONTHS[::-1],
+            }
+        },
+        {
+            "ledger_selector": {
+                "period_type": "month",
+                "period_value": ["2025-04", "2025-04"],
+            }
+        },
+    ],
+)
+def test_monthly_window_requires_paired_policy_and_explicit_ordered_months(fields):
+    with pytest.raises(ValueError):
+        _window_reference(**fields)
+
+
+def test_monthly_window_direct_fact_route_cannot_bypass_coverage_or_selector():
+    reference = _window_reference()
+    with pytest.raises(ValueError, match="monthly window"):
+        target_spec_from_ledger_reference(
+            _window_fact_row("2026-03", value=99), reference
+        )
+    rows = [_window_fact_row(month, value=1) for month in _FISCAL_MONTHS]
+    rows[-1]["period"]["value"] = "2026-04"
+    with pytest.raises(ValueError, match="monthly window"):
+        target_spec_from_ledger_reference(tuple(rows), reference)
+
+
+def test_calendar_average_keeps_same_year_selection_and_future_fact_refusal():
+    reference = _window_reference(
+        value_operation="calendar_year_average", period_match_policy="latest_not_after"
+    )
+    rows = [
+        _window_fact_row(month, value=index)
+        for index, month in enumerate(_FISCAL_MONTHS)
+    ]
+    (target,) = compile_ledger_target_references(rows, [reference], country="us").specs
+    assert target.value == 4  # Existing calendar semantics consume April–December.
+    assert target.metadata["ledger_member_fact_count"] == "9"
+    with pytest.raises(ValueError, match="at or before"):
+        target_spec_from_ledger_reference(rows[-1], reference)
+
+
+def _window_cell_rows():
+    rows = []
+    for index, month in enumerate(_FISCAL_MONTHS):
+        for category, value in (("No", index), ("Yes", index + 20)):
+            row = _window_fact_row(month, value=value)
+            row["aggregate_fact_key"] += category
+            row["legacy_fact_key"] += category
+            row["semantic_fact_key"] += category
+            row["dimensions"] = {"family": "unknown", "entitlement": category}
+            row["source"]["vintage"] = "release_2026_06"
+            row["source"]["source_file"] = "published-joint.csv"
+            rows.append(row)
+    return rows
+
+
+def _sum_window_reference(**overrides):
+    fields = {
+        "value_operation": "monthly_window_sum_average",
+        "value_operands": tuple(
+            {"dimension_values": {"family": "unknown", "entitlement": category}}
+            for category in ("No", "Yes")
+        ),
+    }
+    fields.update(overrides)
+    return _window_reference(**fields)
+
+
+def test_monthly_window_sums_declared_cells_before_averaging_months():
+    (target,) = compile_ledger_target_references(
+        _window_cell_rows()[::-1], [_sum_window_reference()], country="us"
+    ).specs
+    assert target.value == 31  # Mean(index + index + 20), not mean of 24 cells.
+    assert target.metadata["ledger_member_fact_count"] == "24"
+    assert target.metadata["ledger_source_month_count"] == "12"
+    assert target.metadata["ledger_source_cell_count_per_month"] == "2"
+    assert len(json.loads(target.metadata["ledger_member_fact_keys"])) == 24
+
+
+@pytest.mark.parametrize(
+    "defect",
+    [
+        "missing-cell",
+        "duplicate-cell",
+        "extra-cell",
+        "source-release",
+        "measure",
+        "geography",
+        "entity",
+        "source-package",
+        "release-key",
+        "raw-hash",
+        "hidden-universe",
+    ],
+)
+def test_monthly_window_cell_grid_refuses_incomplete_or_incompatible_members(defect):
+    rows = _window_cell_rows()
+    if defect == "missing-cell":
+        rows.pop()
+    elif defect in {"duplicate-cell", "extra-cell"}:
+        row = _window_cell_rows()[0]
+        row["aggregate_fact_key"] += "extra"
+        row["legacy_fact_key"] += "extra"
+        row["semantic_fact_key"] += "extra"
+        if defect == "extra-cell":
+            row["dimensions"]["entitlement"] = "all"
+        rows.append(row)
+    elif defect == "source-release":
+        rows[0]["source"]["vintage"] = "different_release"
+    elif defect == "source-package":
+        rows[0]["layout"]["record_set_id"] = "different_package.2025-04"
+    elif defect == "release-key":
+        rows[0]["source_release_key"] = "other-release"
+    elif defect == "raw-hash":
+        rows[0]["source"]["source_sha256"] = "other-raw-source"
+    elif defect == "hidden-universe":
+        rows[0]["universe_constraints"]["constraints"] = [
+            {"variable": "hidden_subset", "operator": "==", "value": "other"}
+        ]
+    elif defect == "measure":
+        rows[0]["observed_measure"]["source_measure_id"] = "different_measure"
+    elif defect == "geography":
+        rows[0]["geography"]["id"] = "different_geography"
+    else:
+        rows[0]["entity"]["name"] = "different_entity"
+    with pytest.raises(ValueError, match="monthly window"):
+        compile_ledger_target_references(rows, [_sum_window_reference()], country="us")
+
+
+@pytest.mark.parametrize(
+    "operands",
+    [
+        (),
+        ({"dimension_values": {"family": ["single", "couple"]}},),
+        ({"dimension_values": {"family": "single"}},) * 2,
+        (
+            {"dimension_values": {"family": "single"}},
+            {"dimension_values": {"entitlement": "Yes"}},
+        ),
+    ],
+)
+def test_monthly_window_sum_requires_disjoint_complete_scalar_operands(operands):
+    with pytest.raises(ValueError, match="monthly window"):
+        _sum_window_reference(value_operands=operands)
+
+
+def test_monthly_window_does_not_override_projection_policy_or_declared_grid_size():
+    rows = _window_cell_rows()
+    rows[-1]["assertion"] = "source_projection"
+    with pytest.raises(ValueError, match="monthly window"):
+        compile_ledger_target_references(rows, [_sum_window_reference()], country="us")
+    with pytest.raises(ValueError, match="assertion_policy"):
+        target_spec_from_ledger_reference(tuple(rows), _sum_window_reference())
+    (target,) = compile_ledger_target_references(
+        rows,
+        [_sum_window_reference(assertion_policy="allow_source_projection")],
+        country="us",
+    ).specs
+    assert target.value == 31
+    with pytest.raises(ValueError, match="expected_member_count"):
+        compile_ledger_target_references(
+            rows,
+            [
+                _sum_window_reference(
+                    assertion_policy="allow_source_projection", expected_member_count=12
+                )
+            ],
+            country="us",
+        )
+
+
+def test_monthly_window_preserves_distinct_fact_identity_for_each_member():
+    rows = _window_cell_rows()
+    rows[-1]["aggregate_fact_key"] = rows[0]["aggregate_fact_key"]
+    with pytest.raises(ValueError, match="member fact identities"):
+        target_spec_from_ledger_reference(tuple(rows), _sum_window_reference())
+
+
+@pytest.mark.parametrize("field", ["source_release_key", "source_sha256"])
+def test_single_series_monthly_window_refuses_mixed_publications(field):
+    rows = [_window_fact_row(month, value=1) for month in _FISCAL_MONTHS]
+    if field == "source_release_key":
+        rows[0][field] = "other-release"
+    else:
+        rows[0]["source"][field] = "other-raw-hash"
+    with pytest.raises(ValueError, match="source publication"):
+        compile_ledger_target_references(rows, [_window_reference()], country="us")
+
 
 def _ledger_fact(**overrides):
     fact = {
@@ -3262,3 +3540,27 @@ def test__given_chronicle_era_reference_pin__then_it_resolves_against_the_feed()
         registry.specs[0].metadata["ledger_fact_key"]
         == "chronicle.aggregate_fact.v3:def456"
     )
+
+
+# Equal missing identities must not count as a known common publication.
+@pytest.mark.parametrize("summed", [False, True])
+@pytest.mark.parametrize("field", ["source_release_key", "source_sha256"])
+@pytest.mark.parametrize("bad_value", [None, "", " ", 1])
+def test_monthly_window_requires_actual_publication_identity(summed, field, bad_value):
+    rows = (
+        _window_cell_rows()
+        if summed
+        else [_window_fact_row(month, value=1) for month in _FISCAL_MONTHS]
+    )
+    reference = _sum_window_reference() if summed else _window_reference()
+    for row in rows:
+        owner = row if field == "source_release_key" else row["source"]
+        if bad_value is None:
+            owner.pop(field)
+        else:
+            owner[field] = bad_value
+    with pytest.raises(ValueError, match="requires nonempty source_release_key"):
+        compile_ledger_target_references(rows, [reference], country="us")
+    # The same authority must run if a caller bypasses selector resolution.
+    with pytest.raises(ValueError, match="requires nonempty source_release_key"):
+        target_spec_from_ledger_reference(tuple(rows), reference)

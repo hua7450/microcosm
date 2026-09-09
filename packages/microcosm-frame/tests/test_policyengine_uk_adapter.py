@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
+import numpy as np
+import pandas as pd
 import pytest
 
 from microcosm.frame import RulesEngine
@@ -63,3 +67,52 @@ def test_policyengine_uk_adapter_builds_a_real_engine_dataset() -> None:
 
     stamp = str(getattr(dataset, "time_period", getattr(dataset, "fiscal_year", "")))
     assert stamp.startswith("2023")
+
+
+@pytest.mark.parametrize(
+    "defect", ["missing", "not_loaded", "changed", "entity", "dtype", "period"]
+)
+def test_adapter_refuses_unconsumed_explicit_uc_roles(monkeypatch, defect):
+    definition = SimpleNamespace(
+        entity=SimpleNamespace(key="person"), value_type=bool, definition_period="year"
+    )
+    variables = {
+        "is_uc_claimant": definition,
+        "universal_credit": SimpleNamespace(
+            entity=SimpleNamespace(key="benunit"), value_type=float
+        ),
+    }
+    if defect == "missing":
+        del variables["is_uc_claimant"]
+    elif defect == "entity":
+        definition.entity.key = "benunit"
+    elif defect == "dtype":
+        definition.value_type = float
+    elif defect == "period":
+        definition.definition_period = "month"
+    calls = []
+
+    def calculate(name, *args, **kwargs):
+        calls.append(name)
+        return np.array([False if defect == "changed" else True])
+
+    simulation = SimpleNamespace(
+        tax_benefit_system=SimpleNamespace(variables=variables),
+        input_variables=[] if defect == "not_loaded" else ["is_uc_claimant"],
+        calculate=calculate,
+    )
+    engine = PolicyEngineUKEngine()
+    engine._system = simulation.tax_benefit_system
+    monkeypatch.setattr(engine, "_build_dataset", lambda *args: object())
+    monkeypatch.setattr(
+        engine,
+        "_import_policyengine_uk",
+        lambda: SimpleNamespace(Microsimulation=lambda **kwargs: simulation),
+    )
+    bundle = SimpleNamespace(
+        table=lambda entity: pd.DataFrame({"is_uc_claimant": [True]}),
+        n=lambda entity: 1,
+    )
+    with pytest.raises(ValueError, match="is_uc_claimant"):
+        engine.materialize(bundle, ["universal_credit"], 2025)
+    assert "universal_credit" not in calls

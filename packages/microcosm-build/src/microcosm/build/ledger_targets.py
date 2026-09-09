@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import re
 from collections.abc import Iterable, Mapping
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
@@ -21,7 +22,12 @@ from microcosm.calibrate import TargetRegistry, TargetSpec
 
 SUPPORTED_LEDGER_AGGREGATIONS = frozenset(("sum",))
 ALLOWED_ASSERTION_POLICIES = frozenset(("observed_only", "allow_source_projection"))
-ALLOWED_PERIOD_MATCH_POLICIES = frozenset(("latest_not_after", "exact"))
+ALLOWED_PERIOD_MATCH_POLICIES = frozenset(
+    ("latest_not_after", "exact", "source_window")
+)
+MONTHLY_WINDOW_OPERATIONS = frozenset(
+    ("monthly_window_average", "monthly_window_sum_average")
+)
 ALLOWED_VALUE_OPERATIONS = frozenset(
     (
         "identity",
@@ -30,10 +36,18 @@ ALLOWED_VALUE_OPERATIONS = frozenset(
         "calendar_year_average",
         "latest_plateau",
         "count_x_mean",
+        *MONTHLY_WINDOW_OPERATIONS,
     )
 )
 MULTI_FACT_VALUE_OPERATIONS = frozenset(
-    ("sum", "difference", "calendar_year_average", "latest_plateau", "count_x_mean")
+    (
+        "sum",
+        "difference",
+        "calendar_year_average",
+        "latest_plateau",
+        "count_x_mean",
+        *MONTHLY_WINDOW_OPERATIONS,
+    )
 )
 EXACT_PERIOD_VALUE_OPERATIONS = frozenset(
     ("identity", "sum", "difference", "count_x_mean")
@@ -149,6 +163,18 @@ class LedgerTargetReference:
                 f"period_match_policy {self.period_match_policy!r}; expected "
                 f"one of {sorted(ALLOWED_PERIOD_MATCH_POLICIES)!r}."
             )
+        is_window = self.value_operation in MONTHLY_WINDOW_OPERATIONS
+        if is_window != (self.period_match_policy == "source_window"):
+            raise ValueError(
+                "A monthly window operation requires the paired source_window period policy."
+            )
+        if is_window:
+            if self.period is None:
+                raise ValueError(
+                    "A monthly window requires an explicit model target period."
+                )
+            _declared_source_months(self)
+            _monthly_window_operands(self)
         if self.period_match_policy == "exact" and self.period is None:
             raise ValueError(
                 f"LedgerTargetReference {self.name!r}: period_match_policy="
@@ -597,6 +623,8 @@ def target_spec_from_ledger_reference(
     facts = fact if isinstance(fact, tuple) else (fact,)
     if not facts:
         raise ValueError(f"Ledger target reference {reference.name!r} has no facts.")
+    if reference.value_operation in MONTHLY_WINDOW_OPERATIONS:
+        facts = _resolve_monthly_window_reference_facts(reference, list(facts))
     if len(facts) > 1 and reference.value_operation not in MULTI_FACT_VALUE_OPERATIONS:
         raise ValueError(
             f"Ledger target reference {reference.name!r}: multiple Ledger facts "
@@ -609,7 +637,9 @@ def target_spec_from_ledger_reference(
         numeric_values.append(_numeric_fact_value(member, reference))
         _validate_fact_aggregation(member, reference)
 
-    if reference.value_operation == "calendar_year_average":
+    if reference.value_operation in MONTHLY_WINDOW_OPERATIONS:
+        numeric_value = sum(numeric_values) / len(_declared_source_months(reference))
+    elif reference.value_operation == "calendar_year_average":
         numeric_value = sum(numeric_values) / len(numeric_values)
     elif reference.value_operation == "latest_plateau":
         numeric_value = numeric_values[-1]
@@ -630,6 +660,21 @@ def target_spec_from_ledger_reference(
         facts,
         operation=reference.value_operation,
     )
+    publication_metadata = {}
+    if reference.value_operation in MONTHLY_WINDOW_OPERATIONS:
+        # The window guard has proved these identities common to every member.
+        publication_metadata = {
+            key: value
+            for key, value in {
+                "ledger_source_release_key": _str_at(
+                    representative_fact, "source_release_key"
+                ),
+                "ledger_source_sha256": _str_at(
+                    representative_fact, "source", "source_sha256"
+                ),
+            }.items()
+            if value
+        }
 
     if not reference.measure:
         raise ValueError(
@@ -664,6 +709,7 @@ def target_spec_from_ledger_reference(
                 fact_key=_fact_key(representative_fact),
             ),
             **_multi_fact_reference_metadata(facts),
+            **publication_metadata,
             "ledger_resolved_assertion": _fact_assertion(representative_fact),
             **_reference_metadata(reference),
         },
@@ -980,6 +1026,8 @@ def _resolve_reference_fact(
             if _fact_matches_selector(fact, reference.ledger_selector)
         ]
         eligible_matches = _eligible_selector_matches(reference, matches)
+        if reference.value_operation in MONTHLY_WINDOW_OPERATIONS:
+            return _resolve_monthly_window_reference_facts(reference, eligible_matches)
         if reference.value_operation == "sum" and eligible_matches:
             return _resolve_sum_reference_facts(reference, eligible_matches)
         if reference.value_operation == "difference" and eligible_matches:
@@ -1119,6 +1167,181 @@ def _resolve_difference_reference_facts(
             "must resolve at the same latest period."
         )
     return tuple(resolved)
+
+
+def _declared_source_months(reference: LedgerTargetReference) -> tuple[str, ...]:
+    months = reference.ledger_selector.get("period_value")
+    if (
+        reference.ledger_selector.get("period_type") != "month"
+        or not isinstance(months, list)
+        or not months
+        or not all(
+            isinstance(month, str)
+            and re.fullmatch(r"[0-9]{4}-(?:0[1-9]|1[0-2])", month)
+            for month in months
+        )
+        or months != sorted(set(months))
+    ):
+        raise ValueError(
+            "A monthly window requires period_type=month and explicit unique ordered YYYY-MM period_value months."
+        )
+    return tuple(months)
+
+
+def _monthly_window_operands(
+    reference: LedgerTargetReference,
+) -> tuple[Mapping[str, object], ...]:
+    if reference.value_operation == "monthly_window_average":
+        if reference.value_operands:
+            raise ValueError(
+                "A single-series monthly window does not accept value_operands."
+            )
+        return ()
+    dimensions = []
+    for operand in reference.value_operands:
+        if not isinstance(operand, Mapping) or set(operand) != {"dimension_values"}:
+            raise ValueError(
+                "A monthly window sum operand requires only dimension_values."
+            )
+        values = operand["dimension_values"]
+        if (
+            not isinstance(values, Mapping)
+            or not values
+            or any(
+                not isinstance(key, str)
+                or not key
+                or value is None
+                or isinstance(value, (Mapping, list, tuple, set))
+                for key, value in values.items()
+            )
+        ):
+            raise ValueError(
+                "A monthly window sum operand requires complete scalar dimension_values."
+            )
+        dimensions.append(values)
+    if not dimensions or any(set(value) != set(dimensions[0]) for value in dimensions):
+        raise ValueError(
+            "A monthly window sum requires operands with the same complete dimension keys."
+        )
+    encodings = [
+        json.dumps(value, sort_keys=True, separators=(",", ":")) for value in dimensions
+    ]
+    if len(set(encodings)) != len(encodings):
+        raise ValueError("A monthly window sum requires disjoint operand tuples.")
+    return tuple(dimensions)
+
+
+def _monthly_window_source_key(
+    fact: object, dimensions: Mapping[str, object]
+) -> tuple[str, ...]:
+    """All window members must share a publication and statistical measure."""
+    return (
+        _source_name(fact),
+        _str_at(fact, "source_release_key"),
+        _str_at(fact, "source", "source_sha256"),
+        _str_at(fact, "source", "vintage"),
+        _str_at(fact, "source", "source_file"),
+        _str_at(fact, "source", "source_table")
+        or _str_at(fact, "observed_measure", "source_table"),
+        _str_at(fact, "observed_measure", "source_measure_id")
+        or _str_at(fact, "layout", "measure_id"),
+        _source_measure_concept(fact),
+        _str_at(fact, "observed_measure", "unit"),
+        json.dumps(_at(fact, "entity"), sort_keys=True),
+        json.dumps(_at(fact, "geography"), sort_keys=True),
+        _normalized_record_set_id(_str_at(fact, "layout", "record_set_id")),
+        _normalized_record_set_id(_str_at(fact, "layout", "record_set_spec_id")),
+        _str_at(fact, "layout", "groupby_dimension"),
+        _str_at(fact, "aggregation", "method"),
+        _domain(fact),
+        json.dumps(
+            [
+                constraint
+                for constraint in _constraint_rows(fact)
+                if _str_at(constraint, "variable") not in dimensions
+            ],
+            sort_keys=True,
+        ),
+    )
+
+
+def _resolve_monthly_window_reference_facts(
+    reference: LedgerTargetReference,
+    matches: list[object],
+) -> tuple[object, ...]:
+    """Require a complete month-by-cell grid before averaging monthly totals.
+
+    The same guard runs after direct-key resolution, so identifiers cannot
+    bypass the explicit window, selector, or operand coverage contract.
+    """
+    months = _declared_source_months(reference)
+    operands = _monthly_window_operands(reference)
+    cell_count = len(operands) or 1
+    expected_count = len(months) * cell_count
+    prefix = f"Ledger target reference {reference.name!r}: monthly window"
+    if reference.expected_member_count not in (None, expected_count):
+        raise ValueError(
+            f"{prefix} expected_member_count disagrees with its declared month-by-cell grid."
+        )
+    if len(matches) != expected_count or any(
+        not _fact_matches_selector(fact, reference.ledger_selector) for fact in matches
+    ):
+        raise ValueError(
+            f"{prefix} requires exactly {expected_count} selected facts, one per declared month and cell; resolved {len(matches)}."
+        )
+    grid: dict[tuple[str, int], object] = {}
+    partitions: dict[int, set[tuple[str, ...]]] = {}
+    for fact in matches:
+        publication = _at(fact, "source_release_key")
+        raw_hash = _at(fact, "source", "source_sha256")
+        if any(
+            not isinstance(value, str) or not value.strip()
+            for value in (publication, raw_hash)
+        ):
+            raise ValueError(
+                f"{prefix} requires nonempty source_release_key and "
+                "source.source_sha256 on every member."
+            )
+        if operands:
+            cells = [
+                index
+                for index, values in enumerate(operands)
+                if set(_dimensions(fact)) == set(values)
+                and _dimension_values_match(fact, values)
+            ]
+        else:
+            cells = [0]
+        if len(cells) != 1:
+            raise ValueError(
+                f"{prefix} requires every fact to match exactly one complete operand tuple."
+            )
+        cell = cells[0]
+        key = (_str_at(fact, "period", "value"), cell)
+        if key in grid:
+            raise ValueError(f"{prefix} contains a duplicate month/cell observation.")
+        grid[key] = fact
+        partitions.setdefault(cell, set()).add(_selector_period_invariant_key(fact))
+    if any(len(series) != 1 for series in partitions.values()):
+        raise ValueError(
+            f"{prefix} matched multiple semantic series for a declared cell."
+        )
+    dimension_cells = operands[0] if operands else {}
+    if (
+        len({_monthly_window_source_key(fact, dimension_cells) for fact in matches})
+        != 1
+    ):
+        raise ValueError(
+            f"{prefix} cells must share source publication, measure, entity and geography."
+        )
+    expected_grid = [(month, cell) for month in months for cell in range(cell_count)]
+    if set(grid) != set(expected_grid):
+        raise ValueError(f"{prefix} is missing a declared month/cell observation.")
+    member_keys = [_fact_key(fact) or _source_record_id(fact) for fact in matches]
+    if not all(member_keys) or len(set(member_keys)) != len(member_keys):
+        raise ValueError(
+            f"{prefix} requires distinct non-empty member fact identities."
+        )
+    return tuple(grid[key] for key in expected_grid)
 
 
 def _resolve_calendar_year_average_reference_facts(
@@ -1332,6 +1555,13 @@ def _eligible_selector_matches(
     matches: list[object],
 ) -> list[object]:
     target_period_key = _period_key_from_value(reference.period)
+    if reference.period_match_policy == "source_window":
+        return [
+            fact
+            for fact in matches
+            if _fact_matches_selector(fact, reference.ledger_selector)
+            and _assertion_allowed(reference, fact)
+        ]
     if reference.period_match_policy == "exact":
         return [
             fact
@@ -1404,6 +1634,12 @@ def _validate_reference_period(fact: object, reference: LedgerTargetReference) -
     binds the projected fact to the period it estimates.
     """
 
+    if reference.period_match_policy == "source_window":
+        if _str_at(fact, "period", "type") != "month" or _str_at(
+            fact, "period", "value"
+        ) not in _declared_source_months(reference):
+            raise ValueError("Resolved fact lies outside the declared monthly window.")
+        return
     if reference.period_match_policy != "exact":
         if not _not_after_target_period(
             _period_key(fact), _period_key_from_value(reference.period)
@@ -1769,6 +2005,16 @@ def _reference_metadata(reference: LedgerTargetReference) -> dict[str, str]:
     metadata["ledger_value_operation"] = reference.value_operation
     metadata["ledger_assertion_policy"] = reference.assertion_policy
     metadata["ledger_period_match_policy"] = reference.period_match_policy
+    if reference.value_operation in MONTHLY_WINDOW_OPERATIONS:
+        months = _declared_source_months(reference)
+        metadata["ledger_source_months"] = json.dumps(months, separators=(",", ":"))
+        metadata["ledger_source_month_count"] = str(len(months))
+        metadata["ledger_source_cell_count_per_month"] = str(
+            len(reference.value_operands) or 1
+        )
+        metadata["ledger_value_formula"] = (
+            "sum_of_declared_cells / declared_month_count"
+        )
     if reference.value_operation == "difference":
         metadata["ledger_value_formula"] = "minuend - subtrahend"
     for key, value in sorted(reference.ledger_selector.items()):

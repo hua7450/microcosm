@@ -10,10 +10,16 @@ from functools import lru_cache
 from importlib.resources import files
 from typing import Any
 
-__all__ = ["UKFRSRelease", "load_uk_frs_release"]
+__all__ = [
+    "UK_YEAR_RULES",
+    "UKFRSRelease",
+    "load_uk_frs_release",
+    "resolve_uk_year_rule",
+]
 
 _LOWER_SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _VINTAGE = re.compile(r"^\d{4}_\d{2}$")
+UK_YEAR_RULES = ("survey_year", "calibration_year")
 
 
 @dataclass(frozen=True)
@@ -65,6 +71,21 @@ def load_uk_frs_release() -> UKFRSRelease:
     )
     _validate(release)
     return release
+
+
+def resolve_uk_year_rule(
+    rule: str,
+    *,
+    release: UKFRSRelease | None = None,
+) -> int:
+    """Map a declared year_rule to its release year; reject any other string."""
+
+    if rule not in UK_YEAR_RULES:
+        raise ValueError(
+            f"Unknown UK year_rule {rule!r}; expected one of {UK_YEAR_RULES}."
+        )
+    release = release or load_uk_frs_release()
+    return int(getattr(release, rule))
 
 
 def _int(raw: Mapping[str, Any], key: str) -> int:

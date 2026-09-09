@@ -5,7 +5,9 @@
   "allowed_value_operations": [
     "identity",
     "sum",
-    "difference"
+    "difference",
+    "calendar_year_average",
+    "monthly_window_sum_average"
   ],
   "resolution_defaults": {
     "base_period_policy": "latest_not_after_build_base_period",
@@ -679,8 +681,8 @@
       "hmrc.salary_sacrifice.it_relief_basic_rate": "New declaration backed by chronicle#139 salary-sacrifice facts; the incumbent source CSV is still 410-Gone at 12a1e028 and its rows are silently suppressed by the bare-except drop in build_loss_matrix.py:376-394.",
       "hmrc.salary_sacrifice.it_relief_higher_rate": "New declaration backed by chronicle#139 salary-sacrifice facts; the incumbent source CSV is still 410-Gone at 12a1e028 and its rows are silently suppressed by the bare-except drop in build_loss_matrix.py:376-394.",
       "hmrc.salary_sacrifice.it_relief_additional_rate": "New declaration backed by chronicle#139 salary-sacrifice facts; the incumbent source CSV is still 410-Gone at 12a1e028 and its rows are silently suppressed by the bare-except drop in build_loss_matrix.py:376-394.",
-      "ons.population.female_90_plus": "María ruling 2026-08-21: split the incumbent terminal sex bands into uniform five-year 85_89 bands plus 90_plus tails. The incumbent six-year 85_90 terminal rows leave ages 91+ unconstrained; Microcosm keeps the uniform five-year bands and constrains the tail. The 85_89-vs-85_90 value gap is the single-age-90 share and is a signed semantic difference.",
-      "ons.population.male_90_plus": "María ruling 2026-08-21: split the incumbent terminal sex bands into uniform five-year 85_89 bands plus 90_plus tails. The incumbent six-year 85_90 terminal rows leave ages 91+ unconstrained; Microcosm keeps the uniform five-year bands and constrains the tail. The 85_89-vs-85_90 value gap is the single-age-90 share and is a signed semantic difference.",
+      "ons.population.female_90_plus": "Mar\u00eda ruling 2026-08-21: split the incumbent terminal sex bands into uniform five-year 85_89 bands plus 90_plus tails. The incumbent six-year 85_90 terminal rows leave ages 91+ unconstrained; Microcosm keeps the uniform five-year bands and constrains the tail. The 85_89-vs-85_90 value gap is the single-age-90 share and is a signed semantic difference.",
+      "ons.population.male_90_plus": "Mar\u00eda ruling 2026-08-21: split the incumbent terminal sex bands into uniform five-year 85_89 bands plus 90_plus tails. The incumbent six-year 85_90 terminal rows leave ages 91+ unconstrained; Microcosm keeps the uniform five-year bands and constrains the tail. The 85_89-vs-85_90 value gap is the single-age-90 share and is a signed semantic difference.",
       "hmrc.tfc.government_top_up": "Post-freeze fact family, no uk-data metric.",
       "hmrc.tfc.children_with_used_accounts": "Post-freeze fact family, no uk-data metric.",
       "dfe.funded_childcare.working_parent_children_2_to_4": "Post-freeze fact family, no uk-data metric.",
@@ -723,7 +725,7 @@
       "salary_sacrifice_obr_near_equivalents": "The contract separately maps OBR near-equivalents obr/salary_sacrifice_employee_ni_relief and obr/salary_sacrifice_employer_ni_relief onto hmrc.salary_sacrifice.nics_relief_employee and hmrc.salary_sacrifice.nics_relief_employer.",
       "two_child_limit_year_surface": "Chronicle's 15 dwp/uc/two_child_limit/* facts are the April-2025 publication (period month 2025-04) and are the only TCL facts; there are no 2026 Ledger facts. At 12a1e028, the incumbent pins the same published numbers at {2026}, so at calibration year 2025 Ledger activates all 15 TCL targets while the incumbent drops them from the 652-row union to the 637-row effective surface; the 2026 effective surface remains 652. The same 12a1e028 refresh adds the new incumbent dwp/uc/households row. Fixture B treats the 15 TCL rows as enumerated ledger-side additions.",
       "geography_level_order_canonicalization": "The 9 voa.council_tax_stock.* rows use country, region order to match the rest of the contract; consumers use membership only.",
-      "ons_terminal_sex_band_split": "María ruling 2026-08-21: split the incumbent terminal sex bands into uniform five-year 85_89 bands plus 90_plus tails. The incumbent six-year 85_90 terminal rows leave ages 91+ unconstrained; Microcosm keeps the uniform five-year bands and constrains the tail. The 85_89-vs-85_90 value gap is the single-age-90 share and is a signed semantic difference."
+      "ons_terminal_sex_band_split": "Mar\u00eda ruling 2026-08-21: split the incumbent terminal sex bands into uniform five-year 85_89 bands plus 90_plus tails. The incumbent six-year 85_90 terminal rows leave ages 91+ unconstrained; Microcosm keeps the uniform five-year bands and constrains the tail. The 85_89-vs-85_90 value gap is the single-age-90 share and is a signed semantic difference."
     },
     "scope_target_ids": [
       "obr.income_tax",
@@ -1406,7 +1408,7 @@
           "value_variable": "total_national_insurance",
           "from_entity": "person",
           "map_to": "household",
-          "notes": "The EFO line is total NICs receipts; binds total_national_insurance (class 1 employee + employer + classes 2-4). The prior ni_employee-only binding was the uk-data defect carried for parity — final estimate bit-identical to obr.ni_employee — fixed under the microcosm#757 audit partition (2026-08-26). Nearly redundant with the three separately-calibrated component lines by construction; kept so the published total binds honestly. Residual gap is Class 1A/1B on benefits in kind, which the model does not carry."
+          "notes": "The EFO line is total NICs receipts; binds total_national_insurance (class 1 employee + employer + classes 2-4). The prior ni_employee-only binding was the uk-data defect carried for parity \u2014 final estimate bit-identical to obr.ni_employee \u2014 fixed under the microcosm#757 audit partition (2026-08-26). Nearly redundant with the three separately-calibrated component lines by construction; kept so the published total binds honestly. Residual gap is Class 1A/1B on benefits in kind, which the model does not carry."
         },
         "axiom": {
           "metric_name": "obr/ni",
@@ -3493,6 +3495,20 @@
             "operator": "==",
             "value": 1
           }
+        ],
+        "source_months": [
+          "2025-01",
+          "2025-02",
+          "2025-03",
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
         ]
       },
       "bindings": {
@@ -3507,12 +3523,34 @@
               "value": 0
             },
             {
-              "variable": "num_children",
+              "variable": "uc_calibration_child_count",
               "operator": "==",
               "value": 1
             }
           ],
-          "notes": "Prepared benefit-unit count: UC receipt and the claim's child count (model num_children, age<18 per benunit). DWP household means the UC unit of assessment, not an ONS household; DWP counts children on the claim including 16-19 qualifying young persons in non-advanced education, whom the age<18 concept omits - declared residue. Re-bound from household grain per microcosm#809 (the dwelling-wide is_child sum counted other benunits' children)."
+          "notes": "Mean monthly paid GB benefit units over the exact twelve months of calendar 2025. Use the publisher Child Entitlement Total within each child-count/payment category, not the sum of perturbed Yes/No detail cells; no child-entitlement filter is added to the model. Benefit-unit count among positive UC awards. Child counts use retained FRS child members under 20 and UC child/qualifying-young-person status, excluding claimant/parent roles. DWP reported children can exceed those eligible for a child element. Benefit-unit grain retains the microcosm#809 correction for multibenunit households. Simulated entitlement is unchanged. Count only the Great Britain regions, matching K03000001; DWP removes Northern Ireland-office claims from these statistics. Source: https://www.gov.uk/government/publications/universal-credit-statistics-background-information-and-methodology/universal-credit-statistics-background-information-and-methodology#creating-a-great-britain-dataset Source: https://github.com/PolicyEngine/chronicle/pull/252",
+          "household_conditions": [
+            {
+              "variable": "region",
+              "entity": "household",
+              "reduce": "any",
+              "operator": "in",
+              "value": [
+                "NORTH_EAST",
+                "NORTH_WEST",
+                "YORKSHIRE",
+                "EAST_MIDLANDS",
+                "WEST_MIDLANDS",
+                "EAST_OF_ENGLAND",
+                "LONDON",
+                "SOUTH_EAST",
+                "SOUTH_WEST",
+                "WALES",
+                "SCOTLAND"
+              ],
+              "map_to": "benunit"
+            }
+          ]
         },
         "axiom": {
           "metric_name": "dwp/uc/claimants_with_1_children",
@@ -3525,12 +3563,33 @@
         "source_concept": "dwp.uc_households",
         "groupby_dimension": "dwp.uc_number_of_children",
         "dimensions": [
-          "number_of_children"
+          "number_of_children",
+          "payment_indicator",
+          "child_entitlement"
         ],
         "dimension_values": {
-          "number_of_children": 1
-        }
-      }
+          "number_of_children": 1,
+          "payment_indicator": "Yes",
+          "child_entitlement": "all"
+        },
+        "source_measure_id": "total_benefit_units",
+        "period_type": "month",
+        "period_value": [
+          "2025-01",
+          "2025-02",
+          "2025-03",
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
+        ]
+      },
+      "value_operation": "calendar_year_average"
     },
     {
       "target_id": "dwp.uc.households_children_2",
@@ -3552,6 +3611,20 @@
             "operator": "==",
             "value": 2
           }
+        ],
+        "source_months": [
+          "2025-01",
+          "2025-02",
+          "2025-03",
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
         ]
       },
       "bindings": {
@@ -3566,12 +3639,34 @@
               "value": 0
             },
             {
-              "variable": "num_children",
+              "variable": "uc_calibration_child_count",
               "operator": "==",
               "value": 2
             }
           ],
-          "notes": "Prepared benefit-unit count: UC receipt and the claim's child count (model num_children, age<18 per benunit). DWP household means the UC unit of assessment, not an ONS household; DWP counts children on the claim including 16-19 qualifying young persons in non-advanced education, whom the age<18 concept omits - declared residue. Re-bound from household grain per microcosm#809 (the dwelling-wide is_child sum counted other benunits' children)."
+          "notes": "Mean monthly paid GB benefit units over the exact twelve months of calendar 2025. Use the publisher Child Entitlement Total within each child-count/payment category, not the sum of perturbed Yes/No detail cells; no child-entitlement filter is added to the model. Benefit-unit count among positive UC awards. Child counts use retained FRS child members under 20 and UC child/qualifying-young-person status, excluding claimant/parent roles. DWP reported children can exceed those eligible for a child element. Benefit-unit grain retains the microcosm#809 correction for multibenunit households. Simulated entitlement is unchanged. Count only the Great Britain regions, matching K03000001; DWP removes Northern Ireland-office claims from these statistics. Source: https://www.gov.uk/government/publications/universal-credit-statistics-background-information-and-methodology/universal-credit-statistics-background-information-and-methodology#creating-a-great-britain-dataset Source: https://github.com/PolicyEngine/chronicle/pull/252",
+          "household_conditions": [
+            {
+              "variable": "region",
+              "entity": "household",
+              "reduce": "any",
+              "operator": "in",
+              "value": [
+                "NORTH_EAST",
+                "NORTH_WEST",
+                "YORKSHIRE",
+                "EAST_MIDLANDS",
+                "WEST_MIDLANDS",
+                "EAST_OF_ENGLAND",
+                "LONDON",
+                "SOUTH_EAST",
+                "SOUTH_WEST",
+                "WALES",
+                "SCOTLAND"
+              ],
+              "map_to": "benunit"
+            }
+          ]
         },
         "axiom": {
           "metric_name": "dwp/uc/claimants_with_2_children",
@@ -3584,12 +3679,33 @@
         "source_concept": "dwp.uc_households",
         "groupby_dimension": "dwp.uc_number_of_children",
         "dimensions": [
-          "number_of_children"
+          "number_of_children",
+          "payment_indicator",
+          "child_entitlement"
         ],
         "dimension_values": {
-          "number_of_children": 2
-        }
-      }
+          "number_of_children": 2,
+          "payment_indicator": "Yes",
+          "child_entitlement": "all"
+        },
+        "source_measure_id": "total_benefit_units",
+        "period_type": "month",
+        "period_value": [
+          "2025-01",
+          "2025-02",
+          "2025-03",
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
+        ]
+      },
+      "value_operation": "calendar_year_average"
     },
     {
       "target_id": "dwp.uc.households_children_3",
@@ -3611,6 +3727,20 @@
             "operator": "==",
             "value": 3
           }
+        ],
+        "source_months": [
+          "2025-01",
+          "2025-02",
+          "2025-03",
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
         ]
       },
       "bindings": {
@@ -3625,12 +3755,34 @@
               "value": 0
             },
             {
-              "variable": "num_children",
+              "variable": "uc_calibration_child_count",
               "operator": "==",
               "value": 3
             }
           ],
-          "notes": "Prepared benefit-unit count: UC receipt and the claim's child count (model num_children, age<18 per benunit). DWP household means the UC unit of assessment, not an ONS household; DWP counts children on the claim including 16-19 qualifying young persons in non-advanced education, whom the age<18 concept omits - declared residue. Re-bound from household grain per microcosm#809 (the dwelling-wide is_child sum counted other benunits' children)."
+          "notes": "Mean monthly paid GB benefit units over the exact twelve months of calendar 2025. Use the publisher Child Entitlement Total within each child-count/payment category, not the sum of perturbed Yes/No detail cells; no child-entitlement filter is added to the model. Benefit-unit count among positive UC awards. Child counts use retained FRS child members under 20 and UC child/qualifying-young-person status, excluding claimant/parent roles. DWP reported children can exceed those eligible for a child element. Benefit-unit grain retains the microcosm#809 correction for multibenunit households. Simulated entitlement is unchanged. Count only the Great Britain regions, matching K03000001; DWP removes Northern Ireland-office claims from these statistics. Source: https://www.gov.uk/government/publications/universal-credit-statistics-background-information-and-methodology/universal-credit-statistics-background-information-and-methodology#creating-a-great-britain-dataset Source: https://github.com/PolicyEngine/chronicle/pull/252",
+          "household_conditions": [
+            {
+              "variable": "region",
+              "entity": "household",
+              "reduce": "any",
+              "operator": "in",
+              "value": [
+                "NORTH_EAST",
+                "NORTH_WEST",
+                "YORKSHIRE",
+                "EAST_MIDLANDS",
+                "WEST_MIDLANDS",
+                "EAST_OF_ENGLAND",
+                "LONDON",
+                "SOUTH_EAST",
+                "SOUTH_WEST",
+                "WALES",
+                "SCOTLAND"
+              ],
+              "map_to": "benunit"
+            }
+          ]
         },
         "axiom": {
           "metric_name": "dwp/uc/claimants_with_3_children",
@@ -3643,12 +3795,33 @@
         "source_concept": "dwp.uc_households",
         "groupby_dimension": "dwp.uc_number_of_children",
         "dimensions": [
-          "number_of_children"
+          "number_of_children",
+          "payment_indicator",
+          "child_entitlement"
         ],
         "dimension_values": {
-          "number_of_children": 3
-        }
-      }
+          "number_of_children": 3,
+          "payment_indicator": "Yes",
+          "child_entitlement": "all"
+        },
+        "source_measure_id": "total_benefit_units",
+        "period_type": "month",
+        "period_value": [
+          "2025-01",
+          "2025-02",
+          "2025-03",
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
+        ]
+      },
+      "value_operation": "calendar_year_average"
     },
     {
       "target_id": "dwp.uc.households_children_4",
@@ -3670,6 +3843,20 @@
             "operator": "==",
             "value": 4
           }
+        ],
+        "source_months": [
+          "2025-01",
+          "2025-02",
+          "2025-03",
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
         ]
       },
       "bindings": {
@@ -3684,12 +3871,34 @@
               "value": 0
             },
             {
-              "variable": "num_children",
+              "variable": "uc_calibration_child_count",
               "operator": "==",
               "value": 4
             }
           ],
-          "notes": "Prepared benefit-unit count: UC receipt and the claim's child count (model num_children, age<18 per benunit). DWP household means the UC unit of assessment, not an ONS household; DWP counts children on the claim including 16-19 qualifying young persons in non-advanced education, whom the age<18 concept omits - declared residue. Re-bound from household grain per microcosm#809 (the dwelling-wide is_child sum counted other benunits' children)."
+          "notes": "Mean monthly paid GB benefit units over the exact twelve months of calendar 2025. Use the publisher Child Entitlement Total within each child-count/payment category, not the sum of perturbed Yes/No detail cells; no child-entitlement filter is added to the model. Benefit-unit count among positive UC awards. Child counts use retained FRS child members under 20 and UC child/qualifying-young-person status, excluding claimant/parent roles. DWP reported children can exceed those eligible for a child element. Benefit-unit grain retains the microcosm#809 correction for multibenunit households. Simulated entitlement is unchanged. Count only the Great Britain regions, matching K03000001; DWP removes Northern Ireland-office claims from these statistics. Source: https://www.gov.uk/government/publications/universal-credit-statistics-background-information-and-methodology/universal-credit-statistics-background-information-and-methodology#creating-a-great-britain-dataset Source: https://github.com/PolicyEngine/chronicle/pull/252",
+          "household_conditions": [
+            {
+              "variable": "region",
+              "entity": "household",
+              "reduce": "any",
+              "operator": "in",
+              "value": [
+                "NORTH_EAST",
+                "NORTH_WEST",
+                "YORKSHIRE",
+                "EAST_MIDLANDS",
+                "WEST_MIDLANDS",
+                "EAST_OF_ENGLAND",
+                "LONDON",
+                "SOUTH_EAST",
+                "SOUTH_WEST",
+                "WALES",
+                "SCOTLAND"
+              ],
+              "map_to": "benunit"
+            }
+          ]
         },
         "axiom": {
           "metric_name": "dwp/uc/claimants_with_4_children",
@@ -3702,12 +3911,33 @@
         "source_concept": "dwp.uc_households",
         "groupby_dimension": "dwp.uc_number_of_children",
         "dimensions": [
-          "number_of_children"
+          "number_of_children",
+          "payment_indicator",
+          "child_entitlement"
         ],
         "dimension_values": {
-          "number_of_children": 4
-        }
-      }
+          "number_of_children": 4,
+          "payment_indicator": "Yes",
+          "child_entitlement": "all"
+        },
+        "source_measure_id": "total_benefit_units",
+        "period_type": "month",
+        "period_value": [
+          "2025-01",
+          "2025-02",
+          "2025-03",
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
+        ]
+      },
+      "value_operation": "calendar_year_average"
     },
     {
       "target_id": "dwp.uc.households_children_5_or_more",
@@ -3729,6 +3959,20 @@
             "operator": ">=",
             "value": 5
           }
+        ],
+        "source_months": [
+          "2025-01",
+          "2025-02",
+          "2025-03",
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
         ]
       },
       "bindings": {
@@ -3743,12 +3987,34 @@
               "value": 0
             },
             {
-              "variable": "num_children",
+              "variable": "uc_calibration_child_count",
               "operator": ">=",
               "value": 5
             }
           ],
-          "notes": "Prepared benefit-unit count: UC receipt and the claim's child count (model num_children, age<18 per benunit). DWP household means the UC unit of assessment, not an ONS household; DWP counts children on the claim including 16-19 qualifying young persons in non-advanced education, whom the age<18 concept omits - declared residue. Re-bound from household grain per microcosm#809 (the dwelling-wide is_child sum counted other benunits' children)."
+          "notes": "Mean monthly paid GB benefit units over the exact twelve months of calendar 2025. Use the publisher Child Entitlement Total within each child-count/payment category, not the sum of perturbed Yes/No detail cells; no child-entitlement filter is added to the model. Benefit-unit count among positive UC awards. Child counts use retained FRS child members under 20 and UC child/qualifying-young-person status, excluding claimant/parent roles. DWP reported children can exceed those eligible for a child element. Benefit-unit grain retains the microcosm#809 correction for multibenunit households. Simulated entitlement is unchanged. Count only the Great Britain regions, matching K03000001; DWP removes Northern Ireland-office claims from these statistics. Source: https://www.gov.uk/government/publications/universal-credit-statistics-background-information-and-methodology/universal-credit-statistics-background-information-and-methodology#creating-a-great-britain-dataset Source: https://github.com/PolicyEngine/chronicle/pull/252",
+          "household_conditions": [
+            {
+              "variable": "region",
+              "entity": "household",
+              "reduce": "any",
+              "operator": "in",
+              "value": [
+                "NORTH_EAST",
+                "NORTH_WEST",
+                "YORKSHIRE",
+                "EAST_MIDLANDS",
+                "WEST_MIDLANDS",
+                "EAST_OF_ENGLAND",
+                "LONDON",
+                "SOUTH_EAST",
+                "SOUTH_WEST",
+                "WALES",
+                "SCOTLAND"
+              ],
+              "map_to": "benunit"
+            }
+          ]
         },
         "axiom": {
           "metric_name": "dwp/uc/claimants_with_5+_children",
@@ -3761,12 +4027,33 @@
         "source_concept": "dwp.uc_households",
         "groupby_dimension": "dwp.uc_number_of_children",
         "dimensions": [
-          "number_of_children"
+          "number_of_children",
+          "payment_indicator",
+          "child_entitlement"
         ],
         "dimension_values": {
-          "number_of_children": "5 or more"
-        }
-      }
+          "number_of_children": "5 or more",
+          "payment_indicator": "Yes",
+          "child_entitlement": "all"
+        },
+        "source_measure_id": "total_benefit_units",
+        "period_type": "month",
+        "period_value": [
+          "2025-01",
+          "2025-02",
+          "2025-03",
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
+        ]
+      },
+      "value_operation": "calendar_year_average"
     },
     {
       "target_id": "dwp.uc.households_single_no_children",
@@ -3783,6 +4070,20 @@
             "operator": ">",
             "value": 0
           }
+        ],
+        "source_months": [
+          "2025-01",
+          "2025-02",
+          "2025-03",
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
         ]
       },
       "bindings": {
@@ -3797,12 +4098,34 @@
               "value": 0
             },
             {
-              "variable": "family_type",
+              "variable": "uc_calibration_administrative_family_type",
               "operator": "==",
               "value": "SINGLE"
             }
           ],
-          "notes": "Prepared benefit-unit count: UC receipt and family_type == SINGLE (single, no children at benunit grain). DWP household means the UC unit of assessment. Re-bound from household grain per microcosm#809 - the any-benunit family type plus dwelling-wide child sum deleted single claimants sharing a dwelling with another benunit's children. uk-data's +~0.021% undercount inflation is a populace-side value declaration."
+          "notes": "Mean monthly paid GB benefit units over the exact twelve months of calendar 2025. This is a derived sum of all declared family/entitlement cells within each month, followed by the mean of those twelve monthly sums; it is not a publisher grand Total. Include unknown/missing family type in the headline, retain both child-entitlement statuses, and require every declared month/category cell including literal zeros. Administrative family classification uses model standard allowance above the model-year maximum single rate for couples, separately from retained claimant roles; zero allowance is UNKNOWN. Child presence retains own-benefit-unit reported-under-20/qualifying-child proxy and does not establish DWP declared-child attachment or ineligible-partner exceptions. Source: https://stat-xplore.dwp.gov.uk/webapi/metadata/UC_Households/Family%20Type.html Count only the Great Britain regions, matching K03000001; DWP removes Northern Ireland-office claims from these statistics. Source: https://www.gov.uk/government/publications/universal-credit-statistics-background-information-and-methodology/universal-credit-statistics-background-information-and-methodology#creating-a-great-britain-dataset Source: https://github.com/PolicyEngine/chronicle/pull/252",
+          "household_conditions": [
+            {
+              "variable": "region",
+              "entity": "household",
+              "reduce": "any",
+              "operator": "in",
+              "value": [
+                "NORTH_EAST",
+                "NORTH_WEST",
+                "YORKSHIRE",
+                "EAST_MIDLANDS",
+                "WEST_MIDLANDS",
+                "EAST_OF_ENGLAND",
+                "LONDON",
+                "SOUTH_EAST",
+                "SOUTH_WEST",
+                "WALES",
+                "SCOTLAND"
+              ],
+              "map_to": "benunit"
+            }
+          ]
         },
         "axiom": {
           "metric_name": "dwp/uc/claimants_single_no_children",
@@ -3813,14 +4136,55 @@
       "ledger_selector": {
         "source_name": "dwp",
         "source_concept": "dwp.uc_households",
+        "source_measure_id": "benefit_units",
         "groupby_dimension": "dwp.uc_family_type",
         "dimensions": [
-          "family_type"
+          "family_type",
+          "payment_indicator",
+          "child_entitlement"
         ],
         "dimension_values": {
+          "payment_indicator": "Yes",
+          "child_entitlement": [
+            "No",
+            "Yes"
+          ],
           "family_type": "Single, no children"
+        },
+        "period_type": "month",
+        "period_value": [
+          "2025-01",
+          "2025-02",
+          "2025-03",
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
+        ]
+      },
+      "value_operation": "monthly_window_sum_average",
+      "period_match_policy": "source_window",
+      "value_operands": [
+        {
+          "dimension_values": {
+            "family_type": "Single, no children",
+            "payment_indicator": "Yes",
+            "child_entitlement": "No"
+          }
+        },
+        {
+          "dimension_values": {
+            "family_type": "Single, no children",
+            "payment_indicator": "Yes",
+            "child_entitlement": "Yes"
+          }
         }
-      }
+      ]
     },
     {
       "target_id": "dwp.uc.households_single_with_children",
@@ -3837,6 +4201,20 @@
             "operator": ">",
             "value": 0
           }
+        ],
+        "source_months": [
+          "2025-01",
+          "2025-02",
+          "2025-03",
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
         ]
       },
       "bindings": {
@@ -3851,12 +4229,34 @@
               "value": 0
             },
             {
-              "variable": "family_type",
+              "variable": "uc_calibration_administrative_family_type",
               "operator": "==",
               "value": "LONE_PARENT"
             }
           ],
-          "notes": "Prepared benefit-unit count: UC receipt and family_type == LONE_PARENT. DWP's 'Single, with children' bucket is LONE_PARENT at benunit grain - the previous SINGLE-or-LONE_PARENT compound plus dwelling-wide child sum collapses to the single enum value. Re-bound per microcosm#809. uk-data's +~0.021% undercount inflation is a populace-side value declaration."
+          "notes": "Mean monthly paid GB benefit units over the exact twelve months of calendar 2025. This is a derived sum of all declared family/entitlement cells within each month, followed by the mean of those twelve monthly sums; it is not a publisher grand Total. Include unknown/missing family type in the headline, retain both child-entitlement statuses, and require every declared month/category cell including literal zeros. Administrative family classification uses model standard allowance above the model-year maximum single rate for couples, separately from retained claimant roles; zero allowance is UNKNOWN. Child presence retains own-benefit-unit reported-under-20/qualifying-child proxy and does not establish DWP declared-child attachment or ineligible-partner exceptions. Source: https://stat-xplore.dwp.gov.uk/webapi/metadata/UC_Households/Family%20Type.html Count only the Great Britain regions, matching K03000001; DWP removes Northern Ireland-office claims from these statistics. Source: https://www.gov.uk/government/publications/universal-credit-statistics-background-information-and-methodology/universal-credit-statistics-background-information-and-methodology#creating-a-great-britain-dataset Source: https://github.com/PolicyEngine/chronicle/pull/252",
+          "household_conditions": [
+            {
+              "variable": "region",
+              "entity": "household",
+              "reduce": "any",
+              "operator": "in",
+              "value": [
+                "NORTH_EAST",
+                "NORTH_WEST",
+                "YORKSHIRE",
+                "EAST_MIDLANDS",
+                "WEST_MIDLANDS",
+                "EAST_OF_ENGLAND",
+                "LONDON",
+                "SOUTH_EAST",
+                "SOUTH_WEST",
+                "WALES",
+                "SCOTLAND"
+              ],
+              "map_to": "benunit"
+            }
+          ]
         },
         "axiom": {
           "metric_name": "dwp/uc/claimants_single_with_children",
@@ -3867,14 +4267,55 @@
       "ledger_selector": {
         "source_name": "dwp",
         "source_concept": "dwp.uc_households",
+        "source_measure_id": "benefit_units",
         "groupby_dimension": "dwp.uc_family_type",
         "dimensions": [
-          "family_type"
+          "family_type",
+          "payment_indicator",
+          "child_entitlement"
         ],
         "dimension_values": {
+          "payment_indicator": "Yes",
+          "child_entitlement": [
+            "No",
+            "Yes"
+          ],
           "family_type": "Single, with children"
+        },
+        "period_type": "month",
+        "period_value": [
+          "2025-01",
+          "2025-02",
+          "2025-03",
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
+        ]
+      },
+      "value_operation": "monthly_window_sum_average",
+      "period_match_policy": "source_window",
+      "value_operands": [
+        {
+          "dimension_values": {
+            "family_type": "Single, with children",
+            "payment_indicator": "Yes",
+            "child_entitlement": "No"
+          }
+        },
+        {
+          "dimension_values": {
+            "family_type": "Single, with children",
+            "payment_indicator": "Yes",
+            "child_entitlement": "Yes"
+          }
         }
-      }
+      ]
     },
     {
       "target_id": "dwp.uc.households_couple_no_children",
@@ -3891,6 +4332,20 @@
             "operator": ">",
             "value": 0
           }
+        ],
+        "source_months": [
+          "2025-01",
+          "2025-02",
+          "2025-03",
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
         ]
       },
       "bindings": {
@@ -3905,12 +4360,34 @@
               "value": 0
             },
             {
-              "variable": "family_type",
+              "variable": "uc_calibration_administrative_family_type",
               "operator": "==",
               "value": "COUPLE_NO_CHILDREN"
             }
           ],
-          "notes": "Prepared benefit-unit count: UC receipt and family_type == COUPLE_NO_CHILDREN. DWP household means the UC unit of assessment. Re-bound from household grain per microcosm#809. uk-data's +~0.021% undercount inflation is a populace-side value declaration."
+          "notes": "Mean monthly paid GB benefit units over the exact twelve months of calendar 2025. This is a derived sum of all declared family/entitlement cells within each month, followed by the mean of those twelve monthly sums; it is not a publisher grand Total. Include unknown/missing family type in the headline, retain both child-entitlement statuses, and require every declared month/category cell including literal zeros. Administrative family classification uses model standard allowance above the model-year maximum single rate for couples, separately from retained claimant roles; zero allowance is UNKNOWN. Child presence retains own-benefit-unit reported-under-20/qualifying-child proxy and does not establish DWP declared-child attachment or ineligible-partner exceptions. Source: https://stat-xplore.dwp.gov.uk/webapi/metadata/UC_Households/Family%20Type.html Count only the Great Britain regions, matching K03000001; DWP removes Northern Ireland-office claims from these statistics. Source: https://www.gov.uk/government/publications/universal-credit-statistics-background-information-and-methodology/universal-credit-statistics-background-information-and-methodology#creating-a-great-britain-dataset Source: https://github.com/PolicyEngine/chronicle/pull/252",
+          "household_conditions": [
+            {
+              "variable": "region",
+              "entity": "household",
+              "reduce": "any",
+              "operator": "in",
+              "value": [
+                "NORTH_EAST",
+                "NORTH_WEST",
+                "YORKSHIRE",
+                "EAST_MIDLANDS",
+                "WEST_MIDLANDS",
+                "EAST_OF_ENGLAND",
+                "LONDON",
+                "SOUTH_EAST",
+                "SOUTH_WEST",
+                "WALES",
+                "SCOTLAND"
+              ],
+              "map_to": "benunit"
+            }
+          ]
         },
         "axiom": {
           "metric_name": "dwp/uc/claimants_couple_no_children",
@@ -3921,14 +4398,55 @@
       "ledger_selector": {
         "source_name": "dwp",
         "source_concept": "dwp.uc_households",
+        "source_measure_id": "benefit_units",
         "groupby_dimension": "dwp.uc_family_type",
         "dimensions": [
-          "family_type"
+          "family_type",
+          "payment_indicator",
+          "child_entitlement"
         ],
         "dimension_values": {
+          "payment_indicator": "Yes",
+          "child_entitlement": [
+            "No",
+            "Yes"
+          ],
           "family_type": "Couple, no children"
+        },
+        "period_type": "month",
+        "period_value": [
+          "2025-01",
+          "2025-02",
+          "2025-03",
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
+        ]
+      },
+      "value_operation": "monthly_window_sum_average",
+      "period_match_policy": "source_window",
+      "value_operands": [
+        {
+          "dimension_values": {
+            "family_type": "Couple, no children",
+            "payment_indicator": "Yes",
+            "child_entitlement": "No"
+          }
+        },
+        {
+          "dimension_values": {
+            "family_type": "Couple, no children",
+            "payment_indicator": "Yes",
+            "child_entitlement": "Yes"
+          }
         }
-      }
+      ]
     },
     {
       "target_id": "dwp.uc.households_couple_with_children",
@@ -3945,6 +4463,20 @@
             "operator": ">",
             "value": 0
           }
+        ],
+        "source_months": [
+          "2025-01",
+          "2025-02",
+          "2025-03",
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
         ]
       },
       "bindings": {
@@ -3959,12 +4491,34 @@
               "value": 0
             },
             {
-              "variable": "family_type",
+              "variable": "uc_calibration_administrative_family_type",
               "operator": "==",
               "value": "COUPLE_WITH_CHILDREN"
             }
           ],
-          "notes": "Prepared benefit-unit count: UC receipt and family_type == COUPLE_WITH_CHILDREN. DWP household means the UC unit of assessment. Re-bound from household grain per microcosm#809. uk-data's +~0.021% undercount inflation is a populace-side value declaration."
+          "notes": "Mean monthly paid GB benefit units over the exact twelve months of calendar 2025. This is a derived sum of all declared family/entitlement cells within each month, followed by the mean of those twelve monthly sums; it is not a publisher grand Total. Include unknown/missing family type in the headline, retain both child-entitlement statuses, and require every declared month/category cell including literal zeros. Administrative family classification uses model standard allowance above the model-year maximum single rate for couples, separately from retained claimant roles; zero allowance is UNKNOWN. Child presence retains own-benefit-unit reported-under-20/qualifying-child proxy and does not establish DWP declared-child attachment or ineligible-partner exceptions. Source: https://stat-xplore.dwp.gov.uk/webapi/metadata/UC_Households/Family%20Type.html Count only the Great Britain regions, matching K03000001; DWP removes Northern Ireland-office claims from these statistics. Source: https://www.gov.uk/government/publications/universal-credit-statistics-background-information-and-methodology/universal-credit-statistics-background-information-and-methodology#creating-a-great-britain-dataset Source: https://github.com/PolicyEngine/chronicle/pull/252",
+          "household_conditions": [
+            {
+              "variable": "region",
+              "entity": "household",
+              "reduce": "any",
+              "operator": "in",
+              "value": [
+                "NORTH_EAST",
+                "NORTH_WEST",
+                "YORKSHIRE",
+                "EAST_MIDLANDS",
+                "WEST_MIDLANDS",
+                "EAST_OF_ENGLAND",
+                "LONDON",
+                "SOUTH_EAST",
+                "SOUTH_WEST",
+                "WALES",
+                "SCOTLAND"
+              ],
+              "map_to": "benunit"
+            }
+          ]
         },
         "axiom": {
           "metric_name": "dwp/uc/claimants_couple_with_children",
@@ -3975,14 +4529,55 @@
       "ledger_selector": {
         "source_name": "dwp",
         "source_concept": "dwp.uc_households",
+        "source_measure_id": "benefit_units",
         "groupby_dimension": "dwp.uc_family_type",
         "dimensions": [
-          "family_type"
+          "family_type",
+          "payment_indicator",
+          "child_entitlement"
         ],
         "dimension_values": {
+          "payment_indicator": "Yes",
+          "child_entitlement": [
+            "No",
+            "Yes"
+          ],
           "family_type": "Couple, with children"
+        },
+        "period_type": "month",
+        "period_value": [
+          "2025-01",
+          "2025-02",
+          "2025-03",
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
+        ]
+      },
+      "value_operation": "monthly_window_sum_average",
+      "period_match_policy": "source_window",
+      "value_operands": [
+        {
+          "dimension_values": {
+            "family_type": "Couple, with children",
+            "payment_indicator": "Yes",
+            "child_entitlement": "No"
+          }
+        },
+        {
+          "dimension_values": {
+            "family_type": "Couple, with children",
+            "payment_indicator": "Yes",
+            "child_entitlement": "Yes"
+          }
         }
-      }
+      ]
     },
     {
       "target_id": "dwp.uc.payment_distribution_single",
@@ -4001,6 +4596,17 @@
             "operator": ">",
             "value": 0
           }
+        ],
+        "source_months": [
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
         ]
       },
       "bindings": {
@@ -4009,7 +4615,7 @@
           "groupby_variable": "universal_credit",
           "filters": [
             {
-              "variable": "family_type",
+              "variable": "uc_calibration_administrative_family_type",
               "operator": "==",
               "value": "SINGLE"
             }
@@ -4018,7 +4624,31 @@
           "from_entity": "benunit",
           "map_to": "household",
           "band_period_factor": 12,
-          "notes": "Benunit counts by annual UC award band: publisher bands are monthly award amounts, multiplied by 12 to band annual model UC (compute/benefits.py:84-98; half-open [lower, upper))."
+          "notes": "Benunit counts by annual UC award band: publisher bands are monthly award amounts, multiplied by 12 to band annual model UC (compute/benefits.py:84-98; half-open [lower, upper)). Administrative family classification uses model standard allowance above the model-year maximum single rate for couples, separately from retained claimant roles; zero allowance is UNKNOWN. Child presence retains own-benefit-unit reported-under-20/qualifying-child proxy and does not establish DWP declared-child attachment or ineligible-partner exceptions. Source: https://stat-xplore.dwp.gov.uk/webapi/metadata/UC_Households/Family%20Type.html The last bound source band ends at \u00a32,500 monthly, inclusive; the separately published \u00a32,500.01 or over category remains unbound. Source: https://stat-xplore.dwp.gov.uk/webapi/metadata/UC_Households/Monthly%20Award%20Amount%20(bands).html Count only the Great Britain regions, matching K03000001; DWP removes Northern Ireland-office claims from these statistics. Source: https://www.gov.uk/government/publications/universal-credit-statistics-background-information-and-methodology/universal-credit-statistics-background-information-and-methodology#creating-a-great-britain-dataset",
+          "household_conditions": [
+            {
+              "variable": "region",
+              "entity": "household",
+              "reduce": "any",
+              "operator": "in",
+              "value": [
+                "NORTH_EAST",
+                "NORTH_WEST",
+                "YORKSHIRE",
+                "EAST_MIDLANDS",
+                "WEST_MIDLANDS",
+                "EAST_OF_ENGLAND",
+                "LONDON",
+                "SOUTH_EAST",
+                "SOUTH_WEST",
+                "WALES",
+                "SCOTLAND"
+              ],
+              "map_to": "benunit"
+            }
+          ],
+          "band_upper_bound": 2500,
+          "band_upper_bound_inclusive": true
         },
         "axiom": {
           "metric_name": "dwp/uc_payment_dist/SINGLE",
@@ -4056,6 +4686,17 @@
             "operator": ">",
             "value": 0
           }
+        ],
+        "source_months": [
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
         ]
       },
       "bindings": {
@@ -4064,7 +4705,7 @@
           "groupby_variable": "universal_credit",
           "filters": [
             {
-              "variable": "family_type",
+              "variable": "uc_calibration_administrative_family_type",
               "operator": "==",
               "value": "LONE_PARENT"
             }
@@ -4073,7 +4714,31 @@
           "from_entity": "benunit",
           "map_to": "household",
           "band_period_factor": 12,
-          "notes": "Benunit counts by annual UC award band: publisher bands are monthly award amounts, multiplied by 12 to band annual model UC (compute/benefits.py:84-98; half-open [lower, upper))."
+          "notes": "Benunit counts by annual UC award band: publisher bands are monthly award amounts, multiplied by 12 to band annual model UC (compute/benefits.py:84-98; half-open [lower, upper)). Administrative family classification uses model standard allowance above the model-year maximum single rate for couples, separately from retained claimant roles; zero allowance is UNKNOWN. Child presence retains own-benefit-unit reported-under-20/qualifying-child proxy and does not establish DWP declared-child attachment or ineligible-partner exceptions. Source: https://stat-xplore.dwp.gov.uk/webapi/metadata/UC_Households/Family%20Type.html The last bound source band ends at \u00a32,500 monthly, inclusive; the separately published \u00a32,500.01 or over category remains unbound. Source: https://stat-xplore.dwp.gov.uk/webapi/metadata/UC_Households/Monthly%20Award%20Amount%20(bands).html Count only the Great Britain regions, matching K03000001; DWP removes Northern Ireland-office claims from these statistics. Source: https://www.gov.uk/government/publications/universal-credit-statistics-background-information-and-methodology/universal-credit-statistics-background-information-and-methodology#creating-a-great-britain-dataset",
+          "household_conditions": [
+            {
+              "variable": "region",
+              "entity": "household",
+              "reduce": "any",
+              "operator": "in",
+              "value": [
+                "NORTH_EAST",
+                "NORTH_WEST",
+                "YORKSHIRE",
+                "EAST_MIDLANDS",
+                "WEST_MIDLANDS",
+                "EAST_OF_ENGLAND",
+                "LONDON",
+                "SOUTH_EAST",
+                "SOUTH_WEST",
+                "WALES",
+                "SCOTLAND"
+              ],
+              "map_to": "benunit"
+            }
+          ],
+          "band_upper_bound": 2500,
+          "band_upper_bound_inclusive": true
         },
         "axiom": {
           "metric_name": "dwp/uc_payment_dist/LONE_PARENT",
@@ -4111,6 +4776,17 @@
             "operator": ">",
             "value": 0
           }
+        ],
+        "source_months": [
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
         ]
       },
       "bindings": {
@@ -4119,7 +4795,7 @@
           "groupby_variable": "universal_credit",
           "filters": [
             {
-              "variable": "family_type",
+              "variable": "uc_calibration_administrative_family_type",
               "operator": "==",
               "value": "COUPLE_NO_CHILDREN"
             }
@@ -4128,7 +4804,31 @@
           "from_entity": "benunit",
           "map_to": "household",
           "band_period_factor": 12,
-          "notes": "Benunit counts by annual UC award band: publisher bands are monthly award amounts, multiplied by 12 to band annual model UC (compute/benefits.py:84-98; half-open [lower, upper))."
+          "notes": "Benunit counts by annual UC award band: publisher bands are monthly award amounts, multiplied by 12 to band annual model UC (compute/benefits.py:84-98; half-open [lower, upper)). Administrative family classification uses model standard allowance above the model-year maximum single rate for couples, separately from retained claimant roles; zero allowance is UNKNOWN. Child presence retains own-benefit-unit reported-under-20/qualifying-child proxy and does not establish DWP declared-child attachment or ineligible-partner exceptions. Source: https://stat-xplore.dwp.gov.uk/webapi/metadata/UC_Households/Family%20Type.html The last bound source band ends at \u00a32,500 monthly, inclusive; the separately published \u00a32,500.01 or over category remains unbound. Source: https://stat-xplore.dwp.gov.uk/webapi/metadata/UC_Households/Monthly%20Award%20Amount%20(bands).html Count only the Great Britain regions, matching K03000001; DWP removes Northern Ireland-office claims from these statistics. Source: https://www.gov.uk/government/publications/universal-credit-statistics-background-information-and-methodology/universal-credit-statistics-background-information-and-methodology#creating-a-great-britain-dataset",
+          "household_conditions": [
+            {
+              "variable": "region",
+              "entity": "household",
+              "reduce": "any",
+              "operator": "in",
+              "value": [
+                "NORTH_EAST",
+                "NORTH_WEST",
+                "YORKSHIRE",
+                "EAST_MIDLANDS",
+                "WEST_MIDLANDS",
+                "EAST_OF_ENGLAND",
+                "LONDON",
+                "SOUTH_EAST",
+                "SOUTH_WEST",
+                "WALES",
+                "SCOTLAND"
+              ],
+              "map_to": "benunit"
+            }
+          ],
+          "band_upper_bound": 2500,
+          "band_upper_bound_inclusive": true
         },
         "axiom": {
           "metric_name": "dwp/uc_payment_dist/COUPLE_NO_CHILDREN",
@@ -4166,6 +4866,17 @@
             "operator": ">",
             "value": 0
           }
+        ],
+        "source_months": [
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
         ]
       },
       "bindings": {
@@ -4174,7 +4885,7 @@
           "groupby_variable": "universal_credit",
           "filters": [
             {
-              "variable": "family_type",
+              "variable": "uc_calibration_administrative_family_type",
               "operator": "==",
               "value": "COUPLE_WITH_CHILDREN"
             }
@@ -4183,7 +4894,31 @@
           "from_entity": "benunit",
           "map_to": "household",
           "band_period_factor": 12,
-          "notes": "Benunit counts by annual UC award band: publisher bands are monthly award amounts, multiplied by 12 to band annual model UC (compute/benefits.py:84-98; half-open [lower, upper))."
+          "notes": "Benunit counts by annual UC award band: publisher bands are monthly award amounts, multiplied by 12 to band annual model UC (compute/benefits.py:84-98; half-open [lower, upper)). Administrative family classification uses model standard allowance above the model-year maximum single rate for couples, separately from retained claimant roles; zero allowance is UNKNOWN. Child presence retains own-benefit-unit reported-under-20/qualifying-child proxy and does not establish DWP declared-child attachment or ineligible-partner exceptions. Source: https://stat-xplore.dwp.gov.uk/webapi/metadata/UC_Households/Family%20Type.html The last bound source band ends at \u00a32,500 monthly, inclusive; the separately published \u00a32,500.01 or over category remains unbound. Source: https://stat-xplore.dwp.gov.uk/webapi/metadata/UC_Households/Monthly%20Award%20Amount%20(bands).html Count only the Great Britain regions, matching K03000001; DWP removes Northern Ireland-office claims from these statistics. Source: https://www.gov.uk/government/publications/universal-credit-statistics-background-information-and-methodology/universal-credit-statistics-background-information-and-methodology#creating-a-great-britain-dataset",
+          "household_conditions": [
+            {
+              "variable": "region",
+              "entity": "household",
+              "reduce": "any",
+              "operator": "in",
+              "value": [
+                "NORTH_EAST",
+                "NORTH_WEST",
+                "YORKSHIRE",
+                "EAST_MIDLANDS",
+                "WEST_MIDLANDS",
+                "EAST_OF_ENGLAND",
+                "LONDON",
+                "SOUTH_EAST",
+                "SOUTH_WEST",
+                "WALES",
+                "SCOTLAND"
+              ],
+              "map_to": "benunit"
+            }
+          ],
+          "band_upper_bound": 2500,
+          "band_upper_bound_inclusive": true
         },
         "axiom": {
           "metric_name": "dwp/uc_payment_dist/COUPLE_WITH_CHILDREN",
@@ -4211,57 +4946,55 @@
         "country"
       ],
       "measurement": {
-        "entity": "household",
-        "concept": "uk.household.count",
-        "filters": [
-          {
-            "concept": "uk.geography.region",
-            "equals": "scotland"
-          },
-          {
-            "concept": "uk.benefits.universal_credit.amount",
-            "operator": ">",
-            "value": 0
-          },
-          {
-            "concept": "uk.demographics.youngest_child_age",
-            "operator": "<",
-            "value": 1
-          }
+        "entity": "benunit",
+        "map_to": "household",
+        "concept": "uk.benefit_unit.count",
+        "source_months": [
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
         ]
       },
       "bindings": {
         "policyengine": {
           "metric_name": "dwp/scotland_uc_households_child_under_1",
-          "reduce": "any",
           "household_conditions": [
             {
               "variable": "region",
+              "entity": "household",
+              "reduce": "any",
               "operator": "==",
-              "value": "SCOTLAND"
-            },
+              "value": "SCOTLAND",
+              "map_to": "benunit"
+            }
+          ],
+          "value_variable": "benunit_count",
+          "notes": "Count each Scottish UC benefit unit with its own reported child under one; a baby or UC claim in a different benefit unit in the same dwelling does not qualify it. Source April\u2013December 2025 mean covers nine observations. Annual positive model UC remains a proxy for the source claim/payment state.",
+          "from_entity": "benunit",
+          "map_to": "household",
+          "filters": [
             {
               "variable": "universal_credit",
-              "entity": "benunit",
-              "reduce": "any",
               "operator": ">",
               "value": 0
             },
             {
-              "variable": "age",
-              "entity": "person",
-              "reduce": "any_child_under",
-              "operator": "<",
-              "value": 1
+              "variable": "uc_calibration_has_child_under_one",
+              "operator": "==",
+              "value": true
             }
-          ],
-          "value_variable": "household_count",
-          "notes": "Scottish UC households with a child under 1 (compute/benefits.py:24-30). Household grain kept: the calibration provider has no categorical household-to-benefit-unit broadcast (a benefit-unit row cannot filter on region), so the #813-style re-bind is not available for a geography-filtered row; the Chronicle series is calendar-year averaged over April-December 2025 like the rest of the family."
+          ]
         },
         "axiom": {
           "metric_name": "dwp/scotland_uc_households_child_under_1",
           "status": "pending",
-          "value_rule": "uk.household.count"
+          "value_rule": "uk.benefit_unit.count"
         }
       },
       "ledger_selector": {
@@ -4283,22 +5016,46 @@
         "country"
       ],
       "measurement": {
-        "entity": "household",
-        "concept": "uk.household.count"
+        "entity": "benunit",
+        "concept": "uk.benefit_unit.count",
+        "map_to": "household"
       },
       "bindings": {
         "policyengine": {
           "metric_name": "dwp/uc/two_child_limit/households_affected",
           "kind": "baseline_flag_crosstab",
-          "affected_flag_variable": "uc_is_child_limit_affected",
-          "value_variable": "household_count",
+          "affected_flag_variable": "uc_tcl_affected_benunit_proxy",
+          "value_variable": "benunit_count",
           "map_to": "household",
-          "notes": "Affected children are persons flagged by uc_is_child_limit_affected (household round-trip) who are children in UC-receiving households; an affected household contains at least one such child (compute/benefits.py:130-148). Row counts: affected_households."
+          "notes": "Count UC benefit units and their own dependent children/qualifying young people, excluding claimant/partner roles. Statistical affected children are third or subsequent own qualifying children born on/after the source cutoff, including exceptions; this is separate from losing a child element. The current measurement is explicitly a proxy: annual universal_credit > 0 for source open claims, and model birth_year >= 2017 for 6 April 2017. Retain the source April observation date; annual assignment does not create a yearly average or an April claim-history replay. Claimant PIP counts only retained claimant/partner roles; disabled-child-element status counts only own qualifying children. GB residential-region mask excludes NI. Source: https://www.gov.uk/government/statistics/universal-credit-claimants-statistics-on-the-two-child-limit-policy-april-2025/background-information-and-methodology",
+          "household_conditions": [
+            {
+              "variable": "region",
+              "entity": "household",
+              "reduce": "any",
+              "operator": "in",
+              "value": [
+                "NORTH_EAST",
+                "NORTH_WEST",
+                "YORKSHIRE",
+                "EAST_MIDLANDS",
+                "WEST_MIDLANDS",
+                "EAST_OF_ENGLAND",
+                "LONDON",
+                "SOUTH_EAST",
+                "SOUTH_WEST",
+                "WALES",
+                "SCOTLAND"
+              ],
+              "map_to": "benunit"
+            }
+          ],
+          "from_entity": "benunit"
         },
         "axiom": {
           "metric_name": "dwp/uc/two_child_limit/households_affected",
           "status": "pending",
-          "value_rule": "uk.household.count"
+          "value_rule": "uk.benefit_unit.count"
         }
       },
       "ledger_selector": {
@@ -4316,22 +5073,41 @@
         "country"
       ],
       "measurement": {
-        "entity": "household",
-        "concept": "uk.person.count"
+        "entity": "benunit",
+        "concept": "uk.person.count",
+        "map_to": "household"
       },
       "bindings": {
         "policyengine": {
           "metric_name": "dwp/uc/two_child_limit/children_affected",
           "kind": "baseline_flag_crosstab",
-          "affected_flag_variable": "uc_is_child_limit_affected",
-          "value_variable": "uc_is_child_limit_affected",
-          "value_reduction": {
-            "variable": "uc_is_child_limit_affected",
-            "entity": "person",
-            "reduce": "sum"
-          },
+          "affected_flag_variable": "uc_tcl_affected_benunit_proxy",
+          "value_variable": "uc_tcl_affected_child_count_proxy",
           "map_to": "household",
-          "notes": "Affected children are persons flagged by uc_is_child_limit_affected (household round-trip) who are children in UC-receiving households; an affected household contains at least one such child (compute/benefits.py:130-148). Row counts: affected_children."
+          "notes": "Count UC benefit units and their own dependent children/qualifying young people, excluding claimant/partner roles. Statistical affected children are third or subsequent own qualifying children born on/after the source cutoff, including exceptions; this is separate from losing a child element. The current measurement is explicitly a proxy: annual universal_credit > 0 for source open claims, and model birth_year >= 2017 for 6 April 2017. Retain the source April observation date; annual assignment does not create a yearly average or an April claim-history replay. Claimant PIP counts only retained claimant/partner roles; disabled-child-element status counts only own qualifying children. GB residential-region mask excludes NI. Source: https://www.gov.uk/government/statistics/universal-credit-claimants-statistics-on-the-two-child-limit-policy-april-2025/background-information-and-methodology",
+          "household_conditions": [
+            {
+              "variable": "region",
+              "entity": "household",
+              "reduce": "any",
+              "operator": "in",
+              "value": [
+                "NORTH_EAST",
+                "NORTH_WEST",
+                "YORKSHIRE",
+                "EAST_MIDLANDS",
+                "WEST_MIDLANDS",
+                "EAST_OF_ENGLAND",
+                "LONDON",
+                "SOUTH_EAST",
+                "SOUTH_WEST",
+                "WALES",
+                "SCOTLAND"
+              ],
+              "map_to": "benunit"
+            }
+          ],
+          "from_entity": "benunit"
         },
         "axiom": {
           "metric_name": "dwp/uc/two_child_limit/children_affected",
@@ -4354,22 +5130,41 @@
         "country"
       ],
       "measurement": {
-        "entity": "household",
-        "concept": "uk.person.count"
+        "entity": "benunit",
+        "concept": "uk.person.count",
+        "map_to": "household"
       },
       "bindings": {
         "policyengine": {
           "metric_name": "dwp/uc/two_child_limit/children_in_affected_households",
           "kind": "baseline_flag_crosstab",
-          "affected_flag_variable": "uc_is_child_limit_affected",
-          "value_variable": "is_child",
-          "value_reduction": {
-            "variable": "is_child",
-            "entity": "person",
-            "reduce": "sum"
-          },
+          "affected_flag_variable": "uc_tcl_affected_benunit_proxy",
+          "value_variable": "uc_tcl_qualifying_child_count",
           "map_to": "household",
-          "notes": "Affected children are persons flagged by uc_is_child_limit_affected (household round-trip) who are children in UC-receiving households; an affected household contains at least one such child (compute/benefits.py:130-148). Row counts: children_in_affected_households."
+          "notes": "Count UC benefit units and their own dependent children/qualifying young people, excluding claimant/partner roles. Statistical affected children are third or subsequent own qualifying children born on/after the source cutoff, including exceptions; this is separate from losing a child element. The current measurement is explicitly a proxy: annual universal_credit > 0 for source open claims, and model birth_year >= 2017 for 6 April 2017. Retain the source April observation date; annual assignment does not create a yearly average or an April claim-history replay. Claimant PIP counts only retained claimant/partner roles; disabled-child-element status counts only own qualifying children. GB residential-region mask excludes NI. Source: https://www.gov.uk/government/statistics/universal-credit-claimants-statistics-on-the-two-child-limit-policy-april-2025/background-information-and-methodology",
+          "household_conditions": [
+            {
+              "variable": "region",
+              "entity": "household",
+              "reduce": "any",
+              "operator": "in",
+              "value": [
+                "NORTH_EAST",
+                "NORTH_WEST",
+                "YORKSHIRE",
+                "EAST_MIDLANDS",
+                "WEST_MIDLANDS",
+                "EAST_OF_ENGLAND",
+                "LONDON",
+                "SOUTH_EAST",
+                "SOUTH_WEST",
+                "WALES",
+                "SCOTLAND"
+              ],
+              "map_to": "benunit"
+            }
+          ],
+          "from_entity": "benunit"
         },
         "axiom": {
           "metric_name": "dwp/uc/two_child_limit/children_in_affected_households",
@@ -4392,31 +5187,53 @@
         "country"
       ],
       "measurement": {
-        "entity": "household",
-        "concept": "uk.household.count"
+        "entity": "benunit",
+        "concept": "uk.benefit_unit.count",
+        "map_to": "household"
       },
       "bindings": {
         "policyengine": {
           "metric_name": "dwp/uc/two_child_limit/3_children_households",
           "household_conditions": [
             {
-              "variable": "is_child",
-              "entity": "person",
-              "reduce": "sum",
-              "operator": "==",
-              "value": 3
+              "variable": "region",
+              "entity": "household",
+              "reduce": "any",
+              "operator": "in",
+              "value": [
+                "NORTH_EAST",
+                "NORTH_WEST",
+                "YORKSHIRE",
+                "EAST_MIDLANDS",
+                "WEST_MIDLANDS",
+                "EAST_OF_ENGLAND",
+                "LONDON",
+                "SOUTH_EAST",
+                "SOUTH_WEST",
+                "WALES",
+                "SCOTLAND"
+              ],
+              "map_to": "benunit"
             }
           ],
           "kind": "baseline_flag_crosstab",
-          "affected_flag_variable": "uc_is_child_limit_affected",
-          "value_variable": "household_count",
+          "affected_flag_variable": "uc_tcl_affected_benunit_proxy",
+          "value_variable": "benunit_count",
           "map_to": "household",
-          "notes": "Affected children are persons flagged by uc_is_child_limit_affected (household round-trip) who are children in UC-receiving households; an affected household contains at least one such child (compute/benefits.py:130-148). Row counts: affected_households."
+          "notes": "Count UC benefit units and their own dependent children/qualifying young people, excluding claimant/partner roles. Statistical affected children are third or subsequent own qualifying children born on/after the source cutoff, including exceptions; this is separate from losing a child element. The current measurement is explicitly a proxy: annual universal_credit > 0 for source open claims, and model birth_year >= 2017 for 6 April 2017. Retain the source April observation date; annual assignment does not create a yearly average or an April claim-history replay. Claimant PIP counts only retained claimant/partner roles; disabled-child-element status counts only own qualifying children. GB residential-region mask excludes NI. Source: https://www.gov.uk/government/statistics/universal-credit-claimants-statistics-on-the-two-child-limit-policy-april-2025/background-information-and-methodology",
+          "from_entity": "benunit",
+          "filters": [
+            {
+              "variable": "uc_tcl_qualifying_child_count",
+              "operator": "==",
+              "value": 3
+            }
+          ]
         },
         "axiom": {
           "metric_name": "dwp/uc/two_child_limit/3_children_households",
           "status": "pending",
-          "value_rule": "uk.household.count"
+          "value_rule": "uk.benefit_unit.count"
         }
       },
       "ledger_selector": {
@@ -4434,31 +5251,48 @@
         "country"
       ],
       "measurement": {
-        "entity": "household",
-        "concept": "uk.person.count"
+        "entity": "benunit",
+        "concept": "uk.person.count",
+        "map_to": "household"
       },
       "bindings": {
         "policyengine": {
           "metric_name": "dwp/uc/two_child_limit/3_children_households_total_children",
           "household_conditions": [
             {
-              "variable": "is_child",
-              "entity": "person",
-              "reduce": "sum",
-              "operator": "==",
-              "value": 3
+              "variable": "region",
+              "entity": "household",
+              "reduce": "any",
+              "operator": "in",
+              "value": [
+                "NORTH_EAST",
+                "NORTH_WEST",
+                "YORKSHIRE",
+                "EAST_MIDLANDS",
+                "WEST_MIDLANDS",
+                "EAST_OF_ENGLAND",
+                "LONDON",
+                "SOUTH_EAST",
+                "SOUTH_WEST",
+                "WALES",
+                "SCOTLAND"
+              ],
+              "map_to": "benunit"
             }
           ],
           "kind": "baseline_flag_crosstab",
-          "affected_flag_variable": "uc_is_child_limit_affected",
-          "value_variable": "is_child",
-          "value_reduction": {
-            "variable": "is_child",
-            "entity": "person",
-            "reduce": "sum"
-          },
+          "affected_flag_variable": "uc_tcl_affected_benunit_proxy",
+          "value_variable": "uc_tcl_qualifying_child_count",
           "map_to": "household",
-          "notes": "Total children (not only affected children) in affected households of this size (compute/benefits.py:158-161). Row counts: children_in_affected_households."
+          "notes": "Count UC benefit units and their own dependent children/qualifying young people, excluding claimant/partner roles. Statistical affected children are third or subsequent own qualifying children born on/after the source cutoff, including exceptions; this is separate from losing a child element. The current measurement is explicitly a proxy: annual universal_credit > 0 for source open claims, and model birth_year >= 2017 for 6 April 2017. Retain the source April observation date; annual assignment does not create a yearly average or an April claim-history replay. Claimant PIP counts only retained claimant/partner roles; disabled-child-element status counts only own qualifying children. GB residential-region mask excludes NI. Source: https://www.gov.uk/government/statistics/universal-credit-claimants-statistics-on-the-two-child-limit-policy-april-2025/background-information-and-methodology",
+          "from_entity": "benunit",
+          "filters": [
+            {
+              "variable": "uc_tcl_qualifying_child_count",
+              "operator": "==",
+              "value": 3
+            }
+          ]
         },
         "axiom": {
           "metric_name": "dwp/uc/two_child_limit/3_children_households_total_children",
@@ -4481,31 +5315,53 @@
         "country"
       ],
       "measurement": {
-        "entity": "household",
-        "concept": "uk.household.count"
+        "entity": "benunit",
+        "concept": "uk.benefit_unit.count",
+        "map_to": "household"
       },
       "bindings": {
         "policyengine": {
           "metric_name": "dwp/uc/two_child_limit/4_children_households",
           "household_conditions": [
             {
-              "variable": "is_child",
-              "entity": "person",
-              "reduce": "sum",
-              "operator": "==",
-              "value": 4
+              "variable": "region",
+              "entity": "household",
+              "reduce": "any",
+              "operator": "in",
+              "value": [
+                "NORTH_EAST",
+                "NORTH_WEST",
+                "YORKSHIRE",
+                "EAST_MIDLANDS",
+                "WEST_MIDLANDS",
+                "EAST_OF_ENGLAND",
+                "LONDON",
+                "SOUTH_EAST",
+                "SOUTH_WEST",
+                "WALES",
+                "SCOTLAND"
+              ],
+              "map_to": "benunit"
             }
           ],
           "kind": "baseline_flag_crosstab",
-          "affected_flag_variable": "uc_is_child_limit_affected",
-          "value_variable": "household_count",
+          "affected_flag_variable": "uc_tcl_affected_benunit_proxy",
+          "value_variable": "benunit_count",
           "map_to": "household",
-          "notes": "Affected children are persons flagged by uc_is_child_limit_affected (household round-trip) who are children in UC-receiving households; an affected household contains at least one such child (compute/benefits.py:130-148). Row counts: affected_households."
+          "notes": "Count UC benefit units and their own dependent children/qualifying young people, excluding claimant/partner roles. Statistical affected children are third or subsequent own qualifying children born on/after the source cutoff, including exceptions; this is separate from losing a child element. The current measurement is explicitly a proxy: annual universal_credit > 0 for source open claims, and model birth_year >= 2017 for 6 April 2017. Retain the source April observation date; annual assignment does not create a yearly average or an April claim-history replay. Claimant PIP counts only retained claimant/partner roles; disabled-child-element status counts only own qualifying children. GB residential-region mask excludes NI. Source: https://www.gov.uk/government/statistics/universal-credit-claimants-statistics-on-the-two-child-limit-policy-april-2025/background-information-and-methodology",
+          "from_entity": "benunit",
+          "filters": [
+            {
+              "variable": "uc_tcl_qualifying_child_count",
+              "operator": "==",
+              "value": 4
+            }
+          ]
         },
         "axiom": {
           "metric_name": "dwp/uc/two_child_limit/4_children_households",
           "status": "pending",
-          "value_rule": "uk.household.count"
+          "value_rule": "uk.benefit_unit.count"
         }
       },
       "ledger_selector": {
@@ -4523,31 +5379,48 @@
         "country"
       ],
       "measurement": {
-        "entity": "household",
-        "concept": "uk.person.count"
+        "entity": "benunit",
+        "concept": "uk.person.count",
+        "map_to": "household"
       },
       "bindings": {
         "policyengine": {
           "metric_name": "dwp/uc/two_child_limit/4_children_households_total_children",
           "household_conditions": [
             {
-              "variable": "is_child",
-              "entity": "person",
-              "reduce": "sum",
-              "operator": "==",
-              "value": 4
+              "variable": "region",
+              "entity": "household",
+              "reduce": "any",
+              "operator": "in",
+              "value": [
+                "NORTH_EAST",
+                "NORTH_WEST",
+                "YORKSHIRE",
+                "EAST_MIDLANDS",
+                "WEST_MIDLANDS",
+                "EAST_OF_ENGLAND",
+                "LONDON",
+                "SOUTH_EAST",
+                "SOUTH_WEST",
+                "WALES",
+                "SCOTLAND"
+              ],
+              "map_to": "benunit"
             }
           ],
           "kind": "baseline_flag_crosstab",
-          "affected_flag_variable": "uc_is_child_limit_affected",
-          "value_variable": "is_child",
-          "value_reduction": {
-            "variable": "is_child",
-            "entity": "person",
-            "reduce": "sum"
-          },
+          "affected_flag_variable": "uc_tcl_affected_benunit_proxy",
+          "value_variable": "uc_tcl_qualifying_child_count",
           "map_to": "household",
-          "notes": "Total children (not only affected children) in affected households of this size (compute/benefits.py:158-161). Row counts: children_in_affected_households."
+          "notes": "Count UC benefit units and their own dependent children/qualifying young people, excluding claimant/partner roles. Statistical affected children are third or subsequent own qualifying children born on/after the source cutoff, including exceptions; this is separate from losing a child element. The current measurement is explicitly a proxy: annual universal_credit > 0 for source open claims, and model birth_year >= 2017 for 6 April 2017. Retain the source April observation date; annual assignment does not create a yearly average or an April claim-history replay. Claimant PIP counts only retained claimant/partner roles; disabled-child-element status counts only own qualifying children. GB residential-region mask excludes NI. Source: https://www.gov.uk/government/statistics/universal-credit-claimants-statistics-on-the-two-child-limit-policy-april-2025/background-information-and-methodology",
+          "from_entity": "benunit",
+          "filters": [
+            {
+              "variable": "uc_tcl_qualifying_child_count",
+              "operator": "==",
+              "value": 4
+            }
+          ]
         },
         "axiom": {
           "metric_name": "dwp/uc/two_child_limit/4_children_households_total_children",
@@ -4570,31 +5443,53 @@
         "country"
       ],
       "measurement": {
-        "entity": "household",
-        "concept": "uk.household.count"
+        "entity": "benunit",
+        "concept": "uk.benefit_unit.count",
+        "map_to": "household"
       },
       "bindings": {
         "policyengine": {
           "metric_name": "dwp/uc/two_child_limit/5_children_households",
           "household_conditions": [
             {
-              "variable": "is_child",
-              "entity": "person",
-              "reduce": "sum",
-              "operator": "==",
-              "value": 5
+              "variable": "region",
+              "entity": "household",
+              "reduce": "any",
+              "operator": "in",
+              "value": [
+                "NORTH_EAST",
+                "NORTH_WEST",
+                "YORKSHIRE",
+                "EAST_MIDLANDS",
+                "WEST_MIDLANDS",
+                "EAST_OF_ENGLAND",
+                "LONDON",
+                "SOUTH_EAST",
+                "SOUTH_WEST",
+                "WALES",
+                "SCOTLAND"
+              ],
+              "map_to": "benunit"
             }
           ],
           "kind": "baseline_flag_crosstab",
-          "affected_flag_variable": "uc_is_child_limit_affected",
-          "value_variable": "household_count",
+          "affected_flag_variable": "uc_tcl_affected_benunit_proxy",
+          "value_variable": "benunit_count",
           "map_to": "household",
-          "notes": "Affected children are persons flagged by uc_is_child_limit_affected (household round-trip) who are children in UC-receiving households; an affected household contains at least one such child (compute/benefits.py:130-148). Row counts: affected_households."
+          "notes": "Count UC benefit units and their own dependent children/qualifying young people, excluding claimant/partner roles. Statistical affected children are third or subsequent own qualifying children born on/after the source cutoff, including exceptions; this is separate from losing a child element. The current measurement is explicitly a proxy: annual universal_credit > 0 for source open claims, and model birth_year >= 2017 for 6 April 2017. Retain the source April observation date; annual assignment does not create a yearly average or an April claim-history replay. Claimant PIP counts only retained claimant/partner roles; disabled-child-element status counts only own qualifying children. GB residential-region mask excludes NI. Source: https://www.gov.uk/government/statistics/universal-credit-claimants-statistics-on-the-two-child-limit-policy-april-2025/background-information-and-methodology",
+          "from_entity": "benunit",
+          "filters": [
+            {
+              "variable": "uc_tcl_qualifying_child_count",
+              "operator": "==",
+              "value": 5
+            }
+          ]
         },
         "axiom": {
           "metric_name": "dwp/uc/two_child_limit/5_children_households",
           "status": "pending",
-          "value_rule": "uk.household.count"
+          "value_rule": "uk.benefit_unit.count"
         }
       },
       "ledger_selector": {
@@ -4612,31 +5507,48 @@
         "country"
       ],
       "measurement": {
-        "entity": "household",
-        "concept": "uk.person.count"
+        "entity": "benunit",
+        "concept": "uk.person.count",
+        "map_to": "household"
       },
       "bindings": {
         "policyengine": {
           "metric_name": "dwp/uc/two_child_limit/5_children_households_total_children",
           "household_conditions": [
             {
-              "variable": "is_child",
-              "entity": "person",
-              "reduce": "sum",
-              "operator": "==",
-              "value": 5
+              "variable": "region",
+              "entity": "household",
+              "reduce": "any",
+              "operator": "in",
+              "value": [
+                "NORTH_EAST",
+                "NORTH_WEST",
+                "YORKSHIRE",
+                "EAST_MIDLANDS",
+                "WEST_MIDLANDS",
+                "EAST_OF_ENGLAND",
+                "LONDON",
+                "SOUTH_EAST",
+                "SOUTH_WEST",
+                "WALES",
+                "SCOTLAND"
+              ],
+              "map_to": "benunit"
             }
           ],
           "kind": "baseline_flag_crosstab",
-          "affected_flag_variable": "uc_is_child_limit_affected",
-          "value_variable": "is_child",
-          "value_reduction": {
-            "variable": "is_child",
-            "entity": "person",
-            "reduce": "sum"
-          },
+          "affected_flag_variable": "uc_tcl_affected_benunit_proxy",
+          "value_variable": "uc_tcl_qualifying_child_count",
           "map_to": "household",
-          "notes": "Total children (not only affected children) in affected households of this size (compute/benefits.py:158-161). Row counts: children_in_affected_households."
+          "notes": "Count UC benefit units and their own dependent children/qualifying young people, excluding claimant/partner roles. Statistical affected children are third or subsequent own qualifying children born on/after the source cutoff, including exceptions; this is separate from losing a child element. The current measurement is explicitly a proxy: annual universal_credit > 0 for source open claims, and model birth_year >= 2017 for 6 April 2017. Retain the source April observation date; annual assignment does not create a yearly average or an April claim-history replay. Claimant PIP counts only retained claimant/partner roles; disabled-child-element status counts only own qualifying children. GB residential-region mask excludes NI. Source: https://www.gov.uk/government/statistics/universal-credit-claimants-statistics-on-the-two-child-limit-policy-april-2025/background-information-and-methodology",
+          "from_entity": "benunit",
+          "filters": [
+            {
+              "variable": "uc_tcl_qualifying_child_count",
+              "operator": "==",
+              "value": 5
+            }
+          ]
         },
         "axiom": {
           "metric_name": "dwp/uc/two_child_limit/5_children_households_total_children",
@@ -4659,31 +5571,53 @@
         "country"
       ],
       "measurement": {
-        "entity": "household",
-        "concept": "uk.household.count"
+        "entity": "benunit",
+        "concept": "uk.benefit_unit.count",
+        "map_to": "household"
       },
       "bindings": {
         "policyengine": {
           "metric_name": "dwp/uc/two_child_limit/6_children_households",
           "household_conditions": [
             {
-              "variable": "is_child",
-              "entity": "person",
-              "reduce": "sum",
-              "operator": ">=",
-              "value": 6
+              "variable": "region",
+              "entity": "household",
+              "reduce": "any",
+              "operator": "in",
+              "value": [
+                "NORTH_EAST",
+                "NORTH_WEST",
+                "YORKSHIRE",
+                "EAST_MIDLANDS",
+                "WEST_MIDLANDS",
+                "EAST_OF_ENGLAND",
+                "LONDON",
+                "SOUTH_EAST",
+                "SOUTH_WEST",
+                "WALES",
+                "SCOTLAND"
+              ],
+              "map_to": "benunit"
             }
           ],
           "kind": "baseline_flag_crosstab",
-          "affected_flag_variable": "uc_is_child_limit_affected",
-          "value_variable": "household_count",
+          "affected_flag_variable": "uc_tcl_affected_benunit_proxy",
+          "value_variable": "benunit_count",
           "map_to": "household",
-          "notes": "Affected children are persons flagged by uc_is_child_limit_affected (household round-trip) who are children in UC-receiving households; an affected household contains at least one such child (compute/benefits.py:130-148). Publisher's top band is 6-or-more children. Row counts: affected_households."
+          "notes": "Count UC benefit units and their own dependent children/qualifying young people, excluding claimant/partner roles. Statistical affected children are third or subsequent own qualifying children born on/after the source cutoff, including exceptions; this is separate from losing a child element. The current measurement is explicitly a proxy: annual universal_credit > 0 for source open claims, and model birth_year >= 2017 for 6 April 2017. Retain the source April observation date; annual assignment does not create a yearly average or an April claim-history replay. Claimant PIP counts only retained claimant/partner roles; disabled-child-element status counts only own qualifying children. GB residential-region mask excludes NI. Source: https://www.gov.uk/government/statistics/universal-credit-claimants-statistics-on-the-two-child-limit-policy-april-2025/background-information-and-methodology",
+          "from_entity": "benunit",
+          "filters": [
+            {
+              "variable": "uc_tcl_qualifying_child_count",
+              "operator": ">=",
+              "value": 6
+            }
+          ]
         },
         "axiom": {
           "metric_name": "dwp/uc/two_child_limit/6_children_households",
           "status": "pending",
-          "value_rule": "uk.household.count"
+          "value_rule": "uk.benefit_unit.count"
         }
       },
       "ledger_selector": {
@@ -4701,31 +5635,48 @@
         "country"
       ],
       "measurement": {
-        "entity": "household",
-        "concept": "uk.person.count"
+        "entity": "benunit",
+        "concept": "uk.person.count",
+        "map_to": "household"
       },
       "bindings": {
         "policyengine": {
           "metric_name": "dwp/uc/two_child_limit/6_children_households_total_children",
           "household_conditions": [
             {
-              "variable": "is_child",
-              "entity": "person",
-              "reduce": "sum",
-              "operator": ">=",
-              "value": 6
+              "variable": "region",
+              "entity": "household",
+              "reduce": "any",
+              "operator": "in",
+              "value": [
+                "NORTH_EAST",
+                "NORTH_WEST",
+                "YORKSHIRE",
+                "EAST_MIDLANDS",
+                "WEST_MIDLANDS",
+                "EAST_OF_ENGLAND",
+                "LONDON",
+                "SOUTH_EAST",
+                "SOUTH_WEST",
+                "WALES",
+                "SCOTLAND"
+              ],
+              "map_to": "benunit"
             }
           ],
           "kind": "baseline_flag_crosstab",
-          "affected_flag_variable": "uc_is_child_limit_affected",
-          "value_variable": "is_child",
-          "value_reduction": {
-            "variable": "is_child",
-            "entity": "person",
-            "reduce": "sum"
-          },
+          "affected_flag_variable": "uc_tcl_affected_benunit_proxy",
+          "value_variable": "uc_tcl_qualifying_child_count",
           "map_to": "household",
-          "notes": "Total children (not only affected children) in affected households of this size (compute/benefits.py:158-161). Row counts: children_in_affected_households."
+          "notes": "Count UC benefit units and their own dependent children/qualifying young people, excluding claimant/partner roles. Statistical affected children are third or subsequent own qualifying children born on/after the source cutoff, including exceptions; this is separate from losing a child element. The current measurement is explicitly a proxy: annual universal_credit > 0 for source open claims, and model birth_year >= 2017 for 6 April 2017. Retain the source April observation date; annual assignment does not create a yearly average or an April claim-history replay. Claimant PIP counts only retained claimant/partner roles; disabled-child-element status counts only own qualifying children. GB residential-region mask excludes NI. Source: https://www.gov.uk/government/statistics/universal-credit-claimants-statistics-on-the-two-child-limit-policy-april-2025/background-information-and-methodology",
+          "from_entity": "benunit",
+          "filters": [
+            {
+              "variable": "uc_tcl_qualifying_child_count",
+              "operator": ">=",
+              "value": 6
+            }
+          ]
         },
         "axiom": {
           "metric_name": "dwp/uc/two_child_limit/6_children_households_total_children",
@@ -4748,31 +5699,53 @@
         "country"
       ],
       "measurement": {
-        "entity": "household",
-        "concept": "uk.household.count"
+        "entity": "benunit",
+        "concept": "uk.benefit_unit.count",
+        "map_to": "household"
       },
       "bindings": {
         "policyengine": {
           "metric_name": "dwp/uc/two_child_limit/adult_pip_households",
           "household_conditions": [
             {
-              "variable": "pip",
-              "entity": "person",
-              "reduce": "sum",
-              "operator": ">",
-              "value": 0
+              "variable": "region",
+              "entity": "household",
+              "reduce": "any",
+              "operator": "in",
+              "value": [
+                "NORTH_EAST",
+                "NORTH_WEST",
+                "YORKSHIRE",
+                "EAST_MIDLANDS",
+                "WEST_MIDLANDS",
+                "EAST_OF_ENGLAND",
+                "LONDON",
+                "SOUTH_EAST",
+                "SOUTH_WEST",
+                "WALES",
+                "SCOTLAND"
+              ],
+              "map_to": "benunit"
             }
           ],
           "kind": "baseline_flag_crosstab",
-          "affected_flag_variable": "uc_is_child_limit_affected",
-          "value_variable": "household_count",
+          "affected_flag_variable": "uc_tcl_affected_benunit_proxy",
+          "value_variable": "benunit_count",
           "map_to": "household",
-          "notes": "Affected children are persons flagged by uc_is_child_limit_affected (household round-trip) who are children in UC-receiving households; an affected household contains at least one such child (compute/benefits.py:130-148). Row counts: affected_households."
+          "notes": "Count UC benefit units and their own dependent children/qualifying young people, excluding claimant/partner roles. Statistical affected children are third or subsequent own qualifying children born on/after the source cutoff, including exceptions; this is separate from losing a child element. The current measurement is explicitly a proxy: annual universal_credit > 0 for source open claims, and model birth_year >= 2017 for 6 April 2017. Retain the source April observation date; annual assignment does not create a yearly average or an April claim-history replay. Claimant PIP counts only retained claimant/partner roles; disabled-child-element status counts only own qualifying children. GB residential-region mask excludes NI. Source: https://www.gov.uk/government/statistics/universal-credit-claimants-statistics-on-the-two-child-limit-policy-april-2025/background-information-and-methodology",
+          "from_entity": "benunit",
+          "filters": [
+            {
+              "variable": "uc_tcl_claimant_receives_pip",
+              "operator": ">",
+              "value": 0
+            }
+          ]
         },
         "axiom": {
           "metric_name": "dwp/uc/two_child_limit/adult_pip_households",
           "status": "pending",
-          "value_rule": "uk.household.count"
+          "value_rule": "uk.benefit_unit.count"
         }
       },
       "ledger_selector": {
@@ -4790,31 +5763,48 @@
         "country"
       ],
       "measurement": {
-        "entity": "household",
-        "concept": "uk.person.count"
+        "entity": "benunit",
+        "concept": "uk.person.count",
+        "map_to": "household"
       },
       "bindings": {
         "policyengine": {
           "metric_name": "dwp/uc/two_child_limit/adult_pip_children",
           "household_conditions": [
             {
-              "variable": "pip",
-              "entity": "person",
-              "reduce": "sum",
-              "operator": ">",
-              "value": 0
+              "variable": "region",
+              "entity": "household",
+              "reduce": "any",
+              "operator": "in",
+              "value": [
+                "NORTH_EAST",
+                "NORTH_WEST",
+                "YORKSHIRE",
+                "EAST_MIDLANDS",
+                "WEST_MIDLANDS",
+                "EAST_OF_ENGLAND",
+                "LONDON",
+                "SOUTH_EAST",
+                "SOUTH_WEST",
+                "WALES",
+                "SCOTLAND"
+              ],
+              "map_to": "benunit"
             }
           ],
           "kind": "baseline_flag_crosstab",
-          "affected_flag_variable": "uc_is_child_limit_affected",
-          "value_variable": "is_child",
-          "value_reduction": {
-            "variable": "is_child",
-            "entity": "person",
-            "reduce": "sum"
-          },
+          "affected_flag_variable": "uc_tcl_affected_benunit_proxy",
+          "value_variable": "uc_tcl_qualifying_child_count",
           "map_to": "household",
-          "notes": "All children living in affected households, counted with the model is_child sum per household under the baseline affected flag and the disability condition (sheet 04B counts every child: the 3- and 4-children sibling rows divide to exactly 3.00 and 4.00 children per household; these cells run ~3.6-3.7). Re-bound from uc_is_child_limit_affected per microcosm#808 - the affected-children flag averages ~1.27 per household, a structural ~2.8x shortfall against the published all-children concept. Row counts: adult_pip_children."
+          "notes": "Count UC benefit units and their own dependent children/qualifying young people, excluding claimant/partner roles. Statistical affected children are third or subsequent own qualifying children born on/after the source cutoff, including exceptions; this is separate from losing a child element. The current measurement is explicitly a proxy: annual universal_credit > 0 for source open claims, and model birth_year >= 2017 for 6 April 2017. Retain the source April observation date; annual assignment does not create a yearly average or an April claim-history replay. Claimant PIP counts only retained claimant/partner roles; disabled-child-element status counts only own qualifying children. GB residential-region mask excludes NI. Source: https://www.gov.uk/government/statistics/universal-credit-claimants-statistics-on-the-two-child-limit-policy-april-2025/background-information-and-methodology",
+          "from_entity": "benunit",
+          "filters": [
+            {
+              "variable": "uc_tcl_claimant_receives_pip",
+              "operator": ">",
+              "value": 0
+            }
+          ]
         },
         "axiom": {
           "metric_name": "dwp/uc/two_child_limit/adult_pip_children",
@@ -4837,31 +5827,53 @@
         "country"
       ],
       "measurement": {
-        "entity": "household",
-        "concept": "uk.household.count"
+        "entity": "benunit",
+        "concept": "uk.benefit_unit.count",
+        "map_to": "household"
       },
       "bindings": {
         "policyengine": {
           "metric_name": "dwp/uc/two_child_limit/disabled_child_element_households",
           "household_conditions": [
             {
-              "variable": "uc_individual_disabled_child_element",
-              "entity": "person",
-              "reduce": "sum",
-              "operator": ">",
-              "value": 0
+              "variable": "region",
+              "entity": "household",
+              "reduce": "any",
+              "operator": "in",
+              "value": [
+                "NORTH_EAST",
+                "NORTH_WEST",
+                "YORKSHIRE",
+                "EAST_MIDLANDS",
+                "WEST_MIDLANDS",
+                "EAST_OF_ENGLAND",
+                "LONDON",
+                "SOUTH_EAST",
+                "SOUTH_WEST",
+                "WALES",
+                "SCOTLAND"
+              ],
+              "map_to": "benunit"
             }
           ],
           "kind": "baseline_flag_crosstab",
-          "affected_flag_variable": "uc_is_child_limit_affected",
-          "value_variable": "household_count",
+          "affected_flag_variable": "uc_tcl_affected_benunit_proxy",
+          "value_variable": "benunit_count",
           "map_to": "household",
-          "notes": "Affected children are persons flagged by uc_is_child_limit_affected (household round-trip) who are children in UC-receiving households; an affected household contains at least one such child (compute/benefits.py:130-148). Row counts: affected_households."
+          "notes": "Count UC benefit units and their own dependent children/qualifying young people, excluding claimant/partner roles. Statistical affected children are third or subsequent own qualifying children born on/after the source cutoff, including exceptions; this is separate from losing a child element. The current measurement is explicitly a proxy: annual universal_credit > 0 for source open claims, and model birth_year >= 2017 for 6 April 2017. Retain the source April observation date; annual assignment does not create a yearly average or an April claim-history replay. Claimant PIP counts only retained claimant/partner roles; disabled-child-element status counts only own qualifying children. GB residential-region mask excludes NI. Source: https://www.gov.uk/government/statistics/universal-credit-claimants-statistics-on-the-two-child-limit-policy-april-2025/background-information-and-methodology",
+          "from_entity": "benunit",
+          "filters": [
+            {
+              "variable": "uc_tcl_receives_disabled_child_element",
+              "operator": ">",
+              "value": 0
+            }
+          ]
         },
         "axiom": {
           "metric_name": "dwp/uc/two_child_limit/disabled_child_element_households",
           "status": "pending",
-          "value_rule": "uk.household.count"
+          "value_rule": "uk.benefit_unit.count"
         }
       },
       "ledger_selector": {
@@ -4879,31 +5891,48 @@
         "country"
       ],
       "measurement": {
-        "entity": "household",
-        "concept": "uk.person.count"
+        "entity": "benunit",
+        "concept": "uk.person.count",
+        "map_to": "household"
       },
       "bindings": {
         "policyengine": {
           "metric_name": "dwp/uc/two_child_limit/disabled_child_element_children",
           "household_conditions": [
             {
-              "variable": "uc_individual_disabled_child_element",
-              "entity": "person",
-              "reduce": "sum",
-              "operator": ">",
-              "value": 0
+              "variable": "region",
+              "entity": "household",
+              "reduce": "any",
+              "operator": "in",
+              "value": [
+                "NORTH_EAST",
+                "NORTH_WEST",
+                "YORKSHIRE",
+                "EAST_MIDLANDS",
+                "WEST_MIDLANDS",
+                "EAST_OF_ENGLAND",
+                "LONDON",
+                "SOUTH_EAST",
+                "SOUTH_WEST",
+                "WALES",
+                "SCOTLAND"
+              ],
+              "map_to": "benunit"
             }
           ],
           "kind": "baseline_flag_crosstab",
-          "affected_flag_variable": "uc_is_child_limit_affected",
-          "value_variable": "is_child",
-          "value_reduction": {
-            "variable": "is_child",
-            "entity": "person",
-            "reduce": "sum"
-          },
+          "affected_flag_variable": "uc_tcl_affected_benunit_proxy",
+          "value_variable": "uc_tcl_qualifying_child_count",
           "map_to": "household",
-          "notes": "All children living in affected households, counted with the model is_child sum per household under the baseline affected flag and the disability condition (sheet 04B counts every child: the 3- and 4-children sibling rows divide to exactly 3.00 and 4.00 children per household; these cells run ~3.6-3.7). Re-bound from uc_is_child_limit_affected per microcosm#808 - the affected-children flag averages ~1.27 per household, a structural ~2.8x shortfall against the published all-children concept. Row counts: disabled_child_element_children."
+          "notes": "Count UC benefit units and their own dependent children/qualifying young people, excluding claimant/partner roles. Statistical affected children are third or subsequent own qualifying children born on/after the source cutoff, including exceptions; this is separate from losing a child element. The current measurement is explicitly a proxy: annual universal_credit > 0 for source open claims, and model birth_year >= 2017 for 6 April 2017. Retain the source April observation date; annual assignment does not create a yearly average or an April claim-history replay. Claimant PIP counts only retained claimant/partner roles; disabled-child-element status counts only own qualifying children. GB residential-region mask excludes NI. Source: https://www.gov.uk/government/statistics/universal-credit-claimants-statistics-on-the-two-child-limit-policy-april-2025/background-information-and-methodology",
+          "from_entity": "benunit",
+          "filters": [
+            {
+              "variable": "uc_tcl_receives_disabled_child_element",
+              "operator": ">",
+              "value": 0
+            }
+          ]
         },
         "axiom": {
           "metric_name": "dwp/uc/two_child_limit/disabled_child_element_children",
@@ -8689,7 +9718,7 @@
             }
           ],
           "value_variable": "household_count",
-          "notes": "ONS Table 7 'one family only: couple, no children' is the household being exactly one childless couple and nobody else; with the childless-couple benunit present, person count == 2 is equivalent to the one-family restriction. Without it the binding counted every household *containing* such a couple — a 1.84m overlap with the couple-non-dependent-children and multi-family categories (microcosm#757 audit partition, 2026-08-26)."
+          "notes": "ONS Table 7 'one family only: couple, no children' is the household being exactly one childless couple and nobody else; with the childless-couple benunit present, person count == 2 is equivalent to the one-family restriction. Without it the binding counted every household *containing* such a couple \u2014 a 1.84m overlap with the couple-non-dependent-children and multi-family categories (microcosm#757 audit partition, 2026-08-26)."
         },
         "axiom": {
           "metric_name": "ons/couple_no_children_households",
@@ -9028,10 +10057,15 @@
               "variable": "council_tax_band",
               "operator": "==",
               "value": "A"
+            },
+            {
+              "variable": "country",
+              "operator": "==",
+              "value": "ENGLAND"
             }
           ],
           "value_variable": "household_count",
-          "notes": "Dwelling stock proxied by households; one row per VOA geography (English regions at region level, Wales at country level) - the resolved geography binds the region filter (compute/council_tax.py:6-18). uk-data does not target VOA band I."
+          "notes": "England dwelling stock proxied by households. National references select E92000001, and this binding explicitly filters country == ENGLAND. Local VOA bands use the separate by_area bindings."
         },
         "axiom": {
           "metric_name": "voa/council_tax/band_a",
@@ -9116,10 +10150,15 @@
               "variable": "council_tax_band",
               "operator": "==",
               "value": "B"
+            },
+            {
+              "variable": "country",
+              "operator": "==",
+              "value": "ENGLAND"
             }
           ],
           "value_variable": "household_count",
-          "notes": "Dwelling stock proxied by households; one row per VOA geography (English regions at region level, Wales at country level) - the resolved geography binds the region filter (compute/council_tax.py:6-18). uk-data does not target VOA band I."
+          "notes": "England dwelling stock proxied by households. National references select E92000001, and this binding explicitly filters country == ENGLAND. Local VOA bands use the separate by_area bindings."
         },
         "axiom": {
           "metric_name": "voa/council_tax/band_b",
@@ -9204,10 +10243,15 @@
               "variable": "council_tax_band",
               "operator": "==",
               "value": "C"
+            },
+            {
+              "variable": "country",
+              "operator": "==",
+              "value": "ENGLAND"
             }
           ],
           "value_variable": "household_count",
-          "notes": "Dwelling stock proxied by households; one row per VOA geography (English regions at region level, Wales at country level) - the resolved geography binds the region filter (compute/council_tax.py:6-18). uk-data does not target VOA band I."
+          "notes": "England dwelling stock proxied by households. National references select E92000001, and this binding explicitly filters country == ENGLAND. Local VOA bands use the separate by_area bindings."
         },
         "axiom": {
           "metric_name": "voa/council_tax/band_c",
@@ -9292,10 +10336,15 @@
               "variable": "council_tax_band",
               "operator": "==",
               "value": "D"
+            },
+            {
+              "variable": "country",
+              "operator": "==",
+              "value": "ENGLAND"
             }
           ],
           "value_variable": "household_count",
-          "notes": "Dwelling stock proxied by households; one row per VOA geography (English regions at region level, Wales at country level) - the resolved geography binds the region filter (compute/council_tax.py:6-18). uk-data does not target VOA band I."
+          "notes": "England dwelling stock proxied by households. National references select E92000001, and this binding explicitly filters country == ENGLAND. Local VOA bands use the separate by_area bindings."
         },
         "axiom": {
           "metric_name": "voa/council_tax/band_d",
@@ -9380,10 +10429,15 @@
               "variable": "council_tax_band",
               "operator": "==",
               "value": "E"
+            },
+            {
+              "variable": "country",
+              "operator": "==",
+              "value": "ENGLAND"
             }
           ],
           "value_variable": "household_count",
-          "notes": "Dwelling stock proxied by households; one row per VOA geography (English regions at region level, Wales at country level) - the resolved geography binds the region filter (compute/council_tax.py:6-18). uk-data does not target VOA band I."
+          "notes": "England dwelling stock proxied by households. National references select E92000001, and this binding explicitly filters country == ENGLAND. Local VOA bands use the separate by_area bindings."
         },
         "axiom": {
           "metric_name": "voa/council_tax/band_e",
@@ -9468,10 +10522,15 @@
               "variable": "council_tax_band",
               "operator": "==",
               "value": "F"
+            },
+            {
+              "variable": "country",
+              "operator": "==",
+              "value": "ENGLAND"
             }
           ],
           "value_variable": "household_count",
-          "notes": "Dwelling stock proxied by households; one row per VOA geography (English regions at region level, Wales at country level) - the resolved geography binds the region filter (compute/council_tax.py:6-18). uk-data does not target VOA band I."
+          "notes": "England dwelling stock proxied by households. National references select E92000001, and this binding explicitly filters country == ENGLAND. Local VOA bands use the separate by_area bindings."
         },
         "axiom": {
           "metric_name": "voa/council_tax/band_f",
@@ -9556,10 +10615,15 @@
               "variable": "council_tax_band",
               "operator": "==",
               "value": "G"
+            },
+            {
+              "variable": "country",
+              "operator": "==",
+              "value": "ENGLAND"
             }
           ],
           "value_variable": "household_count",
-          "notes": "Dwelling stock proxied by households; one row per VOA geography (English regions at region level, Wales at country level) - the resolved geography binds the region filter (compute/council_tax.py:6-18). uk-data does not target VOA band I."
+          "notes": "England dwelling stock proxied by households. National references select E92000001, and this binding explicitly filters country == ENGLAND. Local VOA bands use the separate by_area bindings."
         },
         "axiom": {
           "metric_name": "voa/council_tax/band_g",
@@ -9644,10 +10708,15 @@
               "variable": "council_tax_band",
               "operator": "==",
               "value": "H"
+            },
+            {
+              "variable": "country",
+              "operator": "==",
+              "value": "ENGLAND"
             }
           ],
           "value_variable": "household_count",
-          "notes": "Dwelling stock proxied by households; one row per VOA geography (English regions at region level, Wales at country level) - the resolved geography binds the region filter (compute/council_tax.py:6-18). uk-data does not target VOA band I."
+          "notes": "England dwelling stock proxied by households. National references select E92000001, and this binding explicitly filters country == ENGLAND. Local VOA bands use the separate by_area bindings."
         },
         "axiom": {
           "metric_name": "voa/council_tax/band_h",
@@ -9726,10 +10795,15 @@
               "variable": "household_num_benunits",
               "operator": ">=",
               "value": 0
+            },
+            {
+              "variable": "country",
+              "operator": "==",
+              "value": "ENGLAND"
             }
           ],
           "value_variable": "household_count",
-          "notes": "Dwelling stock proxied by households; one row per VOA geography (English regions at region level, Wales at country level) - the resolved geography binds the region filter (compute/council_tax.py:6-18). uk-data does not target VOA band I."
+          "notes": "England dwelling stock proxied by households. National references select E92000001, and this binding explicitly filters country == ENGLAND. Local VOA bands use the separate by_area bindings."
         },
         "axiom": {
           "metric_name": "voa/council_tax/total",
@@ -10725,6 +11799,20 @@
             "operator": ">",
             "value": 0
           }
+        ],
+        "source_months": [
+          "2025-01",
+          "2025-02",
+          "2025-03",
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
         ]
       },
       "bindings": {
@@ -10739,7 +11827,29 @@
               "value": 0
             }
           ],
-          "notes": "Prepared benefit-unit indicator for receipt of Universal Credit; DWP household means the UC unit of assessment, not an ONS household. This row binds DWP UC deductions statistics Table 1 total units. Its April-December 2025 calendar-year average is 6,758,889, 1.45% below the Stat-Xplore family-type sum of 6,858,287; chronicle#247 tracks a common-cube total."
+          "notes": "Mean monthly paid GB benefit units over the exact twelve months of calendar 2025. This is a derived sum of all declared family/entitlement cells within each month, followed by the mean of those twelve monthly sums; it is not a publisher grand Total. Include unknown/missing family type in the headline, retain both child-entitlement statuses, and require every declared month/category cell including literal zeros. Positive annual model UC remains a proxy for monthly payment receipt, not an identified open/nil claim history. Count only the Great Britain regions, matching K03000001; DWP removes Northern Ireland-office claims from these statistics. Source: https://www.gov.uk/government/publications/universal-credit-statistics-background-information-and-methodology/universal-credit-statistics-background-information-and-methodology#creating-a-great-britain-dataset Source: https://github.com/PolicyEngine/chronicle/pull/252",
+          "household_conditions": [
+            {
+              "variable": "region",
+              "entity": "household",
+              "reduce": "any",
+              "operator": "in",
+              "value": [
+                "NORTH_EAST",
+                "NORTH_WEST",
+                "YORKSHIRE",
+                "EAST_MIDLANDS",
+                "WEST_MIDLANDS",
+                "EAST_OF_ENGLAND",
+                "LONDON",
+                "SOUTH_EAST",
+                "SOUTH_WEST",
+                "WALES",
+                "SCOTLAND"
+              ],
+              "map_to": "benunit"
+            }
+          ]
         },
         "axiom": {
           "metric_name": "dwp/uc/households",
@@ -10749,10 +11859,118 @@
       },
       "ledger_selector": {
         "source_name": "dwp",
-        "source_concept": "dwp.uc_benefit_units",
-        "source_measure_id": "total_units",
-        "groupby_dimension": "dwp.uc_deductions_month"
-      }
+        "source_concept": "dwp.uc_households",
+        "source_measure_id": "benefit_units",
+        "groupby_dimension": "dwp.uc_family_type",
+        "dimensions": [
+          "family_type",
+          "payment_indicator",
+          "child_entitlement"
+        ],
+        "dimension_values": {
+          "payment_indicator": "Yes",
+          "child_entitlement": [
+            "No",
+            "Yes"
+          ],
+          "family_type": [
+            "Single, no children",
+            "Single, with children",
+            "Couple, no children",
+            "Couple, with children",
+            "Unknown or missing family type"
+          ]
+        },
+        "period_type": "month",
+        "period_value": [
+          "2025-01",
+          "2025-02",
+          "2025-03",
+          "2025-04",
+          "2025-05",
+          "2025-06",
+          "2025-07",
+          "2025-08",
+          "2025-09",
+          "2025-10",
+          "2025-11",
+          "2025-12"
+        ]
+      },
+      "value_operation": "monthly_window_sum_average",
+      "period_match_policy": "source_window",
+      "value_operands": [
+        {
+          "dimension_values": {
+            "family_type": "Single, no children",
+            "payment_indicator": "Yes",
+            "child_entitlement": "No"
+          }
+        },
+        {
+          "dimension_values": {
+            "family_type": "Single, no children",
+            "payment_indicator": "Yes",
+            "child_entitlement": "Yes"
+          }
+        },
+        {
+          "dimension_values": {
+            "family_type": "Single, with children",
+            "payment_indicator": "Yes",
+            "child_entitlement": "No"
+          }
+        },
+        {
+          "dimension_values": {
+            "family_type": "Single, with children",
+            "payment_indicator": "Yes",
+            "child_entitlement": "Yes"
+          }
+        },
+        {
+          "dimension_values": {
+            "family_type": "Couple, no children",
+            "payment_indicator": "Yes",
+            "child_entitlement": "No"
+          }
+        },
+        {
+          "dimension_values": {
+            "family_type": "Couple, no children",
+            "payment_indicator": "Yes",
+            "child_entitlement": "Yes"
+          }
+        },
+        {
+          "dimension_values": {
+            "family_type": "Couple, with children",
+            "payment_indicator": "Yes",
+            "child_entitlement": "No"
+          }
+        },
+        {
+          "dimension_values": {
+            "family_type": "Couple, with children",
+            "payment_indicator": "Yes",
+            "child_entitlement": "Yes"
+          }
+        },
+        {
+          "dimension_values": {
+            "family_type": "Unknown or missing family type",
+            "payment_indicator": "Yes",
+            "child_entitlement": "No"
+          }
+        },
+        {
+          "dimension_values": {
+            "family_type": "Unknown or missing family type",
+            "payment_indicator": "Yes",
+            "child_entitlement": "Yes"
+          }
+        }
+      ]
     },
     {
       "target_id": "hmrc.tfc.government_top_up",

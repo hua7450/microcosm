@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+from importlib.metadata import version
 from importlib.resources import files
 from pathlib import Path
 
@@ -102,8 +103,9 @@ def test_committed_manifest_matches_regeneration() -> None:
 
 
 @requires_uk
-def test_cached_candidate_regeneration_matches_committed_evidence() -> None:
+def test_cached_candidate_current_reader_preserves_frozen_measurements() -> None:
     generator = _load_generator()
+    committed = _resource("efrs_parity_known_gaps.json")["candidate_evidence"]
     try:
         from huggingface_hub import try_to_load_from_cache
     except ImportError:
@@ -118,8 +120,20 @@ def test_cached_candidate_regeneration_matches_committed_evidence() -> None:
         pytest.skip("pinned certified candidate revision is not cached")
 
     regenerated = generator.build_candidate_evidence(Path(cached))
-    committed = _resource("efrs_parity_known_gaps.json")["candidate_evidence"]
-    assert regenerated == committed
+    # The reader's version is a new observation, not a replacement for the
+    # frozen receipt's provenance. Every actual measurement must still match.
+    assert regenerated["engine"]["version"] == version("policyengine-uk")
+    assert {k: v for k, v in regenerated["engine"].items() if k != "version"} == {
+        k: v for k, v in committed["engine"].items() if k != "version"
+    }
+    assert {k: v for k, v in regenerated.items() if k != "engine"} == {
+        k: v for k, v in committed.items() if k != "engine"
+    }
+
+
+def test_frozen_candidate_retains_its_original_engine_provenance() -> None:
+    evidence = _resource("efrs_parity_known_gaps.json")["candidate_evidence"]
+    assert evidence["engine"]["version"] == "2.89.0"
 
 
 def test_hmrc_family_period_fields_come_from_the_bytes_their_hash_names() -> None:

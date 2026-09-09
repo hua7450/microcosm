@@ -13,6 +13,7 @@ from microcosm.build.source_runtime import (
     SourceRuntimeContext,
     SourceRuntimeError,
 )
+from microcosm.build.uk_runtime.frs_release import resolve_uk_year_rule
 from microcosm.frame import Frame
 from microcosm.frame.rules import materialize_rules_engine_predictors
 
@@ -144,7 +145,16 @@ def materialize_uk_rules_engine_predictors_from_manifest(
     frame = _extra(context, "frame", Frame)
     engine = _extra(context, "rules_engine", object)
     country = _require_uk_country(context)
-    period = context.config.extra.get("period", context.config.target_year)
+    year_rule = operation.parameters.get("year_rule")
+    if year_rule is not None:
+        # A declared rule names the release year the predictors are evaluated
+        # at and wins over the runtime period (#862).
+        try:
+            period = resolve_uk_year_rule(year_rule)
+        except ValueError as error:
+            raise SourceRuntimeError(str(error)) from error
+    else:
+        period = context.config.extra.get("period", context.config.target_year)
     if period is None:
         raise SourceRuntimeError(
             "materialize_rules_engine_predictors requires a period in the "

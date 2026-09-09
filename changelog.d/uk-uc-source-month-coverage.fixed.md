@@ -1,0 +1,1 @@
+Declare the April–December 2025 source window for national UC monthly targets and reject missing, extra or repeated months during UK target compilation. Record the actual observation months and averaging denominator without changing target values or treating the window as a full calendar year.

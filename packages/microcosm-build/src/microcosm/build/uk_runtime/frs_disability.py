@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 
 import numpy as np
 import pandas as pd
 
 from microcosm.build.source_manifest import SourceStageSpec
+from microcosm.build.uk_runtime.cgt_structure import (
+    _assert_closed_world_operations,
+)
+from microcosm.build.uk_runtime.frs_release import resolve_uk_year_rule
 from microcosm.build.uk_runtime.frs_spine import WEEKS_IN_YEAR
 from microcosm.build.uk_runtime.national_frame import (
     uk_household_weight_kind,
@@ -43,11 +48,12 @@ FRS_DISABILITY_OUTPUT_COLUMNS = (
     "is_enhanced_disabled_for_benefits",
     "is_severely_disabled_for_benefits",
 )
+YEAR_RULE = "survey_year"
 
 
 @dataclass(frozen=True)
-class UKDWPBaselineDisabilityRates:
-    """The incumbent categories' rates: the pre-fiscal-conversion baseline subtree."""
+class UKDWPDisabilityCategoryRates:
+    """Category thresholds from the fiscal-converted ``gov.dwp`` tree."""
 
     aa_lower: float
     aa_higher: float
@@ -66,7 +72,7 @@ class UKDWPBaselineDisabilityRates:
 
 @dataclass(frozen=True)
 class UKDWPDisabilityFlagRates:
-    """The incumbent flags' rates: the fiscal-converted plain tree."""
+    """Flag thresholds from the fiscal-converted ``gov.dwp`` tree."""
 
     aa_higher: float
     dla_sc_higher: float
@@ -82,20 +88,21 @@ class UKFRSDisabilityStageTransform:
         self,
         *,
         stage: SourceStageSpec,
-        baseline_rates: UKDWPBaselineDisabilityRates | None = None,
+        category_rates: UKDWPDisabilityCategoryRates | None = None,
         flag_rates: UKDWPDisabilityFlagRates | None = None,
     ) -> None:
         self.stage = stage
-        self.baseline_rates = baseline_rates
+        self.category_rates = category_rates
         self.flag_rates = flag_rates
 
     def __call__(self, frame: Frame) -> Frame:
-        period = uk_time_period(frame)
+        _assert_frs_disability_stage_parameters(self.stage)
+        year = resolve_uk_year_rule(YEAR_RULE)
         return add_frs_disability(
             frame,
-            baseline_rates=self.baseline_rates
-            or uk_dwp_baseline_disability_rates(period),
-            flag_rates=self.flag_rates or uk_dwp_disability_flag_rates(period),
+            category_rates=self.category_rates
+            or uk_dwp_disability_category_rates(year),
+            flag_rates=self.flag_rates or uk_dwp_disability_flag_rates(year),
         )
 
     @staticmethod
@@ -103,33 +110,22 @@ class UKFRSDisabilityStageTransform:
         return FRS_DISABILITY_OUTPUT_COLUMNS
 
 
-def uk_dwp_baseline_disability_rates(
-    build_period: int | str,
-) -> UKDWPBaselineDisabilityRates:
-    """Read the incumbent categories' rates: the ``.baseline`` subtree.
+def uk_dwp_disability_category_rates(
+    year: int,
+) -> UKDWPDisabilityCategoryRates:
+    """Read category rates from fiscal-converted ``gov.dwp`` at ``year``.
 
-    The baseline-vs-plain split in the incumbent is value-bearing, not just
-    provenance: the ``baseline`` clone is created before policyengine-uk's
-    fiscal-year parameter conversion, so at build period 2023 it carries the
-    April-2022-era weekly rates (e.g. 92.40) that the incumbent's category
-    thresholds actually use, while the plain tree (the flags reader below)
-    carries the fiscal-2023-24 values (e.g. 101.75).
+    The parameter instant is the fiscal-year label instant: policyengine-uk
+    writes the April rates over the whole labelled year. This corrects the
+    tree mismatch identified by uk-data#475 and uses the shared 365.25/7 week
+    conversion identified by uk-data#476.
     """
 
-    try:
-        import policyengine_uk
-    except ImportError as exc:
-        raise ImportError(
-            "UK DWP disability parameters require `uv sync --all-packages --extra uk`."
-        ) from exc
+    dwp = _uk_dwp_tree(year)
+    import policyengine_uk
 
-    instant = f"{int(build_period)}-01-01"
-    dwp = (
-        policyengine_uk.CountryTaxBenefitSystem()
-        .parameters(int(build_period))
-        .baseline.gov.dwp
-    )
-    return UKDWPBaselineDisabilityRates(
+    instant = f"{year}-01-01"
+    return UKDWPDisabilityCategoryRates(
         aa_lower=_parameter_value(dwp.attendance_allowance.lower, instant),
         aa_higher=_parameter_value(dwp.attendance_allowance.higher, instant),
         dla_sc_lower=_parameter_value(dwp.dla.self_care.lower, instant),
@@ -142,24 +138,37 @@ def uk_dwp_baseline_disability_rates(
         pip_dl_standard=_parameter_value(dwp.pip.daily_living.standard, instant),
         pip_dl_enhanced=_parameter_value(dwp.pip.daily_living.enhanced, instant),
         instant=instant,
-        source="policyengine-uk parameters "
+        source="policyengine-uk parameters (fiscal-converted gov.dwp tree) "
         f"{getattr(policyengine_uk, '__version__', 'unknown')}",
     )
 
 
-def uk_dwp_disability_flag_rates(
-    build_period: int | str,
-) -> UKDWPDisabilityFlagRates:
-    """Read the incumbent flags' rates: the plain (fiscal-converted) tree.
+def uk_dwp_disability_flag_rates(year: int) -> UKDWPDisabilityFlagRates:
+    """Read flag rates from fiscal-converted ``gov.dwp`` at ``year``.
 
-    The incumbent's flag thresholds come from ``parameters(year).gov.dwp``
-    on the model system, whose parameter tree policyengine-uk converts to
-    fiscal-year snapshots at load — at build period 2023 that is the
-    fiscal-2023-24 weekly rates (e.g. 101.75), NOT the raw dated files'
-    January-1 values (92.40). Reading the raw files here produced a
-    single-row flag divergence against the incumbent's own output, caught
-    by the licensed head-to-head receipt.
+    The parameter instant is the fiscal-year label instant: policyengine-uk
+    writes the April rates over the whole labelled year. This keeps the tree
+    correction from uk-data#475 and the shared 365.25/7 week conversion from
+    uk-data#476 aligned with the category derivation.
     """
+
+    dwp = _uk_dwp_tree(year)
+    import policyengine_uk
+
+    instant = f"{year}-01-01"
+    return UKDWPDisabilityFlagRates(
+        aa_higher=_parameter_value(dwp.attendance_allowance.higher, instant),
+        dla_sc_higher=_parameter_value(dwp.dla.self_care.higher, instant),
+        pip_dl_enhanced=_parameter_value(dwp.pip.daily_living.enhanced, instant),
+        instant=instant,
+        source="policyengine-uk parameters (fiscal-converted gov.dwp tree) "
+        f"{getattr(policyengine_uk, '__version__', 'unknown')}",
+    )
+
+
+@lru_cache
+def _uk_dwp_tree(year: int):
+    """Return the fiscal-converted DWP tree from one engine per year."""
 
     try:
         import policyengine_uk
@@ -168,31 +177,42 @@ def uk_dwp_disability_flag_rates(
             "UK DWP disability parameters require `uv sync --all-packages --extra uk`."
         ) from exc
 
-    instant = f"{int(build_period)}-01-01"
-    dwp = (
-        policyengine_uk.CountryTaxBenefitSystem()
-        .parameters(int(build_period))
-        .gov.dwp
-    )
-    return UKDWPDisabilityFlagRates(
-        aa_higher=_parameter_value(dwp.attendance_allowance.higher, instant),
-        dla_sc_higher=_parameter_value(dwp.dla.self_care.higher, instant),
-        pip_dl_enhanced=_parameter_value(dwp.pip.daily_living.enhanced, instant),
-        instant=instant,
-        source="policyengine-uk parameters (fiscal-converted plain tree) "
-        f"{getattr(policyengine_uk, '__version__', 'unknown')}",
+    return policyengine_uk.CountryTaxBenefitSystem().parameters(year).gov.dwp
+
+
+def _assert_frs_disability_stage_parameters(stage: SourceStageSpec) -> None:
+    """Bind both disability derivations to the reviewed policy-year contract."""
+
+    _assert_closed_world_operations(
+        stage,
+        (
+            (
+                "derive",
+                {
+                    "parameters": "disability category thresholds from the fiscal-converted gov.dwp tree at the survey year",
+                    "year_rule": YEAR_RULE,
+                },
+            ),
+            (
+                "derive",
+                {
+                    "parameters": "disability flags from the fiscal-converted gov.dwp tree at the survey year",
+                    "year_rule": YEAR_RULE,
+                },
+            ),
+        ),
     )
 
 
 def add_frs_disability(
     frame: Frame,
     *,
-    baseline_rates: UKDWPBaselineDisabilityRates,
+    category_rates: UKDWPDisabilityCategoryRates,
     flag_rates: UKDWPDisabilityFlagRates,
 ) -> Frame:
     person = frame.table("person").copy()
     derived = derive_frs_disability(
-        person, baseline_rates=baseline_rates, flag_rates=flag_rates
+        person, category_rates=category_rates, flag_rates=flag_rates
     )
     for column in FRS_DISABILITY_OUTPUT_COLUMNS:
         person[column] = derived[column].to_numpy()
@@ -212,38 +232,38 @@ def add_frs_disability(
 def derive_frs_disability(
     person: pd.DataFrame,
     *,
-    baseline_rates: UKDWPBaselineDisabilityRates,
+    category_rates: UKDWPDisabilityCategoryRates,
     flag_rates: UKDWPDisabilityFlagRates,
 ) -> pd.DataFrame:
     values = pd.DataFrame(index=person.index)
     values["aa_category"] = _category(
         _amount(person, "attendance_allowance_reported"),
-        (("LOWER", baseline_rates.aa_lower), ("HIGHER", baseline_rates.aa_higher)),
+        (("LOWER", category_rates.aa_lower), ("HIGHER", category_rates.aa_higher)),
     )
     values["dla_sc_category"] = _category(
         _amount(person, "dla_sc_reported"),
         (
-            ("LOWER", baseline_rates.dla_sc_lower),
-            ("MIDDLE", baseline_rates.dla_sc_middle),
-            ("HIGHER", baseline_rates.dla_sc_higher),
+            ("LOWER", category_rates.dla_sc_lower),
+            ("MIDDLE", category_rates.dla_sc_middle),
+            ("HIGHER", category_rates.dla_sc_higher),
         ),
     )
     values["dla_m_category"] = _category(
         _amount(person, "dla_m_reported"),
-        (("LOWER", baseline_rates.dla_m_lower), ("HIGHER", baseline_rates.dla_m_higher)),
+        (("LOWER", category_rates.dla_m_lower), ("HIGHER", category_rates.dla_m_higher)),
     )
     values["pip_m_category"] = _category(
         _amount(person, "pip_m_reported"),
         (
-            ("STANDARD", baseline_rates.pip_m_standard),
-            ("ENHANCED", baseline_rates.pip_m_enhanced),
+            ("STANDARD", category_rates.pip_m_standard),
+            ("ENHANCED", category_rates.pip_m_enhanced),
         ),
     )
     values["pip_dl_category"] = _category(
         _amount(person, "pip_dl_reported"),
         (
-            ("STANDARD", baseline_rates.pip_dl_standard),
-            ("ENHANCED", baseline_rates.pip_dl_enhanced),
+            ("STANDARD", category_rates.pip_dl_standard),
+            ("ENHANCED", category_rates.pip_dl_enhanced),
         ),
     )
     total = sum(_amount(person, column) for column in UK_DISABILITY_FLAG_REPORTED_COLUMNS)

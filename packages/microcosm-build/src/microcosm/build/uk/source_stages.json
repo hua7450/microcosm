@@ -229,7 +229,7 @@
     },
     {
      "kind": "map_columns",
-     "scope": "direct raw-to-column E2 mappings only; benunit.TOTCAPB4 -> frs_benunit_capital with blank, nonnumeric, or negative raw values -> named -1 unavailable sentinel (mapped-row count reported in stage evidence)"
+     "scope": "raw-to-column E2 mappings and FRS claimant-role derivation (is_benunit_head OR is_parent OR no dependent children within the benefit unit) to is_uc_claimant; benunit.TOTCAPB4 -> frs_benunit_capital with blank, nonnumeric, or negative raw values -> named -1 unavailable sentinel (mapped-row count reported in stage evidence)"
     },
     {
      "kind": "map_coded_amounts",
@@ -251,6 +251,7 @@
     "is_household_head",
     "is_benunit_head",
     "is_parent",
+    "is_uc_claimant",
     "employment_income",
     "self_employment_income",
     "private_pension_income",
@@ -511,11 +512,13 @@
    "operations": [
     {
      "kind": "derive",
-     "parameters": "disability category thresholds from baseline.gov.dwp at Jan-1"
+     "parameters": "disability category thresholds from the fiscal-converted gov.dwp tree at the survey year",
+     "year_rule": "survey_year"
     },
     {
      "kind": "derive",
-     "parameters": "disability flags from gov.dwp at Jan-1"
+     "parameters": "disability flags from the fiscal-converted gov.dwp tree at the survey year",
+     "year_rule": "survey_year"
     }
    ],
    "outputs": [
@@ -669,11 +672,24 @@
       "parents_learning_allowance",
       "adult_dependants_grant"
      ],
-     "consumed_only": true
+     "consumed_only": true,
+     "year_rule": "survey_year"
+    },
+    {
+     "kind": "materialize_rules_engine_predictors",
+     "predictors": [
+      "maintenance_loan_in_england_system",
+      "disabled_students_allowance_course_eligible",
+      "disabled_students_allowance_has_qualifying_condition"
+     ],
+     "consumed_only": true,
+     "year_rule": "calibration_year"
     },
     {
      "kind": "derive",
-     "scope": "proportional split of aggregate education_grants and DSA residual capacity"
+     "scope": "proportional split of aggregate education_grants and DSA residual capacity",
+     "parameters": "DSA maximum from gov.dfe.disabled_students_allowance.maximum at the calibration year",
+     "year_rule": "calibration_year"
     }
    ],
    "outputs": [
@@ -685,7 +701,7 @@
    "nonnegative_outputs": [
     "disabled_students_allowance_eligible_expenses"
    ],
-   "notes": "Runs before BRMA and always runs; both are signed inert differences for 2023-24. Pre-2025 DSA capacity is an aligned zero vector rather than an engine shape-sizing read. EDUCQUAL grant-split compatibility is re-cited to the FRS 2024-25 SN 9563 dictionary; codes 1-87 are empirically present and code 87 remains undocumented/defaulted."
+   "notes": "Runs before BRMA and always runs; the DSA seed evaluates at the release calibration year (uk-data#478) and the modelling-start gate compares against that year, not the frame period. EDUCQUAL grant-split compatibility is re-cited to the FRS 2024-25 SN 9563 dictionary; codes 1-87 are empirically present and code 87 remains undocumented/defaulted."
   },
   {
    "stage": "frs_take_up",
@@ -2060,7 +2076,30 @@
       "charitable_investment_gifts": 0.0
      },
      "n_estimators": 100,
-     "seed": 42
+     "seed": 42,
+     "donor_income_period": 2022,
+     "income_uprating_variables": {
+      "charitable_investment_gifts": null,
+      "dividend_income": "dividend_income",
+      "gift_aid": null,
+      "hmrc_spi_employment_benefits": "employment_income_before_lsr",
+      "hmrc_spi_employment_expenses": "employment_income_before_lsr",
+      "hmrc_spi_incapacity_benefit_income": null,
+      "hmrc_spi_miscellaneous_employment_income": "employment_income_before_lsr",
+      "hmrc_spi_other_income": "miscellaneous_income",
+      "hmrc_spi_other_social_security_income": null,
+      "hmrc_spi_pay": "employment_income_before_lsr",
+      "hmrc_spi_state_pension_income": null,
+      "hmrc_spi_taxable_termination_pay": "employment_income_before_lsr",
+      "hmrc_spi_unemployment_benefit_income": null,
+      "other_investment_income": "other_investment_income",
+      "private_pension_income": "private_pension_income",
+      "property_income": "property_income",
+      "savings_interest_income": "savings_interest_income",
+      "self_employment_income": "self_employment_income"
+     },
+     "rebase_income_to_build_period": true,
+     "recipient_minimum_age": 16
     },
     {
      "kind": "fit_weighted_qrf_stage2",
@@ -2075,7 +2114,8 @@
       "savings_interest_income",
       "dividend_income",
       "private_pension_income",
-      "property_income"
+      "property_income",
+      "state_pension_receipt"
      ],
      "reviewed_absent_predictors": {
       "other_investment_income": "This remains a stage-1 SPI draw and an official HMRC fact component, but it is not an FRS-only stage-2 predictor: the incumbent UK data build's frs_only.py defines exactly six income predictors and the certified Microcosm UK base candidate has no other_investment_income column."
@@ -2499,6 +2539,7 @@
     {
      "kind": "derive",
      "derived": {
+      "is_uc_couple": "count(is_benunit_head OR is_parent OR (dependent_children == 0)) over benefit-unit members == 2",
       "uc_reported_capital": "frs_benunit_capital",
       "positive_pre_takeup_uc_award": "max(0, uc_maximum_amount - uc_income_reduction) > 0",
       "has_non_child_member": "any(NOT is_child_or_qualifying_young_person_for_universal_credit) over benefit-unit members",
@@ -2532,7 +2573,7 @@
      "rewrite_rows": "spi_channel",
      "screen": "claimable_screen",
      "predictors": [
-      "is_married",
+      "is_uc_couple",
       "uc_child_band",
       "benunit_employment_income",
       "benunit_self_employment_income",
@@ -2556,7 +2597,7 @@
    "rewrites": [
     "universal_credit_reported"
    ],
-   "notes": "Runs after the person-grain SPI income chain and before UC capital coherence. One temporary engine simulation screens both FRS and SPI benefit units to a positive pre-take-up award using FRS-carried capital AND at least one non-child member (uc_maximum_amount pays qualifying-young-person-only units mechanically), and materializes the UC child and state-pension-age flags; engine-known values are consumed only. A benefit-unit RegimeGatedQRF fitted on the screened base domain draws the screened SPI domain (rows); the rewrite domain (rewrite_rows) is the whole SPI channel, so screen-failing SPI units are zeroed. Each positive amount lands on one deterministic adult claimant; base-FRS rows remain byte-unchanged; an empty screened SPI domain refuses."
+   "notes": "Runs after the person-grain SPI income chain and before UC capital coherence. One temporary engine simulation screens both FRS and SPI benefit units to a positive pre-take-up award using FRS-carried capital AND at least one non-child member (uc_maximum_amount pays qualifying-young-person-only units mechanically), and materializes the UC child and state-pension-age flags; engine-known values are consumed only. The consumed is_uc_couple predictor counts two retained FRS claimant/partner roles, independently of legal is_married; older dependent children do not become partners. A benefit-unit RegimeGatedQRF fitted on the screened base domain draws the screened SPI domain (rows); the rewrite domain (rewrite_rows) is the whole SPI channel, so screen-failing SPI units are zeroed. Each positive amount lands on one deterministic adult claimant; base-FRS rows remain byte-unchanged; an empty screened SPI domain refuses."
   },
   {
    "stage": "uc_capital_coherence",
@@ -2584,7 +2625,7 @@
       "2",
       "3+"
      ],
-     "couple_status": "is_married",
+     "couple_status": "is_uc_couple",
      "weight_mapping": "household_to_benunit",
      "draw": "weighted_empirical",
      "identity": "benunit_id",
@@ -2606,7 +2647,7 @@
     "frs_benunit_capital",
     "would_claim_uc"
    ],
-   "notes": "Runs after the last universal_credit_reported writer and before CGT cloning. Redraws only SPI post-fill reporters from weighted base-FRS reporter capital within dependent-children band by couple-status cells, then applies the monotone reported-UC OR refresh."
+   "notes": "Runs after the last universal_credit_reported writer and before CGT cloning. Redraws only SPI post-fill reporters from weighted base-FRS reporter capital within dependent-children band by is_uc_couple cells (two retained FRS claimant/partner roles, independently of legal is_married), then applies the monotone reported-UC OR refresh."
   },
   {
    "stage": "uc_deduction_attributes",

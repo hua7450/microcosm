@@ -618,6 +618,7 @@
           "person.is_before_universal_credit_qualifying_young_person_terminal_date",
           "person.is_in_non_advanced_education",
           "person.is_parent",
+          "person.is_uc_claimant",
           "person.legacy_jobseeker_proxy",
           "person.outpatient_visits",
           "person.pension_contributions_via_salary_sacrifice",
@@ -707,7 +708,8 @@
       "phase": "terminal",
       "criticality": "release_blocking",
       "parameters": {
-        "max_abs_relative_error": 0.25
+        "max_abs_relative_error": 0.25,
+        "reviewed_exclusions_resource": "target_fit_reviewed_exclusions.json"
       },
       "notes": "Every calibration target within twenty-five percent absolute relative error, the certified June acceptance bound."
     },

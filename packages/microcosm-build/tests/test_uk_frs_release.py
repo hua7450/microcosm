@@ -8,7 +8,10 @@ import pytest
 
 from microcosm.build.source_manifest import SourceManifest
 from microcosm.build.uk_runtime import frs_spine
-from microcosm.build.uk_runtime.frs_release import load_uk_frs_release
+from microcosm.build.uk_runtime.frs_release import (
+    load_uk_frs_release,
+    resolve_uk_year_rule,
+)
 from microcosm.build.uk_runtime.take_up_contract import load_uk_take_up_contract
 
 
@@ -45,6 +48,13 @@ def test_uk_frs_release_loads_and_controls_runtime_period() -> None:
     assert release.vintage == "2024_25"
     assert release.ukds_study_number == 9563
     assert release.doi == "10.5255/UKDA-SN-9563-1"
+
+
+def test_uk_year_rules_resolve_from_release() -> None:
+    assert resolve_uk_year_rule("survey_year") == 2024
+    assert resolve_uk_year_rule("calibration_year") == 2025
+    with pytest.raises(ValueError, match="Unknown UK year_rule"):
+        resolve_uk_year_rule("base_year")
 
 
 def test_release_lockstep_with_source_manifest_and_take_up_contract() -> None:

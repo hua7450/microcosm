@@ -41,6 +41,9 @@ from microcosm.build.uk_runtime.local_targets import (
     load_uk_local_geography_contract,
     metric_names,
 )
+from microcosm.build.uk_runtime.uc_source_periods import (
+    validate_uc_source_month_coverage,
+)
 from microcosm.calibrate import TargetRegistry, TargetSpec
 from microcosm.frame import Frame
 
@@ -259,6 +262,9 @@ def compile_uk_target_registry(
                 candidate_facts,
                 [restamped],
                 country="uk",
+            )
+            registry = validate_uc_source_month_coverage(
+                restamped, registry, candidate_facts
             )
         except ValueError as error:
             unsupported.append(
@@ -726,6 +732,12 @@ class UKFrameTargetAdapter:
         )
 
     def household_condition(self, condition: Mapping[str, Any]) -> np.ndarray:
+        """Evaluate a household predicate, optionally project it to its members.
+
+        A benefit-unit target can share its dwelling's geography while keeping
+        claimant/family filters at benefit-unit grain. ``map_to`` is explicit;
+        legacy household conditions keep their household-aligned result.
+        """
         entity = str(condition.get("entity") or "household")
         source = self.tables[entity]
         household_ids = self._household_ids_for(entity)
@@ -753,10 +765,21 @@ class UKFrameTargetAdapter:
 
         households = self.tables["household"]
         ids = households["household_id"]
-        return np.asarray(
-            _compare_series(ids.map(aggregate).fillna(0.0), expected),
-            dtype=bool,
-        )
+        matched = _compare_series(ids.map(aggregate).fillna(0.0), expected)
+        map_to = str(condition.get("map_to") or "household")
+        if map_to != "household":
+            if map_to not in {"person", "benunit"}:
+                raise ValueError(
+                    f"Unsupported UK household condition map_to {map_to!r}."
+                )
+            matched = self._household_ids_for(map_to).map(
+                pd.Series(matched.to_numpy(), index=ids)
+            )
+            if matched.isna().any():
+                raise ValueError(
+                    "UK household condition has unmatched household links."
+                )
+        return np.asarray(matched, dtype=bool)
 
     def to_frame(self) -> Frame:
         tables = {**self.tables, **self.link_tables}

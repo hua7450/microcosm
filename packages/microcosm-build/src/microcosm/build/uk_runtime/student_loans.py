@@ -16,7 +16,7 @@ from microcosm.build.stochastic_assignment import stable_identity_uniforms
 from microcosm.build.uk_runtime.cgt_structure import (
     _assert_closed_world_operations,
 )
-from microcosm.build.uk_runtime.frs_release import load_uk_frs_release
+from microcosm.build.uk_runtime.frs_release import resolve_uk_year_rule
 from microcosm.build.uk_runtime.national_frame import (
     uk_household_weight_kind,
     uk_national_frame,
@@ -120,7 +120,7 @@ class UKStudentLoansStageTransform:
         year = (
             self.calibration_year
             if self.calibration_year is not None
-            else load_uk_frs_release().calibration_year
+            else resolve_uk_year_rule(YEAR_RULE)
         )
         _assert_student_loans_stage_parameters(self.stage, stocks=resource, year=year)
         result = assign_student_loan_plans(frame, stocks=resource, year=year)

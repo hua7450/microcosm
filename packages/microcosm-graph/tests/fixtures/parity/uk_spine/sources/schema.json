@@ -59,6 +59,7 @@
       "is_benunit_head": "bool",
       "is_household_head": "bool",
       "is_parent": "bool",
+      "is_uc_claimant": "bool",
       "jsa_contrib_reported": "float64",
       "jsa_income_reported": "float64",
       "lump_sum_income": "float64",

@@ -64,6 +64,37 @@ class SimulationStub:
         return self.values[variable][1]
 
 
+@pytest.mark.parametrize("missing_variable", [True, False])
+def test_direct_measure_resolver_refuses_dropped_uc_claimant_input(
+    monkeypatch, tmp_path, missing_variable
+):
+    frame = FrameStub()
+    frame.table("person")["is_uc_claimant"] = [True, False, True]
+    simulation = SimulationStub(
+        {"is_uc_claimant": ("person", np.array([True, False, True]))}
+    )
+    simulation.input_variables = []
+    if missing_variable:
+        simulation.tax_benefit_system.variables.clear()
+    else:
+        simulation.tax_benefit_system.variables[
+            "is_uc_claimant"
+        ].definition_period = "year"
+    monkeypatch.setattr(
+        measure_simulation,
+        "_policyengine_uk_module",
+        lambda: SimpleNamespace(__version__="2.94.0"),
+    )
+    with pytest.raises(ValueError, match="is_uc_claimant"):
+        UKMeasureResolver(
+            simulation_source=tmp_path / "synthetic.h5",
+            scratch_dir=tmp_path,
+            year=2025,
+            frame=frame,
+            microsimulation_factory=lambda **kwargs: simulation,
+        )
+
+
 def test_compute_uk_measure_input_native_route():
     sim = SimulationStub({"income_tax": ("person", np.array([1.0, 2.0, 3.0]))})
 

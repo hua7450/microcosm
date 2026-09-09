@@ -133,6 +133,7 @@ __all__ = [
     "UK_INPUT_MASS_REFERENCE_EVIDENCE_SHA256",
     "UK_QRF_TAIL_CONCENTRATION_GATE_NAME",
     "UK_QRF_TAIL_EXCLUSION_REGISTER_RESOURCE",
+    "UK_TARGET_FIT_EXCLUSION_REGISTER_RESOURCE",
     "UKInputMassParityPolicy",
     "UKInputMassReference",
     "UKInputMassReferenceDescriptor",
@@ -158,6 +159,7 @@ UK_QRF_TAIL_CONCENTRATION_GATE_NAME = "qrf_tail_concentration"
 UK_INPUT_MASS_EXCLUSION_REGISTER_RESOURCE = "input_mass_reviewed_exclusions.json"
 UK_QRF_TAIL_EXCLUSION_REGISTER_RESOURCE = "qrf_tail_reviewed_exclusions.json"
 UK_DEGENERATE_EXCLUSION_REGISTER_RESOURCE = "degenerate_reviewed_exclusions.json"
+UK_TARGET_FIT_EXCLUSION_REGISTER_RESOURCE = "target_fit_reviewed_exclusions.json"
 
 # Canonical sha256 of {"reference": {"identity": ..., "totals": ...}} for
 # the weighted input surface emitted from the pinned enhanced-FRS artifact by

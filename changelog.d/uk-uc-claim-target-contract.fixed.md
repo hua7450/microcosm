@@ -1,0 +1,1 @@
+Measure UK two-child-limit targets over each benefit unit's own qualifying children and claimant roles, separating statistical affected-child proxies from element denial. Correct Scottish UC claims with a child under one to benefit-unit grain and record remaining annual-period, birth-year and positive-award approximations in measurement receipts.

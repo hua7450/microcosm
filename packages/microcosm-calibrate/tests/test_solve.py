@@ -9,11 +9,19 @@ a record budget with L0.
 
 from __future__ import annotations
 
+import hashlib
+import importlib.util
+import inspect
+import json
+import platform
 import warnings
+from importlib.metadata import version
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
+import torch
 
 from microcosm.calibrate import (
     CalibrationResult,
@@ -1879,6 +1887,84 @@ def test__given_warm_start_weights__then_optimizer_starts_from_warm_loss(
     assert warm.diagnostics[0].initial_estimate == cold.diagnostics[0].initial_estimate
 
 
+def test_free_adam_preserves_a_better_warm_start_after_overshooting() -> None:
+    """A finite Adam budget must not discard an already better feasible fit.
+
+    The warm start nearly hits a count target. A deliberately large step jumps
+    past it, so returning the last update makes the accepted warm start worse.
+    """
+    frame = Frame(
+        {
+            "person": pd.DataFrame({"person_id": [0], "person_household_id": [0]}),
+            "household": pd.DataFrame({"household_id": [0], "household_count": [1]}),
+        },
+        EntitySchema(group_entities=("household",)),
+        {"household": Weights(values=np.array([1.0]), kind=WeightKind.DESIGN)},
+    )
+    targets = TargetSet((_population_target(2.0, 1.005),))
+    result = calibrate(
+        frame,
+        targets,
+        epochs=2,
+        learning_rate=0.2,
+        mass="free",
+        max_weight_ratio=3,
+        warm_start_weights=np.array([2.0]),
+    )
+    assert result.final_loss <= result.initial_loss + 1e-7
+    np.testing.assert_allclose(result.weights, [2.0], rtol=1e-7)
+    assert len(result.loss_trajectory) == 2
+    assert result.options["iterate_selection_receipt"]["selected_epoch"] == 0
+
+
+def test_free_adam_considers_the_final_post_update_candidate() -> None:
+    """The final allowed step still counts when it improves the feasible fit."""
+    frame = Frame(
+        {
+            "person": pd.DataFrame({"person_id": [0], "person_household_id": [0]}),
+            "household": pd.DataFrame({"household_id": [0], "household_count": [1]}),
+        },
+        EntitySchema(group_entities=("household",)),
+        {"household": Weights(values=np.array([1.0]), kind=WeightKind.DESIGN)},
+    )
+    targets = TargetSet((_population_target(2.0, 1.0),))
+    result = calibrate(
+        frame,
+        targets,
+        epochs=1,
+        learning_rate=0.1,
+        mass="free",
+        max_weight_ratio=1.05,
+    )
+    assert result.final_loss < result.initial_loss
+    np.testing.assert_allclose(result.weights, [1.05], rtol=1e-7)
+    assert result.weights[0] <= 1.05
+    assert result.options["iterate_selection_receipt"]["selected_epoch"] == 1
+
+
+def test_free_adam_retains_an_intermediate_fit_when_the_last_step_overshoots() -> None:
+    """Selection includes intermediate candidates, not only start and end."""
+    frame = Frame(
+        {
+            "person": pd.DataFrame({"person_id": [0], "person_household_id": [0]}),
+            "household": pd.DataFrame({"household_id": [0], "household_count": [1]}),
+        },
+        EntitySchema(group_entities=("household",)),
+        {"household": Weights(values=np.array([1.0]), kind=WeightKind.DESIGN)},
+    )
+    result = calibrate(
+        frame,
+        TargetSet((_population_target(1.5, 1.0),)),
+        epochs=3,
+        learning_rate=0.2,
+        mass="free",
+        max_weight_ratio=3,
+    )
+    assert result.final_loss <= result.loss_trajectory.min() + 1e-7
+    assert result.final_loss < 0.02
+    assert result.options["iterate_selection_receipt"]["selected_epoch"] == 2
+
+
 def test__given_bad_warm_start_shape__then_solver_rejects_it(feasible_frame) -> None:
     frame, truths = feasible_frame(n=20)
     targets = TargetSet((_population_target(truths["population"], 1.0),))
@@ -2027,3 +2113,124 @@ def test_mass_reason_rides_the_free_mass_record() -> None:
         calibrate(frame, targets, epochs=4, mass="conserve", mass_reason=reason)
     with pytest.raises(ValueError, match="non-empty string"):
         calibrate(frame, targets, epochs=4, mass_reason="   ")
+
+
+def _pre_best_iterate_oracle(fixture: dict):
+    """Verify the immutable optimizer and installed dependency closure first."""
+    from microcosm.calibrate import gates
+
+    provenance = fixture["same_runtime_oracle"]
+    path = Path(__file__).parent / "fixtures/pre_best_iterate" / provenance["module"]
+    assert hashlib.sha256(path.read_bytes()).hexdigest() == provenance["module_sha256"]
+    for name, expected in provenance["helper_source_sha256"].items():
+        source = inspect.getsource(getattr(solve_module, name)).rstrip("\n")
+        assert hashlib.sha256(source.encode()).hexdigest() == expected, name
+    # Pin the entire gate module, including the class's stretch constants.
+    assert (
+        hashlib.sha256(Path(gates.__file__).read_bytes()).hexdigest()
+        == (provenance["gates_module_sha256"])
+    )
+    assert solve_module._PRUNE_REL_ATOL == provenance["prune_rel_atol"]
+    spec = importlib.util.spec_from_file_location("pre_best_iterate_oracle", path)
+    oracle = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(oracle)
+    source = inspect.getsource(oracle._optimize).rstrip("\n")
+    assert (
+        hashlib.sha256(source.encode()).hexdigest()
+        == provenance["function_source_sha256"]
+    )
+    return oracle
+
+
+@pytest.mark.parametrize("case_id", ["conserved_mass", "l2_regularized", "l0_gated"])
+def test_best_iterate_preserves_pre_change_excluded_paths(case_id: str) -> None:
+    """Old and current solvers return exact bytes in every executing runtime.
+
+    The immutable optimizer comes from the recorded pre-change source, not
+    the implementation under test. Mac snapshot bytes provide a separate
+    provenance check only on their authoring runtime. No tolerance or platform
+    skip replaces the exact old/new comparison.
+    """
+    fixture = json.loads(
+        (Path(__file__).parent / "fixtures/pre_best_iterate/controls.json").read_text()
+    )
+    oracle = _pre_best_iterate_oracle(fixture)
+    inputs = fixture["inputs"]
+    n = len(inputs["initial_weights"])
+    frame = Frame(
+        {
+            "person": pd.DataFrame(
+                {"person_id": range(n), "person_household_id": range(n)}
+            ),
+            "household": pd.DataFrame(
+                {
+                    "household_id": range(n),
+                    "income": inputs["income"],
+                    "eligible": inputs["eligible"],
+                }
+            ),
+        },
+        EntitySchema(group_entities=("household",)),
+        {"household": Weights(np.array(inputs["initial_weights"]), WeightKind.DESIGN)},
+    )
+    targets = TargetSet(tuple(Target(**item) for item in fixture["targets"]))
+    case = next(item for item in fixture["cases"] if item["id"] == case_id)
+    options = case["options"]
+    # Construct the oracle's inputs from frozen data, independently of the
+    # current solver's compiled problem. These two targets preserve row order.
+    target_values = np.array([item["value"] for item in fixture["targets"]])
+    torch.manual_seed(options["seed"])
+    old_weights, old_trajectory, old_gates = oracle._optimize(
+        torch.tensor([inputs["income"], inputs["eligible"]], dtype=torch.float32),
+        torch.tensor(target_values, dtype=torch.float32),
+        None,
+        torch.tensor(np.maximum(np.abs(target_values), 1.0), dtype=torch.float32),
+        options["target_loss_cap"],
+        np.array(inputs["initial_weights"]),
+        epochs=options["epochs"],
+        learning_rate=options["learning_rate"],
+        conserve_mass=options["mass"] == "conserve",
+        max_weight_ratio=options["max_weight_ratio"],
+        l0_lambda=options.get("l0_lambda", 0.0),
+        l2_lambda=options.get("l2_lambda", 0.0),
+        target_records=None,
+        init_mean=options.get("init_mean", 0.999),
+        temperature=0.25,
+        return_gate_open_probabilities=True,
+    )
+    torch.manual_seed(options["seed"])
+    result = calibrate(frame, targets, **options)
+    expected_arrays = {"weights": old_weights, "loss_trajectory": old_trajectory}
+    if old_gates is not None:
+        expected_arrays["gate_open_probabilities"] = old_gates
+    else:
+        assert result.gate_open_probabilities is None
+    for name, expected in expected_arrays.items():
+        actual = np.asarray(getattr(result, name))
+        assert actual.dtype == expected.dtype == np.dtype("float64")
+        assert actual.tobytes() == expected.tobytes(), name
+
+    runtime = {
+        "system": platform.system(),
+        "machine": platform.machine(),
+        "python_major_minor": ".".join(platform.python_version_tuple()[:2]),
+    }
+    if runtime == fixture["authoring_runtime"] and all(
+        version(name) == expected for name, expected in fixture["dependencies"].items()
+    ):
+        for name, expected in case["expected_float64_le_hex"].items():
+            assert expected_arrays[name].astype("<f8").tobytes() == bytes.fromhex(
+                expected
+            ), name
+    assert result.options["iterate_selection"] == "closing_state"
+    assert result.n_nonzero == case["n_nonzero"]
+    assert not np.array_equal(result.weights, inputs["initial_weights"])
+    if case_id == "conserved_mass":
+        assert result.weights.sum() == pytest.approx(sum(inputs["initial_weights"]))
+    elif case_id == "l2_regularized":
+        assert result.options["l2_lambda"] > 0
+    else:
+        assert result.l0_lambda > 0
+        assert np.all(
+            (result.gate_open_probabilities > 0) & (result.gate_open_probabilities < 1)
+        )

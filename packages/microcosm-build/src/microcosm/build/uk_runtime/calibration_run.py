@@ -696,6 +696,10 @@ def _run_calibration_gate_battery(
             }
         ),
         "aggregate_admin": admin_totals,
+        # The target-fit deferral register is evaluated against the run
+        # clock (schema-2 approval windows); the seam supplies today's date
+        # exactly as the rowwise candidate build supplies its start date.
+        "exclusions_evaluated_on": datetime.now(UTC).date(),
     }
     battery = GateBatteryRun(
         manifest,

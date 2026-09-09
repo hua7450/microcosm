@@ -1,0 +1,1 @@
+Preserve observed FRS inputs for UK recipients under 16, rebase indexed SPI incomes including other investment income to the build period, and condition the FRS-only fill on pension receipt. Reject missing declared engine indices and record matched publication-baseline rebuild results and unresolved calibration failures.

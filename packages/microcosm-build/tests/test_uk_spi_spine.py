@@ -402,7 +402,7 @@ def test_spi_income_zero_initializes_frs_charity_and_redraws_dividends_after_sta
     monkeypatch.setattr(
         spi_income,
         "_refresh_disability_derived_inputs",
-        lambda person, spi_people, build_period: person,
+        lambda person, *, spi_people, category_rates=None, flag_rates=None: person,
     )
     support = build_uk_spi_support_channel(
         person=_base_frame().table("person"),
@@ -464,7 +464,7 @@ def test_reviewed_absent_incapacity_signal_raises(tmp_path: Path) -> None:
     monkeypatch.setattr(
         spi_income,
         "_refresh_disability_derived_inputs",
-        lambda person, spi_people, build_period: person,
+        lambda person, *, spi_people, category_rates=None, flag_rates=None: person,
     )
     support = build_uk_spi_support_channel(
         person=_base_frame()
@@ -532,8 +532,18 @@ def test_spi_spine_parsed_inputs_match_the_path_resolution(
     monkeypatch.setattr(
         spi_income,
         "_refresh_disability_derived_inputs",
-        lambda person, spi_people, build_period: person,
+        lambda person, *, spi_people, category_rates=None, flag_rates=None: person,
     )
+
+    # This test checks parsed/path source resolution, independently of the engine.
+    # Real index coverage lives in test_uk_spi_income.py.
+    def uprating_factors(year):
+        return (
+            {column: 1.25 for column in SPI_INCOME_QRF_OUTPUT_COLUMNS},
+            {"from_period": 2022, "to_period": year, "basis": "synthetic_test"},
+        )
+
+    monkeypatch.setattr(spi_income, "_spi_income_uprating_factors", uprating_factors)
     support_frame = UKSPISupportChannelStageTransform(
         stage=_committed_stage("spi_support_channel"),
         sample_fraction=0.0002,

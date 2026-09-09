@@ -8,6 +8,7 @@ without the UK extra.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from importlib import metadata
 from pathlib import Path
 from typing import Any
 
@@ -18,7 +19,7 @@ from microcosm.frame.materialize import engine_tables
 from microcosm.frame.rules import ExportContract
 from microcosm.frame.schema import EntitySchema, VariableMetadata
 
-__all__ = ["PolicyEngineUKEngine", "UK_SCHEMA"]
+__all__ = ["PolicyEngineUKEngine", "UK_SCHEMA", "validate_uc_claimant_input"]
 
 UK_SCHEMA = EntitySchema(group_entities=("benunit", "household"))
 _PERSON_TABLE = "person"
@@ -78,6 +79,7 @@ class PolicyEngineUKEngine:
         microsimulation_class = self._import_policyengine_uk().Microsimulation
         dataset = self._build_dataset(bundle, period)
         simulation = microsimulation_class(dataset=dataset)
+        validate_uc_claimant_input(simulation, bundle.table("person"), period)
         results: dict[str, np.ndarray] = {}
         for name in variables:
             entity = self.variable_metadata(name).entity
@@ -158,3 +160,45 @@ def _is_engine_computed(variable: Any) -> bool:
     if getattr(variable, "formula", None) is not None:
         return True
     return bool(getattr(variable, "formulas", None))
+
+
+def validate_uc_claimant_input(simulation: Any, person: Any, period: int | str) -> None:
+    """Require supplied UC roles to survive the model's dataset loader.
+
+    The UK loader ignores unknown columns. FRS roles must therefore remain
+    explicit inputs; recalculating the model's relationship fallback can give
+    a different answer for young partners or older nonqualifying dependants.
+    Frames without recorded claimant roles retain ordinary calculator behavior.
+    """
+    name = "is_uc_claimant"
+    if name not in person:
+        return
+    try:
+        installed = metadata.version("policyengine-uk")
+    except metadata.PackageNotFoundError:
+        installed = "unavailable"
+    guidance = (
+        f"Supplied {name} requires policyengine-uk>=2.97.0 with explicit "
+        f"person/Boolean/year input support (installed {installed})."
+    )
+    definition = simulation.tax_benefit_system.variables.get(name)
+    if (
+        definition is None
+        or getattr(getattr(definition, "entity", None), "key", None) != "person"
+        or getattr(definition, "value_type", None) is not bool
+        or getattr(definition, "definition_period", None) != "year"
+    ):
+        raise ValueError(guidance)
+    expected = person[name].to_numpy()
+    if expected.ndim != 1 or expected.dtype.kind != "b":
+        raise ValueError(
+            f"{guidance} Source {name} must contain complete Boolean roles."
+        )
+    if name not in getattr(simulation, "input_variables", ()):
+        raise ValueError(f"{guidance} The loader did not retain {name} as an input.")
+    raw = simulation.calculate(name, period)
+    actual = np.asarray(raw.values if hasattr(raw, "values") else raw)
+    if actual.dtype.kind != "b" or not np.array_equal(actual, expected):
+        raise ValueError(
+            f"{guidance} Loaded {name} differs from the supplied source roles."
+        )

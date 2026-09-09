@@ -1,5 +1,5 @@
 {
-  "source_fact_feed": ".codex-work/consumer_facts_uk.jsonl",
+  "source_fact_feed": "chronicle-uk-ec7169b5-consumer-facts",
   "target_period": 2025,
   "candidate_count": 430,
   "contract_target_count": 202,
@@ -1685,26 +1685,6 @@
       "to": "2025"
     },
     {
-      "name": "dwp.uc.households_single_no_children",
-      "from": "2025-12",
-      "to": "2025"
-    },
-    {
-      "name": "dwp.uc.households_single_with_children",
-      "from": "2025-12",
-      "to": "2025"
-    },
-    {
-      "name": "dwp.uc.households_couple_no_children",
-      "from": "2025-12",
-      "to": "2025"
-    },
-    {
-      "name": "dwp.uc.households_couple_with_children",
-      "from": "2025-12",
-      "to": "2025"
-    },
-    {
       "name": "dwp/uc_payment_dist/SINGLE_annual_payment_0_to_1_200",
       "from": "2025-12",
       "to": "2025"
@@ -2697,11 +2677,6 @@
     {
       "name": "slc.support.adult_dependants_grant_spend",
       "from": "2024",
-      "to": "2025"
-    },
-    {
-      "name": "dwp.uc.households",
-      "from": "2025-12",
       "to": "2025"
     },
     {
@@ -4906,12 +4881,12 @@
         {
           "name": "dwp.uc.households_children_1",
           "status": "active",
-          "matched_fact_count_overall": 9,
-          "matched_fact_count_at_or_before_period": 9,
+          "matched_fact_count_overall": 12,
+          "matched_fact_count_at_or_before_period": 12,
           "resolved_period": 2025,
-          "resolved_value": 1278537.0,
+          "resolved_value": 1190123.8333333333,
           "resolved_fact_period": "2025-12",
-          "resolved_fact_key": "ledger_aggregate_fact_v2_75d899ad408d26f0c2a0b4b2"
+          "resolved_fact_key": "ledger_aggregate_fact_v2_c1533879baf52aaa88758083"
         }
       ]
     },
@@ -4921,12 +4896,12 @@
         {
           "name": "dwp.uc.households_children_2",
           "status": "active",
-          "matched_fact_count_overall": 9,
-          "matched_fact_count_at_or_before_period": 9,
+          "matched_fact_count_overall": 12,
+          "matched_fact_count_at_or_before_period": 12,
           "resolved_period": 2025,
-          "resolved_value": 1100617.5555555555,
+          "resolved_value": 1049895.5,
           "resolved_fact_period": "2025-12",
-          "resolved_fact_key": "ledger_aggregate_fact_v2_970b3f74426e7a9ca57d4f3f"
+          "resolved_fact_key": "ledger_aggregate_fact_v2_46fca4f9d4e0519f0c190824"
         }
       ]
     },
@@ -4936,12 +4911,12 @@
         {
           "name": "dwp.uc.households_children_3",
           "status": "active",
-          "matched_fact_count_overall": 9,
-          "matched_fact_count_at_or_before_period": 9,
+          "matched_fact_count_overall": 12,
+          "matched_fact_count_at_or_before_period": 12,
           "resolved_period": 2025,
-          "resolved_value": 494553.22222222225,
+          "resolved_value": 477887.6666666667,
           "resolved_fact_period": "2025-12",
-          "resolved_fact_key": "ledger_aggregate_fact_v2_8d071172a1212492c8895356"
+          "resolved_fact_key": "ledger_aggregate_fact_v2_ba5bce203605d4e16037d311"
         }
       ]
     },
@@ -4951,12 +4926,12 @@
         {
           "name": "dwp.uc.households_children_4",
           "status": "active",
-          "matched_fact_count_overall": 9,
-          "matched_fact_count_at_or_before_period": 9,
+          "matched_fact_count_overall": 12,
+          "matched_fact_count_at_or_before_period": 12,
           "resolved_period": 2025,
-          "resolved_value": 174668.88888888888,
+          "resolved_value": 170713.66666666666,
           "resolved_fact_period": "2025-12",
-          "resolved_fact_key": "ledger_aggregate_fact_v2_d46a42194825aa8ac424c18d"
+          "resolved_fact_key": "ledger_aggregate_fact_v2_33541aafa05a63dcae4fc144"
         }
       ]
     },
@@ -4966,12 +4941,12 @@
         {
           "name": "dwp.uc.households_children_5_or_more",
           "status": "active",
-          "matched_fact_count_overall": 9,
-          "matched_fact_count_at_or_before_period": 9,
+          "matched_fact_count_overall": 12,
+          "matched_fact_count_at_or_before_period": 12,
           "resolved_period": 2025,
-          "resolved_value": 77376.77777777778,
+          "resolved_value": 76320.08333333333,
           "resolved_fact_period": "2025-12",
-          "resolved_fact_key": "ledger_aggregate_fact_v2_c672eb5959db157315a3a3e6"
+          "resolved_fact_key": "ledger_aggregate_fact_v2_33d99593d166153ca2d0adec"
         }
       ]
     },
@@ -4981,12 +4956,13 @@
         {
           "name": "dwp.uc.households_single_no_children",
           "status": "active",
-          "matched_fact_count_overall": 9,
-          "matched_fact_count_at_or_before_period": 9,
+          "matched_fact_count_overall": 24,
+          "matched_fact_count_at_or_before_period": 24,
+          "matched_fact_count_in_source_window": 24,
           "resolved_period": 2025,
-          "resolved_value": 3446962.0,
+          "resolved_value": 2990070.1666666665,
           "resolved_fact_period": "2025-12",
-          "resolved_fact_key": "ledger_aggregate_fact_v2_8f37a13228973c48fc995636"
+          "resolved_fact_key": "ledger_aggregate_fact_v2_c013630f1154eb7252466457"
         }
       ]
     },
@@ -4996,12 +4972,13 @@
         {
           "name": "dwp.uc.households_single_with_children",
           "status": "active",
-          "matched_fact_count_overall": 9,
-          "matched_fact_count_at_or_before_period": 9,
+          "matched_fact_count_overall": 24,
+          "matched_fact_count_at_or_before_period": 24,
+          "matched_fact_count_in_source_window": 24,
           "resolved_period": 2025,
-          "resolved_value": 2226220.0,
+          "resolved_value": 2138780.1666666665,
           "resolved_fact_period": "2025-12",
-          "resolved_fact_key": "ledger_aggregate_fact_v2_0e4512db88ae6dfb508d365d"
+          "resolved_fact_key": "ledger_aggregate_fact_v2_4e21ff5e364647d7c75589d2"
         }
       ]
     },
@@ -5011,12 +4988,13 @@
         {
           "name": "dwp.uc.households_couple_no_children",
           "status": "active",
-          "matched_fact_count_overall": 9,
-          "matched_fact_count_at_or_before_period": 9,
+          "matched_fact_count_overall": 24,
+          "matched_fact_count_at_or_before_period": 24,
+          "matched_fact_count_in_source_window": 24,
           "resolved_period": 2025,
-          "resolved_value": 284345.55555555556,
+          "resolved_value": 241130.91666666666,
           "resolved_fact_period": "2025-12",
-          "resolved_fact_key": "ledger_aggregate_fact_v2_5d1c98b108eaac7236138260"
+          "resolved_fact_key": "ledger_aggregate_fact_v2_ad46a5483afd6bad20dc50fe"
         }
       ]
     },
@@ -5026,12 +5004,13 @@
         {
           "name": "dwp.uc.households_couple_with_children",
           "status": "active",
-          "matched_fact_count_overall": 9,
-          "matched_fact_count_at_or_before_period": 9,
+          "matched_fact_count_overall": 24,
+          "matched_fact_count_at_or_before_period": 24,
+          "matched_fact_count_in_source_window": 24,
           "resolved_period": 2025,
-          "resolved_value": 899534.6666666666,
+          "resolved_value": 826160.8333333334,
           "resolved_fact_period": "2025-12",
-          "resolved_fact_key": "ledger_aggregate_fact_v2_388f703e509e490c85497a81"
+          "resolved_fact_key": "ledger_aggregate_fact_v2_1a76243d3f616b19eaed3e0a"
         }
       ]
     },
@@ -7810,12 +7789,13 @@
         {
           "name": "dwp.uc.households",
           "status": "active",
-          "matched_fact_count_overall": 11,
-          "matched_fact_count_at_or_before_period": 9,
+          "matched_fact_count_overall": 120,
+          "matched_fact_count_at_or_before_period": 120,
+          "matched_fact_count_in_source_window": 120,
           "resolved_period": 2025,
-          "resolved_value": 6758888.888888889,
+          "resolved_value": 6197311.0,
           "resolved_fact_period": "2025-12",
-          "resolved_fact_key": "ledger_aggregate_fact_v2_3270b0f656838ddd01b1ac5f"
+          "resolved_fact_key": "ledger_aggregate_fact_v2_71c060f3f2a732e2f836a5d8"
         }
       ]
     },

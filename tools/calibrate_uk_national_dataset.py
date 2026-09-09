@@ -36,11 +36,14 @@ from microcosm.build.uk_runtime.calibration_run import (
 )
 from microcosm.build.uk_runtime.frs_release import load_uk_frs_release
 from microcosm.build.uk_runtime.ledger_targets import compile_uk_target_registry
-from microcosm.build.uk_runtime.local_target_census import _LEDGER_FACT_FEED_PIN
 from microcosm.build.uk_runtime.measure_simulation import (
     UKMeasureResolver,
     apply_uk_calibration_measure_exclusions,
     load_uk_calibration_measure_exclusions,
+)
+from microcosm.build.uk_runtime.national_chronicle_feed import (
+    UKNationalChronicleFeed,
+    load_uk_national_chronicle_feed,
 )
 from microcosm.build.uk_runtime.national_doctrine import uk_doctrine_with_overrides
 from microcosm.build.uk_runtime.release_identity import UK_NATIONAL_RELEASE_ID
@@ -61,6 +64,7 @@ def main(argv: list[str] | None = None) -> int:
         if telemetry is not None:
             telemetry.set_sample(_full_sample())
             telemetry.stage("target_compilation", event_status="started")
+        national_feed = load_uk_national_chronicle_feed()
         artifact = load_ledger_consumer_artifact(
             args.ledger_facts,
             expected_facts_sha256=args.ledger_facts_sha256,
@@ -68,6 +72,8 @@ def main(argv: list[str] | None = None) -> int:
         )
         _check_committed_ledger_feed_pin(
             artifact.facts_sha256,
+            manifest_sha256=artifact.manifest_sha256,
+            pin=national_feed,
             allow_unpinned_feed=args.allow_unpinned_feed,
         )
         calibration_year = load_uk_frs_release().calibration_year
@@ -148,6 +154,7 @@ def main(argv: list[str] | None = None) -> int:
             run_config_extra={
                 "calibration_year": calibration_year,
                 "allow_unpinned_feed": args.allow_unpinned_feed,
+                "national_chronicle_feed_pin": national_feed.to_dict(),
             },
             release_id=args.release_id,
             logbook_prev_row_digest=args.logbook_prev_row_digest,
@@ -197,8 +204,8 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
         "--allow-unpinned-feed",
         action="store_true",
         help=(
-            "Allow a Chronicle fact feed whose content hash differs from the "
-            "committed UK feed pin; the override is recorded in the run manifest."
+            "Allow Chronicle facts or manifest hashes outside the committed UK "
+            "national feed pin; the override is recorded in the run manifest."
         ),
     )
     parser.add_argument("--staging-h5", required=True, type=Path)
@@ -337,13 +344,23 @@ def _sha256_file(path: Path) -> str:
 def _check_committed_ledger_feed_pin(
     facts_sha256: str,
     *,
+    manifest_sha256: str | None,
     allow_unpinned_feed: bool,
+    pin: UKNationalChronicleFeed | None = None,
 ) -> None:
-    committed = _LEDGER_FACT_FEED_PIN["facts_sha256"]
-    if facts_sha256 != committed and not allow_unpinned_feed:
+    pin = pin or load_uk_national_chronicle_feed()
+    mismatches = []
+    for label, loaded, committed in (
+        ("facts", facts_sha256, pin.facts_sha256),
+        ("manifest", manifest_sha256, pin.manifest_sha256),
+    ):
+        if loaded != committed:
+            mismatches.append(f"{label}: loaded {loaded}, committed {committed}")
+    if mismatches and not allow_unpinned_feed:
         raise SystemExit(
-            "error: Chronicle consumer facts differ from the committed UK feed pin: "
-            f"loaded {facts_sha256}, committed {committed}; pass "
+            "error: Chronicle artifact differs from the committed UK national feed pin: "
+            + "; ".join(mismatches)
+            + "; pass "
             "--allow-unpinned-feed only for an explicitly reviewed diagnostic run"
         )
 

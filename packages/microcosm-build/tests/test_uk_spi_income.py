@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import sys
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
 import pytest
 
-from microcosm.build.uk_runtime import spi_income
+from microcosm.build.uk_runtime import frs_disability, spi_income
 from microcosm.build.uk_runtime.frs_hmrc_leaves import (
     FRS_HMRC_OSSBEN_IDENTIFIABLE_SUBSET_COLUMN,
     FRS_HMRC_RETAINED_LEAF_COLUMNS,
@@ -224,6 +226,247 @@ def _bypass_reviewed_donor_identity(monkeypatch: pytest.MonkeyPatch) -> None:
     """Make the synthetic donor's non-production identity explicit in tests."""
 
     monkeypatch.setattr(spi_income, "_verify_spi_donor_identity", lambda _: None)
+
+
+def test_spi_disability_refresh_reuses_frs_derivation_for_spi_people() -> None:
+    weeks = 365.25 / 7
+    person = pd.DataFrame(
+        {
+            "attendance_allowance_reported": [0.0, 19 * weeks, 0.0],
+            "afcs_reported": [0.0, 0.0, 1.0],
+        },
+        index=[10, 20, 30],
+    )
+    for column in frs_disability.FRS_DISABILITY_OUTPUT_COLUMNS:
+        if column.endswith("_category"):
+            person[column] = ["BASE", "STALE", "STALE"]
+        else:
+            person[column] = [True, False, False]
+    spi_people = pd.Series([False, True, True], index=person.index)
+    category_rates = frs_disability.UKDWPDisabilityCategoryRates(
+        aa_lower=10,
+        aa_higher=20,
+        dla_sc_lower=10,
+        dla_sc_middle=20,
+        dla_sc_higher=30,
+        dla_m_lower=10,
+        dla_m_higher=20,
+        pip_m_standard=10,
+        pip_m_enhanced=20,
+        pip_dl_standard=10,
+        pip_dl_enhanced=20,
+        instant="2024-01-01",
+        source="fixture",
+    )
+    flag_rates = frs_disability.UKDWPDisabilityFlagRates(
+        aa_higher=20,
+        dla_sc_higher=30,
+        pip_dl_enhanced=20,
+        instant="2024-01-01",
+        source="fixture",
+    )
+    output_columns = list(frs_disability.FRS_DISABILITY_OUTPUT_COLUMNS)
+    non_spi_before = person.loc[~spi_people, output_columns].copy()
+    expected = frs_disability.derive_frs_disability(
+        person.loc[spi_people],
+        category_rates=category_rates,
+        flag_rates=flag_rates,
+    )
+
+    result = spi_income._refresh_disability_derived_inputs(
+        person,
+        spi_people=spi_people,
+        category_rates=category_rates,
+        flag_rates=flag_rates,
+    )
+
+    pd.testing.assert_frame_equal(result.loc[spi_people, output_columns], expected)
+    pd.testing.assert_frame_equal(
+        result.loc[~spi_people, output_columns], non_spi_before
+    )
+
+
+@pytest.mark.requires_uk
+def test_spi_preserves_observed_children_outside_the_donor_age_domain(
+    monkeypatch, tmp_path
+) -> None:
+    """Preserve FRS inputs below the constructed donor-age support guard."""
+    support = _dead_support()
+    person = support.person.copy()
+    channel = support_channel_column("person")
+    child = person.index[person[channel].eq("spi")][0]
+    person.loc[child, "age"] = 15
+    preserved = [
+        "employment_income",
+        "self_employment_income",
+        "private_pension_income",
+        "state_pension_reported",
+        "universal_credit_reported",
+        "savings_interest_income",
+        "tax_free_savings_income",
+        "dla_sc_reported",
+    ]
+    person.loc[child, preserved] = [0, 0, 0, 0, 0, 12, 3, 42]
+    support = replace(support, person=person)
+    donor_path = tmp_path / SPI_DONOR_FILENAME
+    _write_donor(donor_path)
+    monkeypatch.setattr(spi_income, "QRF", _FakeQRF)
+    _bypass_reviewed_donor_identity(monkeypatch)
+
+    result = impute_uk_spi_income_support(
+        support, donor_path, seed=9, n_estimators=3, donor_sample_size=None
+    )
+
+    pd.testing.assert_series_equal(
+        result.person.loc[child, preserved], person.loc[child, preserved]
+    )
+    assert result.spi_prediction_rows == int(person[channel].eq("spi").sum()) - 1
+    adults = person[channel].eq("spi") & person.age.ge(16)
+    assert result.person.loc[adults, "gift_aid"].eq(10).all()
+
+
+@pytest.mark.requires_uk
+def test_spi_rebases_income_before_frs_fill_and_preserves_child_inputs(
+    monkeypatch, tmp_path
+) -> None:
+    support = _dead_support()
+    person = support.person.copy()
+    channel = support_channel_column("person")
+    base_child = person.index[person[channel].eq("frs")][0]
+    person.loc[base_child, "age"] = 15
+    person.loc[base_child, "dividend_income"] = 19.0
+    support = replace(support, person=person)
+    donor_path = tmp_path / SPI_DONOR_FILENAME
+    _write_donor(donor_path)
+    monkeypatch.setattr(spi_income, "QRF", _FakeQRF)
+    _bypass_reviewed_donor_identity(monkeypatch)
+    factors = dict.fromkeys(SPI_INCOME_QRF_OUTPUT_COLUMNS, 2.0)
+    monkeypatch.setattr(
+        spi_income,
+        "_spi_income_uprating_factors",
+        lambda year: (factors, {"from_period": 2022, "to_period": year}),
+        raising=False,
+    )
+    options = dict(
+        seed=9,
+        n_estimators=3,
+        donor_sample_size=None,
+        stage1_base_redraw_columns=("dividend_income",),
+    )
+    reference = impute_uk_spi_income_support(support, donor_path, **options)
+    result = impute_uk_spi_income_support(
+        support,
+        donor_path,
+        rebase_income_to_build_period=True,
+        build_period=2024,
+        **options,
+    )
+    spi = person[channel].eq("spi")
+    np.testing.assert_array_equal(
+        result.person.loc[spi, "employment_income"],
+        2 * reference.person.loc[spi, "employment_income"],
+    )
+    # Only taxable SPI interest is rebased; the FRS fill's £5 tax-free draw
+    # is already in the build-year basis and must not be doubled.
+    assert result.person.loc[spi, "savings_interest_income"].eq(205).all()
+    assert (
+        result.person.loc[base_child, "dividend_income"]
+        == person.loc[base_child, "dividend_income"]
+    )
+    base_adult = person[channel].eq("frs") & person.age.ge(16)
+    np.testing.assert_array_equal(
+        result.person.loc[base_adult, "dividend_income"],
+        2 * reference.person.loc[base_adult, "dividend_income"],
+    )
+    assert result.income_uprating == {"from_period": 2022, "to_period": 2024}
+
+
+@pytest.mark.requires_uk
+def test_child_exclusion_keeps_the_base_dividend_random_stream(
+    monkeypatch, tmp_path
+) -> None:
+    support = _dead_support()
+    donor_path = tmp_path / SPI_DONOR_FILENAME
+    _write_donor(donor_path)
+    original_predict = _FakeFittedQRF.predict
+
+    def predict(self, predictors):
+        result = original_predict(self, predictors)
+        if "dividend_income" in result:
+            consumed = getattr(self, "consumed", 0)
+            result["dividend_income"] = consumed + np.arange(len(result), dtype=float)
+            self.consumed = consumed + len(result)
+        return result
+
+    monkeypatch.setattr(_FakeFittedQRF, "predict", predict)
+    monkeypatch.setattr(spi_income, "QRF", _FakeQRF)
+    _bypass_reviewed_donor_identity(monkeypatch)
+    options = dict(
+        seed=9,
+        n_estimators=3,
+        donor_sample_size=None,
+        stage1_base_redraw_columns=("dividend_income",),
+    )
+    reference = impute_uk_spi_income_support(support, donor_path, **options)
+    person = support.person.copy()
+    channel = support_channel_column("person")
+    child = person.index[person[channel].eq("spi")][0]
+    person.loc[child, "age"] = 15
+    candidate = impute_uk_spi_income_support(
+        replace(support, person=person), donor_path, **options
+    )
+    base = person[channel].eq("frs")
+    np.testing.assert_array_equal(
+        reference.person.loc[base, "dividend_income"],
+        candidate.person.loc[base, "dividend_income"],
+    )
+
+
+@pytest.mark.requires_uk
+def test_stage2_pension_bridge_uses_observed_and_drawn_receipt(
+    monkeypatch, tmp_path
+) -> None:
+    support = _dead_support()
+    donor_path = tmp_path / SPI_DONOR_FILENAME
+    _write_donor(donor_path)
+    captured = {}
+    original_predict = _FakeFittedQRF.predict
+
+    def predict(self, predictors):
+        result = original_predict(self, predictors)
+        if SPI_HMRC_STATE_PENSION_INCOME_COLUMN in result:
+            result[SPI_HMRC_STATE_PENSION_INCOME_COLUMN] = np.arange(len(result)) % 2
+        if "state_pension_reported" in result:
+            captured["recipient"] = predictors["state_pension_receipt"].to_numpy()
+        return result
+
+    class CapturingQRF(_FakeQRF):
+        def fit(self, frame, predictors, targets, *, weights):
+            if "state_pension_reported" in targets:
+                captured["training"] = frame.table("person")[
+                    "state_pension_receipt"
+                ].to_numpy()
+            return super().fit(frame, predictors, targets, weights=weights)
+
+    monkeypatch.setattr(_FakeFittedQRF, "predict", predict)
+    monkeypatch.setattr(spi_income, "QRF", CapturingQRF)
+    _bypass_reviewed_donor_identity(monkeypatch)
+    result = impute_uk_spi_income_support(
+        support,
+        donor_path,
+        seed=9,
+        n_estimators=3,
+        donor_sample_size=None,
+        condition_on_state_pension_receipt=True,
+    )
+    np.testing.assert_array_equal(
+        captured["recipient"], np.arange(result.spi_prediction_rows) % 2
+    )
+    assert captured["training"].all()
+    assert (
+        result.pension_receipt_bridge["recipient_source"]
+        == "hmrc_spi_state_pension_income > 0"
+    )
 
 
 @pytest.mark.requires_uk
@@ -680,3 +923,171 @@ def test_the_spi_channel_ships_no_structural_nan_on_the_frs_channel(
         "stage-time zeros so the engine can load it and the calibration "
         "seam's finiteness fence can stay fail-loud"
     )
+
+
+@pytest.mark.parametrize("age", [15, 16])
+@pytest.mark.parametrize("channel", ["frs", "spi"])
+@pytest.mark.requires_uk
+def test_spi_donor_age_boundary_applies_to_both_recipient_channels(
+    monkeypatch, tmp_path, age, channel
+) -> None:
+    support = _dead_support()
+    person = support.person.copy()
+    recipient = person.index[person[support_channel_column("person")].eq(channel)][0]
+    person.loc[recipient, "age"] = age
+    person.loc[recipient, "dividend_income"] = 987.0
+    person.loc[recipient, "universal_credit_reported"] = 1234.0
+    support = replace(support, person=person)
+    donor_path = tmp_path / SPI_DONOR_FILENAME
+    _write_donor(donor_path)
+    monkeypatch.setattr(spi_income, "QRF", _FakeQRF)
+    _bypass_reviewed_donor_identity(monkeypatch)
+
+    result = impute_uk_spi_income_support(
+        support,
+        donor_path,
+        seed=9,
+        n_estimators=3,
+        donor_sample_size=None,
+        stage1_base_redraw_columns=("dividend_income",),
+    )
+
+    if age == 15:
+        assert result.person.loc[recipient, "dividend_income"] == 987.0
+        assert result.person.loc[recipient, "universal_credit_reported"] == 1234.0
+    else:
+        assert result.person.loc[recipient, "dividend_income"] == 3.0
+        if channel == "spi":
+            assert result.person.loc[recipient, "universal_credit_reported"] != 1234.0
+        else:
+            assert result.person.loc[recipient, "universal_credit_reported"] == 1234.0
+
+
+@pytest.mark.parametrize(
+    ("defect", "message"),
+    [
+        ("missing_variable", "Missing SPI uprating variable"),
+        ("missing_index", "Unsupported SPI uprating index"),
+        ("blank_index", "Unsupported SPI uprating index"),
+        ("callable_index", "Unsupported SPI uprating index"),
+        ("missing_parameter", "Missing SPI uprating parameter"),
+        ("nonpositive_index", "SPI uprating index must be positive"),
+        ("nonfinite_index", "SPI uprating index must be positive"),
+    ],
+)
+def test_declared_spi_uprating_mapping_cannot_silently_become_nominal(
+    monkeypatch, defect, message
+) -> None:
+    variables = {
+        name: SimpleNamespace(uprating="index")
+        for name in spi_income.SPI_INCOME_UPRATING_VARIABLES.values()
+        if name is not None
+    }
+    variable = "self_employment_income"
+    if defect == "missing_variable":
+        del variables[variable]
+    elif defect == "missing_index":
+        variables[variable] = SimpleNamespace()
+    elif defect == "blank_index":
+        variables[variable].uprating = ""
+    elif defect == "callable_index":
+        variables[variable].uprating = lambda _: 1.0
+
+    def parameters(period):
+        if defect == "missing_parameter":
+            return SimpleNamespace()
+        value = 100.0 if period.startswith("2022") else 120.0
+        if defect == "nonpositive_index":
+            value = 0.0
+        elif defect == "nonfinite_index":
+            value = np.nan
+        return SimpleNamespace(index=value)
+
+    system = SimpleNamespace(variables=variables, parameters=parameters)
+    monkeypatch.setitem(
+        sys.modules,
+        "policyengine_uk",
+        SimpleNamespace(CountryTaxBenefitSystem=lambda: system),
+    )
+
+    # Bypass memoization so one runtime's cached factors cannot conceal a
+    # changed or incomplete installed-engine contract.
+    with pytest.raises(ValueError, match=message):
+        spi_income._spi_income_uprating_factors.__wrapped__(2024)
+
+
+@pytest.mark.requires_uk
+def test_spi_uprating_uses_actual_engine_indices_and_explicit_nominal_holdouts() -> (
+    None
+):
+    from policyengine_uk import CountryTaxBenefitSystem
+
+    system = CountryTaxBenefitSystem()
+    source = system.parameters("2022-01-01").gov.economic_assumptions.indices
+    target = system.parameters("2024-01-01").gov.economic_assumptions.indices
+    expected = {
+        "self_employment_income": (
+            "obr.per_capita.mixed_income",
+            target.obr.per_capita.mixed_income / source.obr.per_capita.mixed_income,
+        ),
+        "savings_interest_income": (
+            "ons.household_interest_income",
+            target.ons.household_interest_income / source.ons.household_interest_income,
+        ),
+        "dividend_income": (
+            "obr.per_capita.gdp",
+            target.obr.per_capita.gdp / source.obr.per_capita.gdp,
+        ),
+        "private_pension_income": (
+            "obr.private_pension_index",
+            target.obr.private_pension_index / source.obr.private_pension_index,
+        ),
+        "employment_income_before_lsr": (
+            "obr.average_earnings",
+            target.obr.average_earnings / source.obr.average_earnings,
+        ),
+    }
+    expected["property_income"] = expected["dividend_income"]
+    expected["miscellaneous_income"] = expected["dividend_income"]
+    expected["other_investment_income"] = expected["dividend_income"]
+    nominal = {
+        "gift_aid",
+        "charitable_investment_gifts",
+        "hmrc_spi_incapacity_benefit_income",
+        "hmrc_spi_other_social_security_income",
+        "hmrc_spi_unemployment_benefit_income",
+        "hmrc_spi_state_pension_income",
+    }
+
+    factors, receipt = spi_income._spi_income_uprating_factors.__wrapped__(2024)
+
+    assert receipt["from_period"] == 2022
+    assert receipt["to_period"] == 2024
+    assert set(factors) == set(SPI_INCOME_QRF_OUTPUT_COLUMNS)
+    assert {
+        column
+        for column, row in receipt["columns"].items()
+        if row["basis"] == "held_nominal"
+    } == nominal
+    for column, row in receipt["columns"].items():
+        if column in nominal:
+            assert row == {
+                "variable": None,
+                "index": None,
+                "factor": 1.0,
+                "basis": "held_nominal",
+            }
+        else:
+            path, ratio = expected[row["variable"]]
+            assert row["index"] == "gov.economic_assumptions.indices." + path
+            assert row["basis"] == "model_index"
+            assert factors[column] == pytest.approx(float(ratio))
+            assert np.isfinite(factors[column]) and factors[column] > 0
+
+    unchanged, source_receipt = spi_income._spi_income_uprating_factors.__wrapped__(
+        2022
+    )
+    assert set(unchanged.values()) == {1.0}
+    assert source_receipt["from_period"] == source_receipt["to_period"] == 2022
+    with pytest.raises(ValueError, match="before its source year"):
+        spi_income._spi_income_uprating_factors.__wrapped__(2021)

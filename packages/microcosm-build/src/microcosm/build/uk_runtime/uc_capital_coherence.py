@@ -33,6 +33,9 @@ from microcosm.build.uk_runtime.spi_support import (
     SPI_SYNTHETIC_SUPPORT_CHANNEL,
     support_channel_column,
 )
+from microcosm.build.uk_runtime.uc_relationships import (
+    frs_uc_couple_mask,
+)
 from microcosm.frame import Frame
 
 UC_CAPITAL_REDRAW_OUTPUT = "frs_benunit_capital"
@@ -107,7 +110,6 @@ def cohere_uc_capital(frame: Frame) -> UKUCCapitalCoherenceResult:
             support_channel_column("benunit"),
             "frs_benunit_capital",
             "dependent_children",
-            "is_married",
             "would_claim_uc",
         ),
         label="benunit",
@@ -201,7 +203,7 @@ def _redraw_spi_reporter_capital(
         household_weights=household_weights,
     )
     child_band = _dependent_children_band(benunit["dependent_children"])
-    couple = _boolean_values(benunit["is_married"])
+    couple = frs_uc_couple_mask(person, benunit)
     # Domain-validated upstream: every non-sentinel value is >= 0.
     available = capital >= 0.0
     donor = base & reporter & available & (weights > 0.0)
@@ -305,6 +307,7 @@ def _assert_stage_parameters(stage: SourceStageSpec) -> None:
         "output": UC_CAPITAL_REDRAW_OUTPUT,
         "seed": UC_CAPITAL_REDRAW_SEED,
         "salt": UC_CAPITAL_REDRAW_SALT,
+        "couple_status": "is_uc_couple",
     }
     actual = {key: parameters.get(key) for key in expected}
     if actual != expected:

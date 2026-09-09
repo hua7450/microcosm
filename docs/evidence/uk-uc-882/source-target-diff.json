@@ -1,0 +1,645 @@
+{
+  "purpose": "Public source-only compilation evidence; no population or fit results.",
+  "date": "2026-09-09",
+  "model_period": 2025,
+  "base_microcosm_commit": "a19582bd918829858a117f0d6aafa2b994e856ec",
+  "national_feed_pin": {
+    "version": 1,
+    "country": "uk",
+    "scope": "national_calibration",
+    "source_repo": "PolicyEngine/chronicle",
+    "source_commit": "ec7169b5db40b9f54117c80f70f14efc1dd0fedd",
+    "build": "build-bundle --suite uk -> build-consumer-artifact",
+    "artifact_schema_version": "policyengine_ledger.consumer_artifact.v2",
+    "consumer_fact_schema_versions": [
+      "ledger.consumer_fact.v1"
+    ],
+    "consumer_fact_schema_sha256": "76ac268e626c86146cee51193e0cbecbb197ddbf3bf410156fe7da7c0edae3ad",
+    "fact_row_count": 131450,
+    "facts_sha256": "4a50ee9568a01bbb57f73d927084ed6b4b9e52249b51a2338455874ae6e382b5",
+    "manifest_sha256": "a95d0ee9f87f36947eaecdb3de29cf81a91e47ccaa822fed42da677eedca877f"
+  },
+  "source_crosswalk_receipt_sha256": "2c90b62e11b69f2b71df61c194ad45a64c051eae74bb80fe9f3b04610172fa60",
+  "complete_compile_counts": {
+    "baseline-contract": {
+      "reference_count": 415,
+      "compiled_count": 415,
+      "active_count": 366,
+      "unsupported": [],
+      "elapsed_seconds": 61.26922108302824
+    },
+    "old-contract-new-feed": {
+      "reference_count": 415,
+      "compiled_count": 415,
+      "active_count": 366,
+      "unsupported": [],
+      "elapsed_seconds": 62.913134041999
+    },
+    "cy-paid-administrative": {
+      "reference_count": 415,
+      "compiled_count": 415,
+      "active_count": 366,
+      "unsupported": [],
+      "elapsed_seconds": 1.5467193750082515
+    },
+    "cy-paid-structural": {
+      "reference_count": 415,
+      "compiled_count": 415,
+      "active_count": 366,
+      "unsupported": [],
+      "elapsed_seconds": 0.17341837496496737
+    },
+    "fy-paid-administrative": {
+      "reference_count": 415,
+      "compiled_count": 415,
+      "active_count": 366,
+      "unsupported": [],
+      "elapsed_seconds": 1.5655512920347974
+    }
+  },
+  "source_only_value_change_count": 0,
+  "repaired_value_change_count": 10,
+  "unchanged_compiled_value_count": 405,
+  "unchanged_active_roster_order_and_coefficients": true,
+  "changed_target_values": [
+    {
+      "name": "dwp.uc.households",
+      "contract_target_id": "dwp.uc.households",
+      "active": true,
+      "values": {
+        "baseline-contract": 6758888.888888889,
+        "old-contract-new-feed": 6758888.888888889,
+        "cy-paid-administrative": 6197311.0,
+        "cy-paid-structural": 6197311.0,
+        "fy-paid-administrative": 6401649.416666667
+      }
+    },
+    {
+      "name": "dwp.uc.households_children_1",
+      "contract_target_id": "dwp.uc.households_children_1",
+      "active": true,
+      "values": {
+        "baseline-contract": 1278537.0,
+        "old-contract-new-feed": 1278537.0,
+        "cy-paid-administrative": 1190123.8333333333,
+        "cy-paid-structural": 1190123.8333333333,
+        "fy-paid-administrative": 1195831.0833333333
+      }
+    },
+    {
+      "name": "dwp.uc.households_children_2",
+      "contract_target_id": "dwp.uc.households_children_2",
+      "active": true,
+      "values": {
+        "baseline-contract": 1100617.5555555555,
+        "old-contract-new-feed": 1100617.5555555555,
+        "cy-paid-administrative": 1049895.5,
+        "cy-paid-structural": 1049895.5,
+        "fy-paid-administrative": 1048750.0833333333
+      }
+    },
+    {
+      "name": "dwp.uc.households_children_3",
+      "contract_target_id": "dwp.uc.households_children_3",
+      "active": true,
+      "values": {
+        "baseline-contract": 494553.22222222225,
+        "old-contract-new-feed": 494553.22222222225,
+        "cy-paid-administrative": 477887.6666666667,
+        "cy-paid-structural": 477887.6666666667,
+        "fy-paid-administrative": 476283.6666666667
+      }
+    },
+    {
+      "name": "dwp.uc.households_children_4",
+      "contract_target_id": "dwp.uc.households_children_4",
+      "active": true,
+      "values": {
+        "baseline-contract": 174668.88888888888,
+        "old-contract-new-feed": 174668.88888888888,
+        "cy-paid-administrative": 170713.66666666666,
+        "cy-paid-structural": 170713.66666666666,
+        "fy-paid-administrative": 169737.33333333334
+      }
+    },
+    {
+      "name": "dwp.uc.households_children_5_or_more",
+      "contract_target_id": "dwp.uc.households_children_5_or_more",
+      "active": true,
+      "values": {
+        "baseline-contract": 77376.77777777778,
+        "old-contract-new-feed": 77376.77777777778,
+        "cy-paid-administrative": 76320.08333333333,
+        "cy-paid-structural": 76320.08333333333,
+        "fy-paid-administrative": 76082.33333333333
+      }
+    },
+    {
+      "name": "dwp.uc.households_couple_no_children",
+      "contract_target_id": "dwp.uc.households_couple_no_children",
+      "active": true,
+      "values": {
+        "baseline-contract": 284345.55555555556,
+        "old-contract-new-feed": 284345.55555555556,
+        "cy-paid-administrative": 241130.91666666666,
+        "cy-paid-structural": 241130.91666666666,
+        "fy-paid-administrative": 254341.91666666666
+      }
+    },
+    {
+      "name": "dwp.uc.households_couple_with_children",
+      "contract_target_id": "dwp.uc.households_couple_with_children",
+      "active": true,
+      "values": {
+        "baseline-contract": 899534.6666666666,
+        "old-contract-new-feed": 899534.6666666666,
+        "cy-paid-administrative": 826160.8333333334,
+        "cy-paid-structural": 826160.8333333334,
+        "fy-paid-administrative": 817774.75
+      }
+    },
+    {
+      "name": "dwp.uc.households_single_no_children",
+      "contract_target_id": "dwp.uc.households_single_no_children",
+      "active": true,
+      "values": {
+        "baseline-contract": 3446962.0,
+        "old-contract-new-feed": 3446962.0,
+        "cy-paid-administrative": 2990070.1666666665,
+        "cy-paid-structural": 2990070.1666666665,
+        "fy-paid-administrative": 3179423.0
+      }
+    },
+    {
+      "name": "dwp.uc.households_single_with_children",
+      "contract_target_id": "dwp.uc.households_single_with_children",
+      "active": true,
+      "values": {
+        "baseline-contract": 2226220.0,
+        "old-contract-new-feed": 2226220.0,
+        "cy-paid-administrative": 2138780.1666666665,
+        "cy-paid-structural": 2138780.1666666665,
+        "fy-paid-administrative": 2148910.1666666665
+      }
+    }
+  ],
+  "independent_raw_source_checks": {
+    "official_consumer_loader_validates_complete_feed_schema_hash_row_count_provenance": true,
+    "every_new_uc_fact_matches_publisher_cell_exactly": true,
+    "unknown_and_not_available_categories_preserved": true,
+    "publisher_total_not_reconstructed_or_counted_as_detail": true,
+    "source_periods_and_annotations_preserved": true
+  },
+  "window_reconciliation": {
+    "apr_dec_2025": {
+      "months": [
+        "2025-04",
+        "2025-05",
+        "2025-06",
+        "2025-07",
+        "2025-08",
+        "2025-09",
+        "2025-10",
+        "2025-11",
+        "2025-12"
+      ],
+      "month_count": 9,
+      "annotations": {
+        "2025-04": [
+          "r"
+        ],
+        "2025-05": [
+          "r"
+        ],
+        "2025-06": [
+          "r"
+        ],
+        "2025-07": [
+          "r"
+        ],
+        "2025-08": [
+          "r"
+        ],
+        "2025-09": [
+          "r"
+        ],
+        "2025-10": [
+          "r"
+        ],
+        "2025-11": [
+          "r"
+        ],
+        "2025-12": [
+          "r"
+        ]
+      },
+      "family_mean_monthly_counts": {
+        "Single, no children": {
+          "paid_derived_entitlement_no_plus_yes": 3098990.5555555555,
+          "paid_and_child_entitlement_yes": 0.0,
+          "nil_derived_entitlement_no_plus_yes": 347971.77777777775
+        },
+        "Single, with children": {
+          "paid_derived_entitlement_no_plus_yes": 2145417.111111111,
+          "paid_and_child_entitlement_yes": 2030615.0,
+          "nil_derived_entitlement_no_plus_yes": 80801.66666666667
+        },
+        "Couple, no children": {
+          "paid_derived_entitlement_no_plus_yes": 249377.66666666666,
+          "paid_and_child_entitlement_yes": 0.0,
+          "nil_derived_entitlement_no_plus_yes": 34967.0
+        },
+        "Couple, with children": {
+          "paid_derived_entitlement_no_plus_yes": 821272.6666666666,
+          "paid_and_child_entitlement_yes": 795408.1111111111,
+          "nil_derived_entitlement_no_plus_yes": 78265.0
+        },
+        "Unknown or missing family type": {
+          "paid_derived_entitlement_no_plus_yes": 1170.4444444444443,
+          "paid_and_child_entitlement_yes": 1170.4444444444443,
+          "nil_derived_entitlement_no_plus_yes": 55.0
+        }
+      },
+      "child_count_mean_monthly_counts": {
+        "0": {
+          "paid_publisher_entitlement_total": 3348366.3333333335,
+          "paid_and_child_entitlement_yes": 0.0,
+          "nil_publisher_entitlement_total": 382940.8888888889
+        },
+        "1": {
+          "paid_publisher_entitlement_total": 1193402.6666666667,
+          "paid_and_child_entitlement_yes": 1074553.5555555555,
+          "nil_publisher_entitlement_total": 85135.11111111111
+        },
+        "2": {
+          "paid_publisher_entitlement_total": 1049490.3333333333,
+          "paid_and_child_entitlement_yes": 1032421.6666666666,
+          "nil_publisher_entitlement_total": 51129.11111111111
+        },
+        "3": {
+          "paid_publisher_entitlement_total": 477181.55555555556,
+          "paid_and_child_entitlement_yes": 473716.55555555556,
+          "nil_publisher_entitlement_total": 17372.0
+        },
+        "4": {
+          "paid_publisher_entitlement_total": 170303.44444444444,
+          "paid_and_child_entitlement_yes": 169379.11111111112,
+          "nil_publisher_entitlement_total": 4365.333333333333
+        },
+        "5 or more": {
+          "paid_publisher_entitlement_total": 76312.33333333333,
+          "paid_and_child_entitlement_yes": 75949.22222222222,
+          "nil_publisher_entitlement_total": 1064.4444444444443
+        },
+        "Unknown or missing": {
+          "paid_publisher_entitlement_total": 1170.4444444444443,
+          "paid_and_child_entitlement_yes": 1170.4444444444443,
+          "nil_publisher_entitlement_total": 55.0
+        },
+        "Not available prior to April 2019": {
+          "paid_publisher_entitlement_total": 0.0,
+          "paid_and_child_entitlement_yes": 0.0,
+          "nil_publisher_entitlement_total": 0.0
+        }
+      },
+      "publisher_total_minus_entitlement_detail_sum": {
+        "cells": 144,
+        "nonzero_cells": 80,
+        "maximum_absolute_difference": 8,
+        "mean_difference": 0.08333333333333333,
+        "sum_difference": 12
+      },
+      "family_derived_total_minus_children_total_sum": {
+        "paid": {
+          "cells": 9,
+          "nonzero_cells": 9,
+          "maximum_absolute_difference": 8,
+          "mean_difference": 1.3333333333333333,
+          "sum_difference": 12
+        },
+        "nil": {
+          "cells": 9,
+          "nonzero_cells": 9,
+          "maximum_absolute_difference": 7,
+          "mean_difference": -1.4444444444444444,
+          "sum_difference": -13
+        }
+      },
+      "paid_derived_grand_total_from_family": 6316228.444444444,
+      "paid_derived_grand_total_from_children": 6316227.111111111,
+      "paid_child_entitled_derived_total_from_family": 2827193.5555555555,
+      "paid_child_entitled_derived_total_from_children": 2827190.5555555555
+    },
+    "calendar_2025": {
+      "months": [
+        "2025-01",
+        "2025-02",
+        "2025-03",
+        "2025-04",
+        "2025-05",
+        "2025-06",
+        "2025-07",
+        "2025-08",
+        "2025-09",
+        "2025-10",
+        "2025-11",
+        "2025-12"
+      ],
+      "month_count": 12,
+      "annotations": {
+        "2025-01": [
+          "r"
+        ],
+        "2025-02": [
+          "r"
+        ],
+        "2025-03": [
+          "r"
+        ],
+        "2025-04": [
+          "r"
+        ],
+        "2025-05": [
+          "r"
+        ],
+        "2025-06": [
+          "r"
+        ],
+        "2025-07": [
+          "r"
+        ],
+        "2025-08": [
+          "r"
+        ],
+        "2025-09": [
+          "r"
+        ],
+        "2025-10": [
+          "r"
+        ],
+        "2025-11": [
+          "r"
+        ],
+        "2025-12": [
+          "r"
+        ]
+      },
+      "family_mean_monthly_counts": {
+        "Single, no children": {
+          "paid_derived_entitlement_no_plus_yes": 2990070.1666666665,
+          "paid_and_child_entitlement_yes": 0.0,
+          "nil_derived_entitlement_no_plus_yes": 346044.75
+        },
+        "Single, with children": {
+          "paid_derived_entitlement_no_plus_yes": 2138780.1666666665,
+          "paid_and_child_entitlement_yes": 2029848.0833333333,
+          "nil_derived_entitlement_no_plus_yes": 80578.58333333333
+        },
+        "Couple, no children": {
+          "paid_derived_entitlement_no_plus_yes": 241130.91666666666,
+          "paid_and_child_entitlement_yes": 0.0,
+          "nil_derived_entitlement_no_plus_yes": 34704.583333333336
+        },
+        "Couple, with children": {
+          "paid_derived_entitlement_no_plus_yes": 826160.8333333334,
+          "paid_and_child_entitlement_yes": 801139.4166666666,
+          "nil_derived_entitlement_no_plus_yes": 77800.5
+        },
+        "Unknown or missing family type": {
+          "paid_derived_entitlement_no_plus_yes": 1168.9166666666667,
+          "paid_and_child_entitlement_yes": 1168.9166666666667,
+          "nil_derived_entitlement_no_plus_yes": 56.916666666666664
+        }
+      },
+      "child_count_mean_monthly_counts": {
+        "0": {
+          "paid_publisher_entitlement_total": 3231200.1666666665,
+          "paid_and_child_entitlement_yes": 0.0,
+          "nil_publisher_entitlement_total": 380751.25
+        },
+        "1": {
+          "paid_publisher_entitlement_total": 1190123.8333333333,
+          "paid_and_child_entitlement_yes": 1076237.25,
+          "nil_publisher_entitlement_total": 84604.83333333333
+        },
+        "2": {
+          "paid_publisher_entitlement_total": 1049895.5,
+          "paid_and_child_entitlement_yes": 1034072.4166666666,
+          "nil_publisher_entitlement_total": 50999.5
+        },
+        "3": {
+          "paid_publisher_entitlement_total": 477887.6666666667,
+          "paid_and_child_entitlement_yes": 474776.5,
+          "nil_publisher_entitlement_total": 17362.833333333332
+        },
+        "4": {
+          "paid_publisher_entitlement_total": 170713.66666666666,
+          "paid_and_child_entitlement_yes": 169893.83333333334,
+          "nil_publisher_entitlement_total": 4347.416666666667
+        },
+        "5 or more": {
+          "paid_publisher_entitlement_total": 76320.08333333333,
+          "paid_and_child_entitlement_yes": 76004.25,
+          "nil_publisher_entitlement_total": 1061.75
+        },
+        "Unknown or missing": {
+          "paid_publisher_entitlement_total": 1168.9166666666667,
+          "paid_and_child_entitlement_yes": 1168.9166666666667,
+          "nil_publisher_entitlement_total": 56.916666666666664
+        },
+        "Not available prior to April 2019": {
+          "paid_publisher_entitlement_total": 0.0,
+          "paid_and_child_entitlement_yes": 0.0,
+          "nil_publisher_entitlement_total": 0.0
+        }
+      },
+      "publisher_total_minus_entitlement_detail_sum": {
+        "cells": 192,
+        "nonzero_cells": 107,
+        "maximum_absolute_difference": 8,
+        "mean_difference": 0.0,
+        "sum_difference": 0
+      },
+      "family_derived_total_minus_children_total_sum": {
+        "paid": {
+          "cells": 12,
+          "nonzero_cells": 12,
+          "maximum_absolute_difference": 8,
+          "mean_difference": 1.1666666666666667,
+          "sum_difference": 14
+        },
+        "nil": {
+          "cells": 12,
+          "nonzero_cells": 12,
+          "maximum_absolute_difference": 9,
+          "mean_difference": 0.8333333333333334,
+          "sum_difference": 10
+        }
+      },
+      "paid_derived_grand_total_from_family": 6197311.0,
+      "paid_derived_grand_total_from_children": 6197309.833333333,
+      "paid_child_entitled_derived_total_from_family": 2832156.4166666665,
+      "paid_child_entitled_derived_total_from_children": 2832153.1666666665
+    },
+    "fy_2025_26": {
+      "months": [
+        "2025-04",
+        "2025-05",
+        "2025-06",
+        "2025-07",
+        "2025-08",
+        "2025-09",
+        "2025-10",
+        "2025-11",
+        "2025-12",
+        "2026-01",
+        "2026-02",
+        "2026-03"
+      ],
+      "month_count": 12,
+      "annotations": {
+        "2025-04": [
+          "r"
+        ],
+        "2025-05": [
+          "r"
+        ],
+        "2025-06": [
+          "r"
+        ],
+        "2025-07": [
+          "r"
+        ],
+        "2025-08": [
+          "r"
+        ],
+        "2025-09": [
+          "r"
+        ],
+        "2025-10": [
+          "r"
+        ],
+        "2025-11": [
+          "r"
+        ],
+        "2025-12": [
+          "r"
+        ],
+        "2026-01": [
+          "r"
+        ],
+        "2026-02": [
+          "r"
+        ],
+        "2026-03": [
+          "p"
+        ]
+      },
+      "family_mean_monthly_counts": {
+        "Single, no children": {
+          "paid_derived_entitlement_no_plus_yes": 3179423.0,
+          "paid_and_child_entitlement_yes": 0.0,
+          "nil_derived_entitlement_no_plus_yes": 341330.75
+        },
+        "Single, with children": {
+          "paid_derived_entitlement_no_plus_yes": 2148910.1666666665,
+          "paid_and_child_entitlement_yes": 2030415.5,
+          "nil_derived_entitlement_no_plus_yes": 78495.83333333333
+        },
+        "Couple, no children": {
+          "paid_derived_entitlement_no_plus_yes": 254341.91666666666,
+          "paid_and_child_entitlement_yes": 0.0,
+          "nil_derived_entitlement_no_plus_yes": 34576.916666666664
+        },
+        "Couple, with children": {
+          "paid_derived_entitlement_no_plus_yes": 817774.75,
+          "paid_and_child_entitlement_yes": 791796.5,
+          "nil_derived_entitlement_no_plus_yes": 76340.0
+        },
+        "Unknown or missing family type": {
+          "paid_derived_entitlement_no_plus_yes": 1199.5833333333333,
+          "paid_and_child_entitlement_yes": 1199.5833333333333,
+          "nil_derived_entitlement_no_plus_yes": 56.833333333333336
+        }
+      },
+      "child_count_mean_monthly_counts": {
+        "0": {
+          "paid_publisher_entitlement_total": 3433763.75,
+          "paid_and_child_entitlement_yes": 0.0,
+          "nil_publisher_entitlement_total": 375908.75
+        },
+        "1": {
+          "paid_publisher_entitlement_total": 1195831.0833333333,
+          "paid_and_child_entitlement_yes": 1074485.25,
+          "nil_publisher_entitlement_total": 83115.0
+        },
+        "2": {
+          "paid_publisher_entitlement_total": 1048750.0833333333,
+          "paid_and_child_entitlement_yes": 1030831.0,
+          "nil_publisher_entitlement_total": 49672.166666666664
+        },
+        "3": {
+          "paid_publisher_entitlement_total": 476283.6666666667,
+          "paid_and_child_entitlement_yes": 472499.0833333333,
+          "nil_publisher_entitlement_total": 16810.916666666668
+        },
+        "4": {
+          "paid_publisher_entitlement_total": 169737.33333333334,
+          "paid_and_child_entitlement_yes": 168719.5,
+          "nil_publisher_entitlement_total": 4217.333333333333
+        },
+        "5 or more": {
+          "paid_publisher_entitlement_total": 76082.33333333333,
+          "paid_and_child_entitlement_yes": 75673.33333333333,
+          "nil_publisher_entitlement_total": 1020.5833333333334
+        },
+        "Unknown or missing": {
+          "paid_publisher_entitlement_total": 1199.5833333333333,
+          "paid_and_child_entitlement_yes": 1199.5833333333333,
+          "nil_publisher_entitlement_total": 56.833333333333336
+        },
+        "Not available prior to April 2019": {
+          "paid_publisher_entitlement_total": 0.0,
+          "paid_and_child_entitlement_yes": 0.0,
+          "nil_publisher_entitlement_total": 0.0
+        }
+      },
+      "publisher_total_minus_entitlement_detail_sum": {
+        "cells": 192,
+        "nonzero_cells": 106,
+        "maximum_absolute_difference": 8,
+        "mean_difference": 0.020833333333333332,
+        "sum_difference": 4
+      },
+      "family_derived_total_minus_children_total_sum": {
+        "paid": {
+          "cells": 12,
+          "nonzero_cells": 12,
+          "maximum_absolute_difference": 8,
+          "mean_difference": 1.5833333333333333,
+          "sum_difference": 19
+        },
+        "nil": {
+          "cells": 12,
+          "nonzero_cells": 12,
+          "maximum_absolute_difference": 7,
+          "mean_difference": -1.25,
+          "sum_difference": -15
+        }
+      },
+      "paid_derived_grand_total_from_family": 6401649.416666666,
+      "paid_derived_grand_total_from_children": 6401647.833333333,
+      "paid_child_entitled_derived_total_from_family": 2823411.5833333335,
+      "paid_child_entitled_derived_total_from_children": 2823407.75
+    }
+  },
+  "limitations": [
+    "All values are source facts or explicitly declared source arithmetic, not model outcomes.",
+    "CY and FY new targets average their exact twelve monthly observations. Monthly counts do not represent unique annual claimants.",
+    "FY 2025/26 includes provisional March 2026; the model remains year 2025.",
+    "The 101 other existing monthly UC references keep their original observation windows.",
+    "Family/headline paid counts sum all declared perturbed detail cells within month; child-count paid counts preserve publisher entitlement Totals.",
+    "Published unknown family cells remain in the headline; paid-and-child-entitled joints remain outside the active roster.",
+    "This source comparison does not establish model support, fit, claim history, own-child equivalence or population certification."
+  ]
+}

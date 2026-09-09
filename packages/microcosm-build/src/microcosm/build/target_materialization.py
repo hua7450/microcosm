@@ -25,11 +25,9 @@ Provider = Callable[[Any, Mapping[str, Any], int | str], np.ndarray]
 # sibling's lower edge within the same compiled contract target. Edges must
 # never derive from an exclusion-pruned roster, or excluding a band silently
 # widens its lower neighbour; only the compiled register's top band runs to
-# infinity.
+# infinity unless the binding declares a source-unit ``band_upper_bound``.
 # Entity-count indicators: a value of one per record of the owning entity.
-_COUNT_VALUE_VARIABLES = frozenset(
-    {"household_count", "person_count", "benunit_count"}
-)
+_COUNT_VALUE_VARIABLES = frozenset({"household_count", "person_count", "benunit_count"})
 
 _BAND_LOWER_BOUND_SUFFIX = "_lower_bound"
 _LEDGER_FILTER_PREFIX = "ledger_filter_"
@@ -182,9 +180,7 @@ def resolve_target_measures(
             "skipped": [skip.__dict__ for skip in skipped],
         }
         receipt["rounds"].append(round_receipt)
-        all_skips.extend(
-            {**skip.__dict__, "round": round_index} for skip in skipped
-        )
+        all_skips.extend({**skip.__dict__, "round": round_index} for skip in skipped)
         if not skipped:
             return MeasureResolution(
                 measure_inputs=MappingProxyType(dict(measure_inputs)),
@@ -242,6 +238,10 @@ def resolve_target_measures(
                     all_skips,
                 )
             measure_inputs[key] = np.asarray(values)
+            # Providers can learn the comparison contract while resolving
+            # inputs (for example, UC claim-state/date proxies). Preserve the
+            # post-computation receipt, not only the pre-resolution snapshot.
+            receipt["provider"] = _measure_provider_receipt(provider)
             provided_this_round.add(key)
             receipt["attached"][f"{entity}.{variable}"] = route
             progressed = True
@@ -308,9 +308,7 @@ def _raise_measure_resolution(
     raise MeasureResolutionError(message, receipt=receipt)
 
 
-def _band_lower_edge(
-    spec: Any, binding: Mapping[str, Any]
-) -> float | None:
+def _band_lower_edge(spec: Any, binding: Mapping[str, Any]) -> float | None:
     """This spec's band lower edge in model units, or None if unbanded.
 
     Reads the compiled spec's Ledger filter metadata: a ``*_lower_bound``
@@ -441,6 +439,30 @@ def _band_bounds(
         if edge > lower:
             upper = edge
             break
+    # A consumer may bind only the finite portion of a published histogram.
+    # Declare its source-unit ceiling instead of allowing the last included
+    # row to absorb a separately published, unbound top-coded category.
+    if "band_upper_bound" in binding:
+        inclusive = binding.get("band_upper_bound_inclusive")
+        factor = float(binding.get("band_period_factor", 1))
+        declared_upper = float(binding["band_upper_bound"]) * factor
+        if (
+            not isinstance(inclusive, bool)
+            or not math.isfinite(factor)
+            or factor <= 0
+            or not math.isfinite(declared_upper)
+            or declared_upper <= lower
+        ):
+            raise ValueError(
+                "band_upper_bound requires a finite bound above the lower "
+                "edge, a positive period factor and an explicit boolean "
+                "band_upper_bound_inclusive"
+            )
+        if inclusive:
+            declared_upper = np.nextafter(declared_upper, math.inf)
+        upper = min(upper, declared_upper)
+    elif "band_upper_bound_inclusive" in binding:
+        raise ValueError("band_upper_bound_inclusive requires band_upper_bound")
     return lower, upper
 
 

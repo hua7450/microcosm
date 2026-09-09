@@ -904,9 +904,11 @@ class TestUKCountryPackage:
         assert legacy_rows == (
             "cgt_source_stages.json",
             "degenerate_reviewed_exclusions.json",
+            "target_fit_reviewed_exclusions.json",
             "efrs_parity_known_gaps.json",
             "efrs_parity_reference.json",
             "frs_release.json",
+            "national_chronicle_feed.json",
             "gates.json",
             "brma_rent_counts.json",
             "calibration_measure_exclusions.json",
@@ -996,9 +998,11 @@ class TestExistingPackagesGeneralize:
             "spec/vintages.yaml",
             "cgt_source_stages.json",
             "degenerate_reviewed_exclusions.json",
+            "target_fit_reviewed_exclusions.json",
             "efrs_parity_known_gaps.json",
             "efrs_parity_reference.json",
             "frs_release.json",
+            "national_chronicle_feed.json",
             "gates.json",
             "brma_rent_counts.json",
             "calibration_measure_exclusions.json",
@@ -1060,8 +1064,10 @@ class TestExistingPackagesGeneralize:
         assert len(references) == 415
         assert references["obr.esa"].value_operation == "sum"
         assert references["dwp.uc.households"].value_operation == (
-            "calendar_year_average"
+            "monthly_window_sum_average"
         )
+        assert references["dwp.uc.households"].period_match_policy == "source_window"
+        assert len(references["dwp.uc.households"].value_operands) == 10
         assert (
             references["obr.income_tax"].assertion_policy == "allow_source_projection"
         )

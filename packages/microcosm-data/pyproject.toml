@@ -28,7 +28,7 @@ us = ["policyengine-us>=1.745.0,<2"]
 # The UK artifact lives in a PRIVATE repo (UK Data Service licence): loads
 # require an authenticated HF token with access. The loader surfaces the
 # 401 with that explanation rather than retrying.
-uk = ["policyengine-uk>=2.93"]
+uk = ["policyengine-uk>=2.97.0"]
 
 [project.urls]
 Homepage = "https://microcosm.institute"

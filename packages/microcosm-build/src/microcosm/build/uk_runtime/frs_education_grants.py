@@ -9,6 +9,10 @@ import numpy as np
 import pandas as pd
 
 from microcosm.build.source_manifest import SourceStageSpec
+from microcosm.build.uk_runtime.cgt_structure import (
+    _assert_closed_world_operations,
+)
+from microcosm.build.uk_runtime.frs_release import resolve_uk_year_rule
 from microcosm.build.uk_runtime.national_frame import (
     uk_household_weight_kind,
     uk_national_frame,
@@ -33,11 +37,13 @@ DISABLED_STUDENTS_ALLOWANCE_ELIGIBILITY_VARIABLES = (
     "disabled_students_allowance_course_eligible",
     "disabled_students_allowance_has_qualifying_condition",
 )
+GRANT_CAPACITY_YEAR_RULE = "survey_year"
+DSA_YEAR_RULE = "calibration_year"
 
 
 @dataclass(frozen=True)
 class UKDSAPolicy:
-    """DSA maximum read at 1 January of the build year."""
+    """DSA maximum read at 1 January of the declared policy year."""
 
     maximum: float
     instant: str
@@ -45,7 +51,15 @@ class UKDSAPolicy:
 
 
 class UKFRSEducationGrantSplitStageTransform:
-    """Whole-stage callable for FRS education grant splitting."""
+    """Whole-stage callable for FRS education grant splitting.
+
+    ``PolicyEngineUKEngine.materialize`` labels the survey-year tables as a
+    calibration-year dataset rather than uprating them, where uk-data lets
+    the engine uprate the survey-year dataset and calculates at the policy
+    year. The three DSA eligibility variables are non-monetary booleans;
+    the licensed receipt for #862 measured them identical under both paths
+    on every person (experiments/862-policy-year-rule-receipts.md).
+    """
 
     def __init__(
         self,
@@ -59,23 +73,35 @@ class UKFRSEducationGrantSplitStageTransform:
         self.policy = policy
 
     def __call__(self, frame: Frame) -> Frame:
-        period = uk_time_period(frame)
+        _assert_frs_education_grant_stage_parameters(self.stage)
         assert_rules_engine_country(self.engine, "uk")
-        predictors = list(UK_EDUCATION_GRANT_CAPACITY_PREDICTORS)
-        if int(period) >= DISABLED_STUDENTS_ALLOWANCE_FIRST_MODELED_YEAR:
-            predictors.extend(DISABLED_STUDENTS_ALLOWANCE_ELIGIBILITY_VARIABLES)
-        materialized = self.engine.materialize(frame, predictors, period)
-        policy = self.policy
-        if policy is None and int(period) < DISABLED_STUDENTS_ALLOWANCE_FIRST_MODELED_YEAR:
-            policy = UKDSAPolicy(
+        survey_year = resolve_uk_year_rule(GRANT_CAPACITY_YEAR_RULE)
+        policy_year = resolve_uk_year_rule(DSA_YEAR_RULE)
+        capacities = self.engine.materialize(
+            frame,
+            UK_EDUCATION_GRANT_CAPACITY_PREDICTORS,
+            survey_year,
+        )
+        if policy_year >= DISABLED_STUDENTS_ALLOWANCE_FIRST_MODELED_YEAR:
+            capacities.update(
+                self.engine.materialize(
+                    frame,
+                    DISABLED_STUDENTS_ALLOWANCE_ELIGIBILITY_VARIABLES,
+                    policy_year,
+                )
+            )
+            policy = self.policy or uk_dsa_policy(policy_year)
+        else:
+            policy = self.policy or UKDSAPolicy(
                 maximum=0.0,
-                instant=f"{int(period)}-01-01",
+                instant=f"{policy_year}-01-01",
                 source="pre-2025 DSA not modelled",
             )
         return add_frs_education_grant_split(
             frame,
-            capacities=materialized,
-            policy=policy or uk_dsa_policy(period),
+            capacities=capacities,
+            policy=policy,
+            policy_year=policy_year,
         )
 
     @staticmethod
@@ -83,8 +109,8 @@ class UKFRSEducationGrantSplitStageTransform:
         return FRS_EDUCATION_GRANT_OUTPUT_COLUMNS
 
 
-def uk_dsa_policy(build_period: int | str) -> UKDSAPolicy:
-    """Read DSA maximum at ``{year}-01-01`` for future vintages."""
+def uk_dsa_policy(policy_year: int) -> UKDSAPolicy:
+    """Read the DSA maximum at ``{policy_year}-01-01`` (uk-data#478)."""
 
     try:
         import policyengine_uk
@@ -97,7 +123,7 @@ def uk_dsa_policy(build_period: int | str) -> UKDSAPolicy:
     parameters = ParameterNode(
         directory_path=str(Path(policyengine_uk.__file__).parent / "parameters")
     )
-    instant = f"{int(build_period)}-01-01"
+    instant = f"{policy_year}-01-01"
     return UKDSAPolicy(
         maximum=float(parameters.gov.dfe.disabled_students_allowance.maximum(instant)),
         instant=instant,
@@ -111,14 +137,14 @@ def add_frs_education_grant_split(
     *,
     capacities: dict[str, np.ndarray],
     policy: UKDSAPolicy,
+    policy_year: int,
 ) -> Frame:
     person = frame.table("person").copy()
-    period = int(uk_time_period(frame))
     dsa_capacity = disabled_students_allowance_capacity(
         person,
         capacities=capacities,
         policy=policy,
-        year=period,
+        policy_year=policy_year,
     )
     grant_capacities = {
         name: capacities[name] for name in UK_EDUCATION_GRANT_CAPACITY_PREDICTORS
@@ -132,7 +158,7 @@ def add_frs_education_grant_split(
         person=person,
         benunit=frame.table("benunit"),
         household=frame.table("household"),
-        time_period=str(period),
+        time_period=uk_time_period(frame),
         weight_kind=uk_household_weight_kind(frame),
         household_weights=frame.weights_for("household").values,
         mass_log=frame.mass_log,
@@ -177,11 +203,47 @@ def disabled_students_allowance_capacity(
     *,
     capacities: dict[str, np.ndarray],
     policy: UKDSAPolicy,
-    year: int,
+    policy_year: int,
 ) -> np.ndarray:
-    if year < DISABLED_STUDENTS_ALLOWANCE_FIRST_MODELED_YEAR:
+    if policy_year < DISABLED_STUDENTS_ALLOWANCE_FIRST_MODELED_YEAR:
         return np.zeros(len(person), dtype=float)
     eligible = np.ones(len(person), dtype=bool)
     for variable in DISABLED_STUDENTS_ALLOWANCE_ELIGIBILITY_VARIABLES:
         eligible &= np.asarray(capacities[variable], dtype=bool)
     return np.where(eligible, policy.maximum, 0.0)
+
+
+def _assert_frs_education_grant_stage_parameters(stage: SourceStageSpec) -> None:
+    """Bind all grant-split operations to the reviewed policy-year contract."""
+
+    _assert_closed_world_operations(
+        stage,
+        (
+            (
+                "materialize_rules_engine_predictors",
+                {
+                    "predictors": list(UK_EDUCATION_GRANT_CAPACITY_PREDICTORS),
+                    "consumed_only": True,
+                    "year_rule": GRANT_CAPACITY_YEAR_RULE,
+                },
+            ),
+            (
+                "materialize_rules_engine_predictors",
+                {
+                    "predictors": list(
+                        DISABLED_STUDENTS_ALLOWANCE_ELIGIBILITY_VARIABLES
+                    ),
+                    "consumed_only": True,
+                    "year_rule": DSA_YEAR_RULE,
+                },
+            ),
+            (
+                "derive",
+                {
+                    "scope": "proportional split of aggregate education_grants and DSA residual capacity",
+                    "parameters": "DSA maximum from gov.dfe.disabled_students_allowance.maximum at the calibration year",
+                    "year_rule": DSA_YEAR_RULE,
+                },
+            ),
+        ),
+    )

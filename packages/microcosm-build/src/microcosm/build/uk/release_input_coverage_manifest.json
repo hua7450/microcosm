@@ -473,7 +473,7 @@
     "capital_gains"
    ],
    "source_manifest": "source_stages.json",
-   "source_manifest_sha256": "05ccf7a780a48af62817a7d4922c4229b82a470951075f90811d40ab5d5cdb18",
+   "source_manifest_sha256": "f1bb134b5456be67c10f2e09b5dc9999c75b1bf3c47165092e260cbd79a54732",
    "source_vintages": {
     "source": "HMRC Capital Gains Tax statistics, July 2025, Table 2.1a",
     "survey": "HMRC Capital Gains Tax statistics Table 2.1a and Advani-Summers capital-gains incidence"
@@ -496,7 +496,7 @@
     "capital_gains"
    ],
    "source_manifest": "source_stages.json",
-   "source_manifest_sha256": "05ccf7a780a48af62817a7d4922c4229b82a470951075f90811d40ab5d5cdb18",
+   "source_manifest_sha256": "f1bb134b5456be67c10f2e09b5dc9999c75b1bf3c47165092e260cbd79a54732",
    "source_vintages": {
     "source": "Advani and Summers (2020), Capital Gains and UK Inequality, CAGE Working Paper 465",
     "survey": "Family Resources Survey 2024-25, SPI synthetic support, and Advani-Summers capital-gains incidence"
@@ -525,7 +525,7 @@
    "required_mass_change_reason": "E5 source-stage transform preserves household rows and typed household weights; total household mass is conserved.",
    "rewrites": [],
    "source_manifest": "source_stages.json",
-   "source_manifest_sha256": "05ccf7a780a48af62817a7d4922c4229b82a470951075f90811d40ab5d5cdb18",
+   "source_manifest_sha256": "f1bb134b5456be67c10f2e09b5dc9999c75b1bf3c47165092e260cbd79a54732",
    "source_vintages": {
     "source": "UK Data Service SN 8856 Effects of Taxes and Benefits household tab, DfT rail fare index, and public NHS activity/cost table.",
     "survey": "Effects of Taxes and Benefits 1977-2024 and NHS age-gender public table"
@@ -545,7 +545,7 @@
    "required_mass_change_reason": "E5 source-stage transform preserves household rows and typed household weights; total household mass is conserved.",
    "rewrites": [],
    "source_manifest": "source_stages.json",
-   "source_manifest_sha256": "05ccf7a780a48af62817a7d4922c4229b82a470951075f90811d40ab5d5cdb18",
+   "source_manifest_sha256": "f1bb134b5456be67c10f2e09b5dc9999c75b1bf3c47165092e260cbd79a54732",
    "source_vintages": {
     "source": "UK Data Service SN 8856 Effects of Taxes and Benefits household tab and cited VAT anchor resource.",
     "survey": "Effects of Taxes and Benefits 1977-2024"
@@ -576,7 +576,7 @@
    "superseded_by": {
     "reason": "The FRS spine build executes hmrc_cgt_gains_spine, which applies the same HMRC Table 3 amounts redraw directly in source_stages.json before calibration.",
     "source_manifest": "source_stages.json",
-    "source_manifest_sha256": "05ccf7a780a48af62817a7d4922c4229b82a470951075f90811d40ab5d5cdb18",
+    "source_manifest_sha256": "f1bb134b5456be67c10f2e09b5dc9999c75b1bf3c47165092e260cbd79a54732",
     "stage": "hmrc_cgt_gains_spine"
    }
   },
@@ -596,7 +596,7 @@
     "capital_gains"
    ],
    "source_manifest": "source_stages.json",
-   "source_manifest_sha256": "05ccf7a780a48af62817a7d4922c4229b82a470951075f90811d40ab5d5cdb18",
+   "source_manifest_sha256": "f1bb134b5456be67c10f2e09b5dc9999c75b1bf3c47165092e260cbd79a54732",
    "source_vintages": {
     "hmrc_surface": "2023-24",
     "mapped_build_period": "2024"
@@ -610,7 +610,7 @@
    "base_candidate_tier": "frs",
    "calibration_permitted": false,
    "canonical_source_manifest": "source_stages.json",
-   "canonical_source_manifest_sha256": "05ccf7a780a48af62817a7d4922c4229b82a470951075f90811d40ab5d5cdb18",
+   "canonical_source_manifest_sha256": "f1bb134b5456be67c10f2e09b5dc9999c75b1bf3c47165092e260cbd79a54732",
    "effective_mass_requirements": {
     "charitable_investment_gifts": {
      "mass_share_denominator": "all_person_effective_mass",
@@ -693,7 +693,7 @@
    "superseded_by": {
     "reason": "The FRS spine build executes hmrc_spi_income_spine, which supersedes the June retained-leaves/hmrc_spi_income pair inside source_stages.json.",
     "source_manifest": "source_stages.json",
-    "source_manifest_sha256": "05ccf7a780a48af62817a7d4922c4229b82a470951075f90811d40ab5d5cdb18",
+    "source_manifest_sha256": "f1bb134b5456be67c10f2e09b5dc9999c75b1bf3c47165092e260cbd79a54732",
     "stage": "hmrc_spi_income_spine"
    }
   },
@@ -727,7 +727,7 @@
    "required_mass_change_reason": "E5 source-stage transform preserves household rows and typed household weights; total household mass is conserved.",
    "rewrites": [],
    "source_manifest": "source_stages.json",
-   "source_manifest_sha256": "05ccf7a780a48af62817a7d4922c4229b82a470951075f90811d40ab5d5cdb18",
+   "source_manifest_sha256": "f1bb134b5456be67c10f2e09b5dc9999c75b1bf3c47165092e260cbd79a54732",
    "source_vintages": {
     "source": "UK Data Service SN 9468 Living Costs and Food Survey 2023-24 household/person tabs, NEED 2023 headline energy tables, Ofgem Q2 2026 unit rates, and WAS round-8 bridge donor.",
     "survey": "Living Costs and Food Survey 2023-24"
@@ -748,7 +748,7 @@
     "property_wealth"
    ],
    "source_manifest": "source_stages.json",
-   "source_manifest_sha256": "05ccf7a780a48af62817a7d4922c4229b82a470951075f90811d40ab5d5cdb18",
+   "source_manifest_sha256": "f1bb134b5456be67c10f2e09b5dc9999c75b1bf3c47165092e260cbd79a54732",
    "source_vintages": {
     "source": "MHCLG dwellings and ONS UK House Price Index December 2025 regional average prices.",
     "survey": "Public regional property reference"
@@ -772,7 +772,7 @@
     "employee_pension_contributions"
    ],
    "source_manifest": "source_stages.json",
-   "source_manifest_sha256": "05ccf7a780a48af62817a7d4922c4229b82a470951075f90811d40ab5d5cdb18",
+   "source_manifest_sha256": "f1bb134b5456be67c10f2e09b5dc9999c75b1bf3c47165092e260cbd79a54732",
    "source_vintages": {
     "source": "HMRC, Salary sacrifice reform for pension contributions effective from 6 April 2029",
     "survey": "Family Resources Survey 2024-25 salary-sacrifice respondents and HMRC salary-sacrifice reform analysis"
@@ -794,7 +794,7 @@
     "student_loan_plan"
    ],
    "source_manifest": "source_stages.json",
-   "source_manifest_sha256": "05ccf7a780a48af62817a7d4922c4229b82a470951075f90811d40ab5d5cdb18",
+   "source_manifest_sha256": "f1bb134b5456be67c10f2e09b5dc9999c75b1bf3c47165092e260cbd79a54732",
    "source_vintages": {
     "source": "Explore Education Statistics Table 6a, Higher education total",
     "survey": "Family Resources Survey 2024-25 and Student Loans Company borrower forecasts for England"
@@ -829,7 +829,7 @@
    "required_mass_change_reason": "E5 source-stage transform preserves household rows and typed household weights; total household mass is conserved.",
    "rewrites": [],
    "source_manifest": "source_stages.json",
-   "source_manifest_sha256": "05ccf7a780a48af62817a7d4922c4229b82a470951075f90811d40ab5d5cdb18",
+   "source_manifest_sha256": "f1bb134b5456be67c10f2e09b5dc9999c75b1bf3c47165092e260cbd79a54732",
    "source_vintages": {
     "source": "Office for National Statistics Wealth and Assets Survey, UK Data Service SN 7215, DOI 10.5255/UKDA-SN-7215-20; local licensed 2006-22 household tab.",
     "survey": "Wealth and Assets Survey round 8"

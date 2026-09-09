@@ -437,6 +437,18 @@ def _synthetic_spec(stage: SourceStageSpec) -> SimpleNamespace:
                 ),
                 source_stage(
                     "frs_disability",
+                    operations=[
+                        {
+                            "kind": "derive",
+                            "parameters": "disability category thresholds from the fiscal-converted gov.dwp tree at the survey year",
+                            "year_rule": "survey_year",
+                        },
+                        {
+                            "kind": "derive",
+                            "parameters": "disability flags from the fiscal-converted gov.dwp tree at the survey year",
+                            "year_rule": "survey_year",
+                        },
+                    ],
                     outputs=(
                         "aa_category",
                         "dla_sc_category",
@@ -496,8 +508,25 @@ def _synthetic_spec(stage: SourceStageSpec) -> SimpleNamespace:
                                 "parents_learning_allowance",
                                 "adult_dependants_grant",
                             ],
+                            "consumed_only": True,
+                            "year_rule": "survey_year",
                         },
-                        {"kind": "derive"},
+                        {
+                            "kind": "materialize_rules_engine_predictors",
+                            "predictors": [
+                                "maintenance_loan_in_england_system",
+                                "disabled_students_allowance_course_eligible",
+                                "disabled_students_allowance_has_qualifying_condition",
+                            ],
+                            "consumed_only": True,
+                            "year_rule": "calibration_year",
+                        },
+                        {
+                            "kind": "derive",
+                            "scope": "proportional split of aggregate education_grants and DSA residual capacity",
+                            "parameters": "DSA maximum from gov.dfe.disabled_students_allowance.maximum at the calibration year",
+                            "year_rule": "calibration_year",
+                        },
                     ],
                     outputs=("disabled_students_allowance_eligible_expenses",),
                     rewrites=("education_grants",),
@@ -916,6 +945,41 @@ def test_direct_person_mapping_values_are_ported(tmp_path: Path) -> None:
     assert adult["salary_sacrifice_asked"] == 1
 
 
+@pytest.mark.parametrize("couple_has_children", [False, True])
+def test_uc_claimant_input_uses_frs_membership_not_age_or_marriage(
+    tmp_path: Path, couple_has_children: bool
+) -> None:
+    tables = _fixture_tables()
+    # A lone parent with a 19-year-old child remains a single claimant.
+    tables["child"][0]["AGE"] = 19
+    # A young cohabiting partner is a claimant even below the generic adult age.
+    tables["adult"].append(
+        {
+            **tables["adult"][0],
+            "PERSON": 2,
+            "UPERSON": 2,
+            "HRPID": 0,
+            "AGE": 17,
+            "MARITAL": 2,
+        }
+    )
+    tables["benunit"][0]["FAMTYPB2"] = 6
+    if couple_has_children:
+        tables["benunit"][0]["DEPCHLDB"] = 1
+        tables["child"].append(
+            {**tables["child"][0], "SERNUM": 2, "PERSON": 3, "AGE": 18}
+        )
+    stage = _write_fixture(tmp_path, tables)
+    frame = build_uk_frs_spine_frame(tmp_path, stage=stage)
+    person = frame.table("person").set_index("person_id")
+    expected = {1001: True, 1002: False, 2001: True, 2002: True}
+    if couple_has_children:
+        expected[2003] = False
+    assert person["is_uc_claimant"].to_dict() == expected
+    assert person["is_uc_claimant"].dtype == bool
+    assert not frame.table("benunit").set_index("benunit_id").loc[201, "is_married"]
+
+
 def test_benefit_code_splits_are_ported(tmp_path: Path) -> None:
     stage = _write_fixture(tmp_path)
 
@@ -1034,8 +1098,8 @@ def _stub_policy_readers(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(
         frs_disability,
-        "uk_dwp_baseline_disability_rates",
-        lambda period: frs_disability.UKDWPBaselineDisabilityRates(
+        "uk_dwp_disability_category_rates",
+        lambda period: frs_disability.UKDWPDisabilityCategoryRates(
             aa_lower=68.1,
             aa_higher=101.75,
             dla_sc_lower=26.9,

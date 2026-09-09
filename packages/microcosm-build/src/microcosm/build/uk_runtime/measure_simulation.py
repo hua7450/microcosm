@@ -16,10 +16,21 @@ from microcosm.build.uk_runtime.national_frame import (
     load_uk_national_frame,
     write_uk_national_frame,
 )
+from microcosm.build.uk_runtime.uc_relationships import frs_uc_claimant_mask
+from microcosm.build.uk_runtime.uc_target_measurements import (
+    UC_PAID_TARGET_VARIABLES,
+    UC_TARGET_VARIABLES,
+    compute_uc_target_measure,
+    uc_administrative_family_type,
+    uc_child_entitlement,
+    uc_paid_comparison_contract,
+    uc_tcl_comparison_contract,
+)
 from microcosm.build.uk_runtime.weighted_integrity import (
     exclusion_evaluation_date,
 )
 from microcosm.calibrate import TargetRegistry
+from microcosm.frame.adapters.policyengine_uk import validate_uc_claimant_input
 
 _ENTITY_LINK = {"benunit": "person_benunit_id", "household": "person_household_id"}
 _ENTITY_ID = {
@@ -27,12 +38,83 @@ _ENTITY_ID = {
     "benunit": "benunit_id",
     "household": "household_id",
 }
+_UC_CALIBRATION_VARIABLES = frozenset(
+    {"uc_calibration_family_type", "uc_calibration_child_count"}
+)
+
+
+def _uc_calibration_composition(
+    frame: Any, simulation: Any, year: int
+) -> tuple[np.ndarray, np.ndarray]:
+    """Measure FRS families without promoting an older child to a partner.
+
+    FRS ``is_parent`` identifies adult-file members of benefit units with
+    children, including unmarried partners; ``is_married`` alone would miss
+    cohabiting couples. In units without recorded children all members are
+    the single claimant or couple. These retained roles survive SPI cloning.
+
+    DWP's post-April-2019 child-presence definition includes reported under-20
+    children beyond those eligible for a UC child element. Include those FRS
+    child members as well as UC qualifying children, never the claimants:
+    https://stat-xplore.dwp.gov.uk/webapi/metadata/UC_Households/Family%20Type.html
+    This is a calibration composition proxy, not a change to UC entitlement.
+    """
+    person = frame.table("person")
+    benunit = frame.table("benunit")
+    member_ids = person["person_benunit_id"].to_numpy()
+    ids = benunit["benunit_id"].to_numpy()
+    claimant = frs_uc_claimant_mask(person, benunit)
+    claimant_count = (
+        pd.Series(claimant).groupby(member_ids).sum().reindex(ids).to_numpy()
+    )
+    qualifying = _values(
+        simulation.calculate(
+            "is_child_or_qualifying_young_person_for_universal_credit", year
+        )
+    ).astype(bool)
+    if len(qualifying) != len(person):
+        raise ValueError("UC child status must align with the person table.")
+    children = ~claimant & (qualifying | (person["age"].to_numpy(dtype=float) < 20))
+    child_count = pd.Series(children).groupby(member_ids).sum().reindex(ids).to_numpy()
+    couple = claimant_count == 2
+    has_children = child_count > 0
+    family_type = np.select(
+        [couple & has_children, couple, has_children],
+        ["COUPLE_WITH_CHILDREN", "COUPLE_NO_CHILDREN", "LONE_PARENT"],
+        default="SINGLE",
+    )
+    return family_type, child_count.astype(float)
 
 
 def compute_uk_measure_input(
     frame: Any, simulation: Any, entity: str, variable: str, year: int
 ) -> tuple[np.ndarray, str]:
     """Compute one policyengine-uk variable at the requested entity grain."""
+
+    if variable in UC_TARGET_VARIABLES:
+        if entity != "benunit":
+            raise KeyError(f"UC statistical measurements are benunit-only: {entity}")
+        return compute_uc_target_measure(
+            frame, simulation, variable, year
+        ), "uc_claim_statistical_proxy"
+    if variable == "uc_calibration_child_entitlement":
+        if entity != "benunit":
+            raise KeyError(f"UC child entitlement is benunit-only: {entity}")
+        return uc_child_entitlement(
+            frame, simulation, year
+        ), "uc_child_element_entitlement_proxy"
+    if variable in _UC_CALIBRATION_VARIABLES | UC_PAID_TARGET_VARIABLES:
+        if entity != "benunit":
+            raise KeyError(f"UC calibration composition is benunit-only: {entity}")
+        family_type, child_count = _uc_calibration_composition(frame, simulation, year)
+        if variable == "uc_calibration_administrative_family_type":
+            return uc_administrative_family_type(
+                frame, simulation, year, child_count
+            ), "uc_allowance_and_reported_child_proxy"
+        values = (
+            family_type if variable == "uc_calibration_family_type" else child_count
+        )
+        return values, "frs_relationships_and_uc_child_status"
 
     definition = simulation.tax_benefit_system.variables.get(variable)
     if definition is None:
@@ -84,6 +166,77 @@ def compute_uk_measure_input(
     return values, route
 
 
+def compute_uc_paid_diagnostic_masks(
+    frame: Any, simulation: Any, year: int
+) -> dict[str, np.ndarray]:
+    """Return out-of-fit Boolean masks in the frame's benefit-unit row order.
+
+    The simulation must use that same row order, as for all UK measure inputs.
+    Callers retain their own weights and source-ancestry aggregation. Model
+    zero awards are labelled as such: they do not identify administrative open
+    nil-payment claims. Family and child-count partitions are separate, matching
+    the two available publisher cubes rather than inventing their joint.
+    """
+    uc = _values(simulation.calculate("universal_credit", year))
+    if (
+        uc.ndim != 1
+        or len(uc) != len(frame.table("benunit"))
+        or uc.dtype.kind not in "biuf"
+        or not np.isfinite(uc).all()
+        or (uc < 0).any()
+    ):
+        raise ValueError(
+            "UC diagnostic awards must be finite nonnegative benunit values."
+        )
+    structural_family, reported_children = _uc_calibration_composition(
+        frame, simulation, year
+    )
+    administrative_family = uc_administrative_family_type(
+        frame, simulation, year, reported_children
+    )
+    own_qualifying_children = compute_uc_target_measure(
+        frame, simulation, "uc_tcl_qualifying_child_count", year
+    )
+    entitled = uc_child_entitlement(frame, simulation, year)
+    paid = uc > 0
+    masks = {
+        "paid.total": paid,
+        "model.zero_award": uc == 0,
+        "paid.child_entitled": paid & entitled,
+        "paid.no_child_entitlement": paid & ~entitled,
+        "paid.family_measure_disagreement": paid
+        & (administrative_family != structural_family),
+        "paid.child_count_measure_disagreement": paid
+        & (reported_children != own_qualifying_children),
+    }
+    partitions = {
+        "family": {
+            category: administrative_family == category
+            for category in (
+                "SINGLE",
+                "LONE_PARENT",
+                "COUPLE_NO_CHILDREN",
+                "COUPLE_WITH_CHILDREN",
+                "UNKNOWN",
+            )
+        },
+        "children": {
+            **{str(count): reported_children == count for count in range(5)},
+            "5_or_more": reported_children >= 5,
+        },
+    }
+    for dimension, categories in partitions.items():
+        for category, selected in categories.items():
+            masks[f"paid.{dimension}.{category}"] = paid & selected
+            masks[f"paid_child_entitled.{dimension}.{category}"] = (
+                paid & entitled & selected
+            )
+            masks[f"paid_no_child_entitlement.{dimension}.{category}"] = (
+                paid & ~entitled & selected
+            )
+    return masks
+
+
 class UKMeasureResolver:
     """B2 measure provider backed by a policyengine-uk Microsimulation."""
 
@@ -117,12 +270,15 @@ class UKMeasureResolver:
                 frame, _provenance = load_uk_national_frame(source_path)
         self.frame = frame
         self.simulation = factory(dataset=str(source_path))
+        validate_uc_claimant_input(self.simulation, frame.table("person"), self.year)
         self._receipt = {
             "mode": mode,
             "source_path": str(source_path),
             "policyengine_uk_version": _policyengine_uk_version(policyengine_uk),
         }
         self.contract_targets = _uk_contract_targets()
+        self._uc_tcl_measures_used: set[str] = set()
+        self._uc_paid_measures_used: set[str] = set()
 
     def knows(self, entity: str, variable: str) -> bool:
         """Whether a route in :func:`compute_uk_measure_input` reaches here.
@@ -132,6 +288,13 @@ class UKMeasureResolver:
         provider exception instead of the fence's message.
         """
 
+        if (
+            variable
+            in _UC_CALIBRATION_VARIABLES
+            | UC_TARGET_VARIABLES
+            | UC_PAID_TARGET_VARIABLES
+        ):
+            return entity == "benunit"
         definition = self.simulation.tax_benefit_system.variables.get(variable)
         if definition is None or entity not in _ENTITY_ID:
             return False
@@ -148,18 +311,43 @@ class UKMeasureResolver:
         return getattr(definition, "value_type", None) in (int, float)
 
     def entity_for(self, variable: str) -> str | None:
+        if (
+            variable
+            in _UC_CALIBRATION_VARIABLES
+            | UC_TARGET_VARIABLES
+            | UC_PAID_TARGET_VARIABLES
+        ):
+            return "benunit"
         definition = self.simulation.tax_benefit_system.variables.get(variable)
         if definition is None:
             return None
         return str(definition.entity.key)
 
     def compute(self, entity: str, variable: str) -> tuple[np.ndarray, str]:
-        return compute_uk_measure_input(
+        result = compute_uk_measure_input(
             self.frame, self.simulation, entity, variable, self.year
         )
+        if variable.startswith("uc_tcl_") and variable in UC_TARGET_VARIABLES:
+            self._uc_tcl_measures_used.add(variable)
+        if variable in UC_PAID_TARGET_VARIABLES:
+            if not hasattr(self, "_uc_paid_measures_used"):
+                self._uc_paid_measures_used = set()
+            self._uc_paid_measures_used.add(variable)
+        return result
 
-    def receipt(self) -> dict[str, str]:
-        return dict(self._receipt)
+    def receipt(self) -> dict[str, Any]:
+        receipt = dict(self._receipt)
+        if self._uc_tcl_measures_used:
+            receipt["uc_tcl_comparison_contract"] = {
+                **uc_tcl_comparison_contract(self.year),
+                "computed_measures": sorted(self._uc_tcl_measures_used),
+            }
+        if getattr(self, "_uc_paid_measures_used", None):
+            receipt["uc_paid_comparison_contract"] = {
+                **uc_paid_comparison_contract(self.year),
+                "computed_measures": sorted(self._uc_paid_measures_used),
+            }
+        return receipt
 
 
 #: Every field a reviewed measure exclusion must carry (the

@@ -1,0 +1,1 @@
+Require PolicyEngine-UK 2.97.0 for the UK extras, allow recorded UC claimant roles through export, and refuse model loading that drops or changes those roles. Preserve historical candidate evidence at its recorded model version.

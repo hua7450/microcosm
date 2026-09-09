@@ -15,6 +15,7 @@ from microcosm.build.uk_runtime.national_frame import (
     uk_national_frame,
     validate_uk_national_frame,
 )
+from microcosm.build.uk_runtime.uc_relationships import frs_uc_claimant_mask
 from microcosm.frame import Frame, WeightKind
 
 __all__ = [
@@ -161,6 +162,7 @@ OUTPUT_COLUMNS = (
     "is_household_head",
     "is_benunit_head",
     "is_parent",
+    "is_uc_claimant",
     "employment_income",
     "self_employment_income",
     "private_pension_income",
@@ -429,6 +431,10 @@ def _assemble_frame(frs: Mapping[str, pd.DataFrame]) -> Frame:
 
     pe_benunit["is_married"] = _number(benunit_raw, "famtypb2").isin([5, 7])
     pe_benunit["dependent_children"] = dependent_children
+    # Preserve the FRS claimant/partner roles as a country-model input. Age
+    # does not promote a dependent child to a partner, and legal marriage
+    # alone does not establish that a partner lives in this benefit unit.
+    pe_person["is_uc_claimant"] = frs_uc_claimant_mask(pe_person, pe_benunit)
 
     _add_household_columns(pe_household, household, frs)
 

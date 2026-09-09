@@ -54,9 +54,9 @@ class _StubEngine:
         reduction = np.zeros(len(benunit))
         reduction[benunit["benunit_id"].eq(202).to_numpy()] = 100.0
         if self.fail_all_spi:
-            reduction[benunit[support_channel_column("benunit")].eq("spi").to_numpy()] = (
-                100.0
-            )
+            reduction[
+                benunit[support_channel_column("benunit")].eq("spi").to_numpy()
+            ] = 100.0
         return {
             "uc_maximum_amount": maximum,
             "uc_income_reduction": reduction,
@@ -88,6 +88,7 @@ class _StubQRF:
         self.record = record
 
     def fit(self, table, predictors, targets, *, weights):
+        self.record["fit_table"] = table.copy()
         self.record["fit_index"] = table.index.tolist()
         self.record["fit_predictors"] = list(predictors)
         self.record["fit_targets"] = list(targets)
@@ -155,6 +156,7 @@ def _frame(*, child_only: bool = False):
                     "person_household_id": household_id,
                     "age": age,
                     "is_benunit_head": member == 0,
+                    "is_parent": children > 0,
                     "is_uc_child": benunit_id == 204,
                     "employment_income": 10_000.0 + benunit_id + member,
                     "self_employment_income": 100.0 * member,
@@ -173,6 +175,7 @@ def _frame(*, child_only: bool = False):
                     "person_household_id": household_id,
                     "age": 10,
                     "is_benunit_head": False,
+                    "is_parent": False,
                     "is_uc_child": True,
                     "employment_income": 0.0,
                     "self_employment_income": 0.0,
@@ -217,6 +220,35 @@ def _stub_run():
     factory = _StubQRFFactory()
     result = redraw_spi_reported_uc(_frame(), engine=engine, qrf_factory=factory)
     return result, engine, factory.record
+
+
+def test_reporter_predictor_and_receipt_use_claimant_couple_not_marriage():
+    frame = _frame()
+    benunit = frame.table("benunit")
+    benunit.loc[benunit["benunit_id"].isin([101, 201]), "is_married"] = False
+    benunit.loc[benunit["benunit_id"] == 102, "is_married"] = True
+    marital_before = benunit["is_married"].copy()
+    factory = _StubQRFFactory()
+
+    result = redraw_spi_reported_uc(frame, engine=_StubEngine(), qrf_factory=factory)
+
+    assert "is_married" not in factory.record["fit_predictors"]
+    assert factory.record["fit_table"]["is_uc_couple"].tolist() == [1, 0, 0, 1]
+    assert (
+        result.reporter_transitions["spi"]["couple_with_children"]["held_reporter"] == 1
+    )
+    pd.testing.assert_series_equal(
+        result.frame.table("benunit")["is_married"], marital_before
+    )
+
+
+def test_reporter_refuses_missing_relationship_inputs_before_engine_call():
+    frame = _frame()
+    del frame.table("person")["is_parent"]
+    engine = _StubEngine()
+    with pytest.raises(ValueError, match="person columns missing.*is_parent"):
+        redraw_spi_reported_uc(frame, engine=engine, qrf_factory=_StubQRFFactory())
+    assert engine.calls == []
 
 
 def test_manifest_declares_benunit_rewrite_seed_and_exact_operations() -> None:
@@ -275,9 +307,11 @@ def test_training_mask_channel_containment_screen_and_landing_rule() -> None:
     positive = spi_201[spi_201[UC_REPORTER_REDRAW_OUTPUT] > 0.0]
     assert positive["person_id"].tolist() == [2011]
     assert positive[UC_REPORTER_REDRAW_OUTPUT].tolist() == [250.0]
-    assert person.loc[
-        person["person_benunit_id"].eq(202), UC_REPORTER_REDRAW_OUTPUT
-    ].eq(0.0).all()
+    assert (
+        person.loc[person["person_benunit_id"].eq(202), UC_REPORTER_REDRAW_OUTPUT]
+        .eq(0.0)
+        .all()
+    )
     amounts = _benefit_unit_reporter_amounts(person, after.table("benunit"))
     assert amounts[after.table("benunit")["benunit_id"].eq(201).to_numpy()][0] == 250.0
     assert result.training_benunits == 4
@@ -296,9 +330,7 @@ def test_twin_calls_are_byte_identical_and_emit_transition_receipt() -> None:
             check_exact=True,
         )
     assert first.evidence() == twin.evidence()
-    assert first.evidence()["reporter_transitions"]["spi"][
-        "couple_with_children"
-    ] == {
+    assert first.evidence()["reporter_transitions"]["spi"]["couple_with_children"] == {
         "promoted": 0,
         "demoted": 0,
         "held_reporter": 1,
@@ -324,9 +356,10 @@ def test_downstream_capital_coherence_picks_up_redrawn_anchor() -> None:
     person = coherent.frame.table("person")
     benunit = coherent.frame.table("benunit").set_index("benunit_id")
 
-    assert person.loc[
-        person["person_benunit_id"].eq(201), UC_REPORTER_REDRAW_OUTPUT
-    ].sum() == 250.0
+    assert (
+        person.loc[person["person_benunit_id"].eq(201), UC_REPORTER_REDRAW_OUTPUT].sum()
+        == 250.0
+    )
     assert benunit.loc[201, "would_claim_uc"]
     assert benunit.loc[201, "uc_reported_capital"] >= 0.0
     gate = next(
@@ -474,9 +507,7 @@ def test_claimant_prefers_working_age_by_the_engine_sp_age_flag() -> None:
     uc_child = np.array([False, False])
     # The eldest adult is flagged state-pension-age by the engine (early SPA
     # cohort); the younger adult is the working-age claimant.
-    claimant = _claimant_rows(
-        person, uc_child=uc_child, sp_age=np.array([True, False])
-    )
+    claimant = _claimant_rows(person, uc_child=uc_child, sp_age=np.array([True, False]))
 
     assert claimant.tolist() == [False, True]
 

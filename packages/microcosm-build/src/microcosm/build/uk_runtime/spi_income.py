@@ -14,6 +14,10 @@ import numpy as np
 import pandas as pd
 
 from microcosm.build.gates import FitWeightRecord
+from microcosm.build.uk_runtime.frs_disability import (
+    UKDWPDisabilityCategoryRates,
+    UKDWPDisabilityFlagRates,
+)
 from microcosm.build.uk_runtime.frs_hmrc_leaves import (
     FRS_HMRC_INCPBEN_COLUMN,
     FRS_HMRC_OSSBEN_IDENTIFIABLE_SUBSET_COLUMN,
@@ -61,6 +65,37 @@ SPI_DONOR_DOCUMENTATION_URL = (
 SPI_DONOR_FIT_NAME = "uk_spi_2022_23_income"
 FRS_ONLY_FIT_NAME = "uk_frs_only_spi_fill"
 DEFAULT_SPI_DONOR_SAMPLE_SIZE = 100_000
+# Recipient guard matching the existing constructed SPI age support below.
+# SN 9422 Annex A labels the youngest band "Under 25"; it does not establish
+# a survey age minimum. Keep observed FRS inputs below the constructed lower
+# bound instead of extrapolating this coarsened donor age to younger children.
+# FRS dependent-child status can extend to ages 16-19; this guard is an age
+# support boundary, not a crosswalk to that household-composition definition.
+SPI_MINIMUM_RECIPIENT_AGE = 16
+SPI_DONOR_INCOME_YEAR = 2022
+# Use the pinned engine's variable-specific indices. None explicitly retains
+# nominal amounts where no same-scope indexed mapping has been reviewed;
+# broader indexed benefit inputs do not establish a taxable SPI crosswalk.
+SPI_INCOME_UPRATING_VARIABLES = {
+    "self_employment_income": "self_employment_income",
+    "savings_interest_income": "savings_interest_income",
+    "dividend_income": "dividend_income",
+    "private_pension_income": "private_pension_income",
+    "property_income": "property_income",
+    "other_investment_income": "other_investment_income",
+    "gift_aid": None,
+    "charitable_investment_gifts": None,
+    "hmrc_spi_pay": "employment_income_before_lsr",
+    "hmrc_spi_employment_benefits": "employment_income_before_lsr",
+    "hmrc_spi_employment_expenses": "employment_income_before_lsr",
+    "hmrc_spi_incapacity_benefit_income": None,
+    "hmrc_spi_other_social_security_income": None,
+    "hmrc_spi_taxable_termination_pay": "employment_income_before_lsr",
+    "hmrc_spi_unemployment_benefit_income": None,
+    "hmrc_spi_miscellaneous_employment_income": "employment_income_before_lsr",
+    "hmrc_spi_other_income": "miscellaneous_income",
+    "hmrc_spi_state_pension_income": None,
+}
 SPI_DONOR_SHA256 = "5ef829461060c91a2a47be59ad541d9b519fc3976d66ca80d4920f711bb96f66"
 SPI_DONOR_SIZE_BYTES = 141_323_762
 _SPI_DONOR_VERIFICATION_TOKEN = object()
@@ -237,6 +272,8 @@ class UKSPIIncomeImputationResult:
     stage2_training_rows: int
     spi_prediction_rows: int
     reviewed_absent_stage2_outputs: dict[str, str]
+    pension_receipt_bridge: Mapping[str, object] | None = None
+    income_uprating: Mapping[str, object] | None = None
 
 
 @dataclass(frozen=True)
@@ -338,6 +375,8 @@ def impute_uk_spi_income_support(
     donor_table: pd.DataFrame | None = None,
     initialize_frs_channel_columns: Mapping[str, float] | None = None,
     stage1_base_redraw_columns: Sequence[str] = (),
+    condition_on_state_pension_receipt: bool = False,
+    rebase_income_to_build_period: bool = False,
 ) -> UKSPIIncomeImputationResult:
     """Run strict SPI-income and FRS-only QRFs on rebuilt positive support."""
 
@@ -411,9 +450,14 @@ def impute_uk_spi_income_support(
         or not household.loc[spi_household, "household_weight"].gt(0.0).all()
     ):
         raise ValueError("SPI support rows must all carry positive effective mass.")
-    spi_people = person[person_channel] == SPI_SYNTHETIC_SUPPORT_CHANNEL
-    if not spi_people.any():
+    spi_channel_people = person[person_channel] == SPI_SYNTHETIC_SUPPORT_CHANNEL
+    if not spi_channel_people.any():
         raise ValueError("SPI support has no person rows to impute.")
+    _require_columns(person, ("age",), label="SPI recipient age domain")
+    _require_finite_numeric(person[["age"]], label="SPI recipient ages")
+    spi_people = spi_channel_people & person.age.ge(SPI_MINIMUM_RECIPIENT_AGE)
+    if not spi_people.any():
+        raise ValueError("SPI support has no recipients in the donor age domain.")
     base_people = person[person_channel] == BASE_FRS_SUPPORT_CHANNEL
     if not base_people.any():
         raise ValueError("SPI support has no FRS base rows.")
@@ -435,7 +479,7 @@ def impute_uk_spi_income_support(
     person = _seed_frs_hmrc_auxiliary_leaves(person, spi_people=spi_people)
 
     recipient_predictors = _person_predictors(
-        person.loc[spi_people],
+        person.loc[spi_channel_people],
         household,
         income_predictors=(),
     )
@@ -462,6 +506,21 @@ def impute_uk_spi_income_support(
         expected=SPI_INCOME_QRF_OUTPUT_COLUMNS,
         label="SPI stage-1",
     )
+    # Hold the existing RNG stream fixed: the fitted forest is also used
+    # later for the base-channel dividend redraw. Consume the legacy query
+    # shape, then discard under-age draws before any assignment. This keeps
+    # adult stage-1 draw pool and the base redraw stream identical.
+    adult_positions = (
+        person.loc[spi_channel_people, "age"].ge(SPI_MINIMUM_RECIPIENT_AGE).to_numpy()
+    )
+    stage1_draws = stage1_draws.iloc[np.flatnonzero(adult_positions)].copy()
+    income_uprating = None
+    uprating_factors = dict.fromkeys(SPI_INCOME_QRF_OUTPUT_COLUMNS, 1.0)
+    if rebase_income_to_build_period:
+        uprating_factors, income_uprating = _spi_income_uprating_factors(
+            int(build_period)
+        )
+        stage1_draws = stage1_draws.mul(pd.Series(uprating_factors), axis="columns")
     nonnegative_stage1 = [
         column
         for column in SPI_INCOME_QRF_OUTPUT_COLUMNS
@@ -508,6 +567,24 @@ def impute_uk_spi_income_support(
         household,
         income_predictors=income_predictors,
     )
+    pension_bridge = None
+    if condition_on_state_pension_receipt:
+        # A receipt indicator is a predictive bridge, not an assertion that
+        # FRS regular pension and the full taxable SPI SRP amount coincide.
+        # Without it, stage 2 can attach a second, unrelated pension regime
+        # to a stage-1 vector whose HMRC pension leaf is already determined.
+        train_receipt = person.loc[training_people, "state_pension_reported"].gt(0)
+        target_receipt = person.loc[
+            spi_people, SPI_HMRC_STATE_PENSION_INCOME_COLUMN
+        ].gt(0)
+        train_predictors["state_pension_receipt"] = train_receipt.astype(float)
+        target_predictors["state_pension_receipt"] = target_receipt.astype(float)
+        pension_bridge = {
+            "training_source": "state_pension_reported > 0",
+            "recipient_source": "hmrc_spi_state_pension_income > 0",
+            "training_positive_rows": int(train_receipt.sum()),
+            "recipient_positive_rows": int(target_receipt.sum()),
+        }
     encoded_train, encoded_target = _encode_predictor_pair(
         train_predictors,
         target_predictors,
@@ -566,18 +643,21 @@ def impute_uk_spi_income_support(
         ):
             raise ValueError("SPI stage-1 base redraw produced negative outputs.")
         for column in base_redraw_columns:
-            person.loc[base_people, column] = base_draws[column].to_numpy()
+            # This redraw also uses adult SPI donors. Preserve observed FRS
+            # child dividends, while consuming the same base query stream.
+            base_adults = (
+                person.loc[base_people, "age"].ge(SPI_MINIMUM_RECIPIENT_AGE).to_numpy()
+            )
+            person.loc[
+                base_people & person.age.ge(SPI_MINIMUM_RECIPIENT_AGE), column
+            ] = base_draws[column].to_numpy()[base_adults] * uprating_factors[column]
 
     tax_free = person.loc[spi_people, "tax_free_savings_income"].to_numpy(
         dtype=np.float64
     )
     person.loc[spi_people, "savings_interest_income"] = taxable_interest_draw + tax_free
     person = derive_hmrc_income_auxiliaries(person, row_mask=spi_people)
-    person = _refresh_disability_derived_inputs(
-        person,
-        spi_people=spi_people,
-        build_period=build_period,
-    )
+    person = _refresh_disability_derived_inputs(person, spi_people=spi_people)
     return UKSPIIncomeImputationResult(
         person=person,
         fit_weight_records=(
@@ -599,7 +679,60 @@ def impute_uk_spi_income_support(
         stage2_training_rows=int(training_people.sum()),
         spi_prediction_rows=int(spi_people.sum()),
         reviewed_absent_stage2_outputs=reviewed_absent,
+        pension_receipt_bridge=pension_bridge,
+        income_uprating=income_uprating,
     )
+
+
+@cache
+def _spi_income_uprating_factors(year: int):
+    """Rebase SPI money flows before conditioning on build-year FRS incomes."""
+    from policyengine_uk import CountryTaxBenefitSystem
+
+    if year < SPI_DONOR_INCOME_YEAR:
+        raise ValueError("SPI income cannot be rebased before its source year.")
+    if set(SPI_INCOME_UPRATING_VARIABLES) != set(SPI_INCOME_QRF_OUTPUT_COLUMNS):
+        raise ValueError("Every SPI income output needs an explicit uprating rule.")
+    system = CountryTaxBenefitSystem()
+    source = system.parameters(f"{SPI_DONOR_INCOME_YEAR}-01-01")
+    target = system.parameters(f"{year}-01-01")
+    factors = {}
+    columns = {}
+    for column, variable_name in SPI_INCOME_UPRATING_VARIABLES.items():
+        path = None
+        factor = 1.0
+        if variable_name is not None:
+            variable = system.variables.get(variable_name)
+            if variable is None:
+                raise ValueError(
+                    f"Missing SPI uprating variable {variable_name!r} for {column}."
+                )
+            path = getattr(variable, "uprating", None)
+            if not isinstance(path, str) or not path:
+                raise ValueError(f"Unsupported SPI uprating index for {column}.")
+            before, after = source, target
+            try:
+                for part in path.split("."):
+                    before, after = getattr(before, part), getattr(after, part)
+            except AttributeError as error:
+                raise ValueError(
+                    f"Missing SPI uprating parameter {path!r} for {column}."
+                ) from error
+            if not np.isfinite([before, after]).all() or before <= 0 or after <= 0:
+                raise ValueError(f"SPI uprating index must be positive for {column}.")
+            factor = float(after / before)
+        factors[column] = factor
+        columns[column] = {
+            "variable": variable_name,
+            "index": path,
+            "factor": factor,
+            "basis": "model_index" if path else "held_nominal",
+        }
+    return factors, {
+        "from_period": SPI_DONOR_INCOME_YEAR,
+        "to_period": year,
+        "columns": columns,
+    }
 
 
 def _initialize_frs_channel_columns(
@@ -1128,143 +1261,46 @@ def _verify_spi_donor_identity(path: Path) -> VerifiedSPIDonorIdentity:
     return verify_spi_donor_identity(path)
 
 
-@cache
-def _disability_parameters(year: int):
-    from policyengine_uk import CountryTaxBenefitSystem
-    from policyengine_uk.model_api import WEEKS_IN_YEAR
-
-    system = CountryTaxBenefitSystem()
-    return (
-        system.parameters(year).baseline.gov.dwp,
-        system.parameters(year).gov.dwp,
-        float(WEEKS_IN_YEAR),
-    )
-
-
 def _refresh_disability_derived_inputs(
     person: pd.DataFrame,
     *,
     spi_people: pd.Series,
-    build_period: int | str,
+    category_rates: UKDWPDisabilityCategoryRates | None = None,
+    flag_rates: UKDWPDisabilityFlagRates | None = None,
 ) -> pd.DataFrame:
-    """Keep category/flag inputs coherent with stage-2 reported amounts."""
+    """Keep category/flag inputs coherent with stage-2 reported amounts.
 
-    try:
-        year = int(str(build_period)[:4])
-    except ValueError as exc:
-        raise ValueError(f"Invalid UK SPI build period {build_period!r}.") from exc
-    baseline_dwp, dwp, weeks_in_year = _disability_parameters(year)
-    target = person.loc[spi_people].copy()
-    mappings = (
-        (
-            "attendance_allowance_reported",
-            "aa_category",
-            (
-                ("LOWER", baseline_dwp.attendance_allowance.lower),
-                ("HIGHER", baseline_dwp.attendance_allowance.higher),
-            ),
-        ),
-        (
-            "dla_sc_reported",
-            "dla_sc_category",
-            (
-                ("LOWER", baseline_dwp.dla.self_care.lower),
-                ("MIDDLE", baseline_dwp.dla.self_care.middle),
-                ("HIGHER", baseline_dwp.dla.self_care.higher),
-            ),
-        ),
-        (
-            "dla_m_reported",
-            "dla_m_category",
-            (
-                ("LOWER", baseline_dwp.dla.mobility.lower),
-                ("HIGHER", baseline_dwp.dla.mobility.higher),
-            ),
-        ),
-        (
-            "pip_m_reported",
-            "pip_m_category",
-            (
-                ("STANDARD", baseline_dwp.pip.mobility.standard),
-                ("ENHANCED", baseline_dwp.pip.mobility.enhanced),
-            ),
-        ),
-        (
-            "pip_dl_reported",
-            "pip_dl_category",
-            (
-                ("STANDARD", baseline_dwp.pip.daily_living.standard),
-                ("ENHANCED", baseline_dwp.pip.daily_living.enhanced),
-            ),
-        ),
-    )
-    for reported, category, thresholds in mappings:
-        if reported not in target:
-            continue
-        weekly = pd.to_numeric(target[reported], errors="coerce").fillna(0.0)
-        weekly = weekly.to_numpy(dtype=float) / weeks_in_year
-        values = np.full(len(target), "NONE", dtype=object)
-        for name, rate in thresholds:
-            threshold = max(0.0, float(rate) - 1.0)
-            values[weekly >= threshold] = name
-        _assign_spi_values(person, spi_people, category, values, default="NONE")
+    Re-derives the eight disability columns for the SPI-redrawn rows with the
+    FRS stage's own derivation and, unless rates are injected, the FRS stage's
+    declared year rule, so the two paths cannot disagree on the parameter
+    tree or the week constant (uk-data#475, uk-data#476). The engine is only
+    touched when rates are not supplied.
+    """
 
-    reported_flag_columns = (
-        "attendance_allowance_reported",
-        "dla_sc_reported",
-        "dla_m_reported",
-        "pip_m_reported",
-        "pip_dl_reported",
-        "sda_reported",
-        "incapacity_benefit_reported",
-        "iidb_reported",
-        "afcs_reported",
-        "esa_contrib_reported",
-        "esa_income_reported",
-    )
-    total = np.zeros(len(target), dtype=float)
-    for column in reported_flag_columns:
-        if column in target:
-            total += pd.to_numeric(target[column], errors="coerce").fillna(0.0)
-    _assign_spi_values(
-        person,
-        spi_people,
-        "is_disabled_for_benefits",
-        total > 0.0,
-        default=False,
-    )
+    from microcosm.build.uk_runtime import frs_disability
 
-    def amount(column: str) -> np.ndarray:
-        if column not in target:
-            return np.zeros(len(target), dtype=float)
-        return pd.to_numeric(target[column], errors="coerce").fillna(0.0).to_numpy()
+    if category_rates is None or flag_rates is None:
+        from microcosm.build.uk_runtime.frs_release import resolve_uk_year_rule
 
-    annual_weeks = 365.25 / 7.0
-    safety_gap = annual_weeks
-    attendance = amount("attendance_allowance_reported")
-    dla_sc = amount("dla_sc_reported")
-    pip_dl = amount("pip_dl_reported")
-    afcs = amount("afcs_reported")
-    aa_higher = float(dwp.attendance_allowance.higher) * annual_weeks - safety_gap
-    dla_higher = float(dwp.dla.self_care.higher) * annual_weeks - safety_gap
-    pip_enhanced = float(dwp.pip.daily_living.enhanced) * annual_weeks - safety_gap
-    _assign_spi_values(
-        person,
-        spi_people,
-        "is_enhanced_disabled_for_benefits",
-        (attendance >= aa_higher) | (dla_sc > dla_higher) | (pip_dl >= pip_enhanced),
-        default=False,
+        year = resolve_uk_year_rule(frs_disability.YEAR_RULE)
+        if category_rates is None:
+            category_rates = frs_disability.uk_dwp_disability_category_rates(year)
+        if flag_rates is None:
+            flag_rates = frs_disability.uk_dwp_disability_flag_rates(year)
+    derived = frs_disability.derive_frs_disability(
+        person.loc[spi_people],
+        category_rates=category_rates,
+        flag_rates=flag_rates,
     )
-    _assign_spi_values(
-        person,
-        spi_people,
-        "is_severely_disabled_for_benefits",
-        (attendance > 0.0)
-        | (dla_sc >= dla_higher)
-        | (pip_dl >= pip_enhanced)
-        | (afcs > 0.0),
-        default=False,
-    )
+    for column in frs_disability.FRS_DISABILITY_OUTPUT_COLUMNS:
+        default = "NONE" if column.endswith("_category") else False
+        _assign_spi_values(
+            person,
+            spi_people,
+            column,
+            derived[column].to_numpy(),
+            default=default,
+        )
     return person
 
 

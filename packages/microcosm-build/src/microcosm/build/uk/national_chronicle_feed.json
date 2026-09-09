@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "country": "uk",
+  "scope": "national_calibration",
+  "source_repo": "PolicyEngine/chronicle",
+  "source_commit": "ec7169b5db40b9f54117c80f70f14efc1dd0fedd",
+  "build": "build-bundle --suite uk -> build-consumer-artifact",
+  "artifact_schema_version": "policyengine_ledger.consumer_artifact.v2",
+  "consumer_fact_schema_versions": [
+    "ledger.consumer_fact.v1"
+  ],
+  "consumer_fact_schema_sha256": "76ac268e626c86146cee51193e0cbecbb197ddbf3bf410156fe7da7c0edae3ad",
+  "fact_row_count": 131450,
+  "facts_sha256": "4a50ee9568a01bbb57f73d927084ed6b4b9e52249b51a2338455874ae6e382b5",
+  "manifest_sha256": "a95d0ee9f87f36947eaecdb3de29cf81a91e47ccaa822fed42da677eedca877f"
+}

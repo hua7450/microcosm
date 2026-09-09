@@ -88,12 +88,12 @@ from microcosm.build.uk_runtime.frs_council_tax import (
 from microcosm.build.uk_runtime.frs_disability import (
     FRS_DISABILITY_OUTPUT_COLUMNS,
     UK_INTERNAL_DISABILITY_REPORTED_COLUMNS,
-    UKDWPBaselineDisabilityRates,
+    UKDWPDisabilityCategoryRates,
     UKDWPDisabilityFlagRates,
     UKFRSDisabilityStageTransform,
     add_frs_disability,
     derive_frs_disability,
-    uk_dwp_baseline_disability_rates,
+    uk_dwp_disability_category_rates,
     uk_dwp_disability_flag_rates,
 )
 from microcosm.build.uk_runtime.frs_education import (
@@ -140,6 +140,12 @@ from microcosm.build.uk_runtime.frs_legacy_proxies import (
     UKLegacyJSAPolicy,
     derive_frs_legacy_proxies,
     uk_legacy_jsa_policy,
+)
+from microcosm.build.uk_runtime.frs_release import (
+    UK_YEAR_RULES,
+    UKFRSRelease,
+    load_uk_frs_release,
+    resolve_uk_year_rule,
 )
 from microcosm.build.uk_runtime.geography_ladder import (
     GEOGRAPHY_LADDER_ARTIFACT_SHA256_ATTR,
@@ -875,7 +881,7 @@ __all__ = [
     "uk_spine_source_family_units",
     "uk_frame_content_identity",
     "uk_dsa_policy",
-    "uk_dwp_baseline_disability_rates",
+    "uk_dwp_disability_category_rates",
     "uk_dwp_disability_flag_rates",
     "uk_legacy_jsa_policy",
     "uk_geography_ladder_assignment_summary",
@@ -932,7 +938,7 @@ __all__ = [
     "UK_MAX_TARGET_ABS_RELATIVE_ERROR",
     "UKInputMassParityPolicy",
     "UKDSAPolicy",
-    "UKDWPBaselineDisabilityRates",
+    "UKDWPDisabilityCategoryRates",
     "UKDWPDisabilityFlagRates",
     "UKFRSCouncilTaxStageTransform",
     "UKFRSDisabilityStageTransform",
@@ -942,6 +948,7 @@ __all__ = [
     "UKFRSHMRCSpineLeavesResult",
     "UKFRSHMRCSpineLeavesStageTransform",
     "UKFRSLegacyProxiesStageTransform",
+    "UKFRSRelease",
     "UKSPIIncomeSpineStageTransform",
     "UKSPISupportChannelStageTransform",
     "UKInputMassReference",
@@ -949,8 +956,10 @@ __all__ = [
     "UK_INTERNAL_DISABILITY_REPORTED_COLUMNS",
     "UK_EDUCATION_GRANT_CAPACITY_PREDICTORS",
     "UK_LEGACY_PROXY_PREDICTORS",
+    "UK_YEAR_RULES",
     "UKQRFTailConcentrationPolicy",
     "UKZeroWeightStratumDeclaration",
+    "load_uk_frs_release",
     "load_uk_input_mass_reference",
     "load_uk_reviewed_exclusion_register",
     "uk_degenerate_release_surface_gate",
@@ -962,6 +971,7 @@ __all__ = [
     "uk_target_fit_gate",
     "uk_target_surface_gate",
     "uk_weight_ess_gate",
+    "resolve_uk_year_rule",
     "uk_weight_ratio_gate",
     "uk_zero_weight_strata_gate",
 ]

@@ -32,6 +32,7 @@ from microcosm.build.gates import (
 from microcosm.build.uk_runtime.diagnostics import uk_weight_summary
 from microcosm.build.uk_runtime.weighted_integrity import (
     UK_DEGENERATE_EXCLUSION_REGISTER_RESOURCE,
+    UK_TARGET_FIT_EXCLUSION_REGISTER_RESOURCE,
     UKInputMassParityPolicy,
     UKInputMassReference,
     UKQRFTailConcentrationPolicy,
@@ -58,6 +59,7 @@ __all__ = [
     "UKQRFTailConcentrationPolicy",
     "UKZeroWeightStratumDeclaration",
     "uk_default_degenerate_reviewed_exclusions",
+    "uk_default_target_fit_reviewed_exclusions",
     "uk_degenerate_release_surface_gate",
     "uk_export_surface_gate",
     "uk_input_mass_parity_gate",
@@ -205,6 +207,7 @@ UK_ALLOWED_EXTRA_EXPORT_COLUMNS: tuple[str, ...] = (
     "person.is_before_universal_credit_qualifying_young_person_terminal_date",
     "person.is_in_non_advanced_education",
     "person.is_parent",
+    "person.is_uc_claimant",
     "person.legacy_jobseeker_proxy",
     "person.outpatient_visits",
     "person.pension_contributions_via_salary_sacrifice",
@@ -247,6 +250,17 @@ def uk_default_degenerate_reviewed_exclusions() -> Mapping[str, UKReviewedExclus
     return MappingProxyType(
         load_uk_reviewed_exclusion_register(
             None, resource=UK_DEGENERATE_EXCLUSION_REGISTER_RESOURCE
+        )
+    )
+
+
+@functools.cache
+def uk_default_target_fit_reviewed_exclusions() -> Mapping[str, UKReviewedExclusion]:
+    """The committed target-fit deferral register (#796), loaded lazily."""
+
+    return MappingProxyType(
+        load_uk_reviewed_exclusion_register(
+            None, resource=UK_TARGET_FIT_EXCLUSION_REGISTER_RESOURCE
         )
     )
 
@@ -721,31 +735,110 @@ def uk_target_fit_gate(
     target_relative_errors: Mapping[str, float],
     *,
     max_abs_relative_error: float = UK_MAX_TARGET_ABS_RELATIVE_ERROR,
-    reviewed_exclusions: Mapping[str, str] | None = None,
+    reviewed_exclusions: Mapping[str, UKReviewedExclusion] | None = None,
+    now: date | None = None,
 ) -> GateResult:
-    """Fail a UK artifact with severe shipped-weight target errors."""
+    """Fail a UK artifact with severe shipped-weight target errors.
+
+    ``reviewed_exclusions`` are schema-2 approval records (#610): each defers
+    one named target's breach of the release bound through its approval
+    window. The exclusion suppresses the release fence only — the target
+    stays bound in calibration, so the solver keeps pulling toward it. An
+    out-of-force entry fails the gate with correct-or-renew context, and an
+    in-force entry whose target is back inside the bound is stale and fails
+    (matching :func:`microcosm.build.gates.target_fit_gate`'s rot rule), so
+    the register cannot outlive the defects it defers.
+    """
 
     maximum = float(max_abs_relative_error)
     if not math.isfinite(maximum) or maximum < 0.0:
         raise ValueError("max_abs_relative_error must be finite and non-negative.")
-    exclusions = _reviewed_reasons(reviewed_exclusions)
+    evaluated_on = exclusion_evaluation_date(now)
+    exclusions = coerce_reviewed_exclusions(reviewed_exclusions, label="UK target-fit")
     errors = {str(name): float(error) for name, error in target_relative_errors.items()}
     nonfinite = sorted(
         name for name, error in errors.items() if not math.isfinite(error)
     )
     if nonfinite:
         raise ValueError(f"UK target relative errors must be finite: {nonfinite}.")
-    failing = {
-        name: error
-        for name, error in errors.items()
-        if abs(error) > maximum and name not in exclusions
-    }
-    worst = sorted(failing, key=lambda name: abs(failing[name]), reverse=True)
-    failures = [
-        f"{UK_CANDIDATE_DATASET_NAME}: {name} relative error "
-        f"{failing[name]:+.1%} exceeds {maximum:.0%}."
-        for name in worst[:20]
-    ]
+    breaching = {name: error for name, error in errors.items() if abs(error) > maximum}
+    failing: dict[str, float] = {}
+    excluded: dict[str, dict[str, object]] = {}
+    failures: list[str] = []
+    for name in sorted(breaching, key=lambda name: abs(breaching[name]), reverse=True):
+        error = breaching[name]
+        record = exclusions.get(name)
+        breach_message = (
+            f"{UK_CANDIDATE_DATASET_NAME}: {name} relative error "
+            f"{error:+.1%} exceeds {maximum:.0%}."
+        )
+        if (
+            record is not None
+            and not record.expired(evaluated_on)
+            and not record.premature(evaluated_on)
+        ):
+            excluded[name] = {
+                "relative_error": error,
+                "reason": record.reason,
+                "approved_by": record.approved_by,
+                "adjudication": record.adjudication,
+                "expires_on": record.expires_on,
+            }
+            continue
+        failing[name] = error
+        if record is not None and record.expired(evaluated_on):
+            failures.append(
+                f"{breach_message[:-1]}; its reviewed exclusion expired "
+                f"{record.expires_on} (approved_by {record.approved_by}, "
+                f"{record.adjudication}) — renew the adjudication or remove "
+                "the entry."
+            )
+        elif record is not None:
+            failures.append(
+                f"{breach_message[:-1]}; its reviewed exclusion takes force "
+                f"{record.approved_on} (approved_by {record.approved_by}, "
+                f"{record.adjudication}) — correct the receipt's approved_on "
+                "or wait for it."
+            )
+        elif len(failing) <= 20:
+            failures.append(breach_message)
+
+    expired = sorted(
+        name for name, record in exclusions.items() if record.expired(evaluated_on)
+    )
+    premature = sorted(
+        name for name, record in exclusions.items() if record.premature(evaluated_on)
+    )
+    # Stale probing covers in-force entries only: an out-of-force entry gets
+    # receipt-context failures instead, never "back inside the bound".
+    stale = sorted(
+        name
+        for name in exclusions
+        if name in errors
+        and name not in breaching
+        and name not in expired
+        and name not in premature
+    )
+    dormant = sorted(name for name in exclusions if name not in errors)
+    if stale:
+        failures.append(
+            "Stale reviewed target-fit exclusions are back inside the bound; "
+            f"remove them: {stale}."
+        )
+    unreported_expired = [name for name in expired if name not in breaching]
+    if unreported_expired:
+        failures.append(
+            _expired_exclusion_failure(
+                exclusions, unreported_expired, family="target-fit"
+            )
+        )
+    unreported_premature = [name for name in premature if name not in breaching]
+    if unreported_premature:
+        failures.append(
+            _premature_exclusion_failure(
+                exclusions, unreported_premature, family="target-fit"
+            )
+        )
     if not errors:
         failures.append("UK target-fit evidence is empty.")
     return GateResult(
@@ -756,8 +849,13 @@ def uk_target_fit_gate(
             "candidate_name": UK_CANDIDATE_DATASET_NAME,
             "targets_checked": len(errors),
             "max_abs_relative_error": maximum,
-            "reviewed_exclusions": exclusions,
-            "failing_targets": {name: failing[name] for name in worst},
+            "reviewed_exclusions": dict(sorted(excluded.items())),
+            "failing_targets": failing,
+            "stale_exclusions": stale,
+            "dormant_exclusions": dormant,
+            "expired_exclusions": expired,
+            "premature_exclusions": premature,
+            "exclusions_evaluated_on": evaluated_on.isoformat(),
         },
     )
 

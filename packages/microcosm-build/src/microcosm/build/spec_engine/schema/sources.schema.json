@@ -3039,6 +3039,25 @@
       },
       "training_artifact_role": {
        "type": "string"
+      },
+      "recipient_minimum_age": {
+       "type": "integer",
+       "minimum": 0
+      },
+      "rebase_income_to_build_period": {
+       "type": "boolean"
+      },
+      "donor_income_period": {
+       "type": "integer"
+      },
+      "income_uprating_variables": {
+       "type": "object",
+       "additionalProperties": {
+        "type": [
+         "string",
+         "null"
+        ]
+       }
       }
      },
      "required": [
@@ -5577,6 +5596,13 @@
       },
       "fillna": {
        "type": "number"
+      },
+      "year_rule": {
+       "type": "string",
+       "enum": [
+        "survey_year",
+        "calibration_year"
+       ]
       }
      },
      "anyOf": [
@@ -5628,6 +5654,13 @@
       },
       "consumed_only": {
        "type": "boolean"
+      },
+      "year_rule": {
+       "type": "string",
+       "enum": [
+        "survey_year",
+        "calibration_year"
+       ]
       }
      }
     },
@@ -6707,6 +6740,25 @@
       },
       "seed": {
        "type": "integer"
+      },
+      "recipient_minimum_age": {
+       "type": "integer",
+       "minimum": 0
+      },
+      "rebase_income_to_build_period": {
+       "type": "boolean"
+      },
+      "donor_income_period": {
+       "type": "integer"
+      },
+      "income_uprating_variables": {
+       "type": "object",
+       "additionalProperties": {
+        "type": [
+         "string",
+         "null"
+        ]
+       }
       }
      }
     },
@@ -7372,7 +7424,11 @@
        "const": "assign_student_loan_plan_cohorts"
       },
       "year_rule": {
-       "type": "string"
+       "type": "string",
+       "enum": [
+        "survey_year",
+        "calibration_year"
+       ]
       },
       "start_year_formula": {
        "type": "string"
@@ -7438,7 +7494,11 @@
        "type": "string"
       },
       "year_rule": {
-       "type": "string"
+       "type": "string",
+       "enum": [
+        "survey_year",
+        "calibration_year"
+       ]
       },
       "age_min": {
        "type": "integer"

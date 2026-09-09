@@ -420,13 +420,11 @@ def test_local_parity_fixture_aligns_legacy_council_tax_band_names():
 
 
 class StubUKAdapter:
-    """Seven people across three households, with distinct child concepts.
+    """Prepared benefit-unit measures distinguish flags and child counts.
 
-    The affected flag and the child counts are deliberately distinct here:
-    household 0 holds three affected children but four children in all, and
-    household 2 holds two of each. A household-grain read of the boolean
-    (1/0/1) can therefore be distinguished from both the affected-child counts
-    (3/0/2) and the all-child counts (4/0/2).
+    These independent prepared vectors test binding selection, not the
+    demographic calculation: the flag (1/0/1), affected counts (3/0/2), and
+    qualifying counts (4/0/2) must not substitute for one another.
     """
 
     def __init__(self):
@@ -445,6 +443,13 @@ class StubUKAdapter:
                 # The household-grain flag is the any-collapse: "this
                 # household contains at least one flagged child".
                 "uc_is_child_limit_affected": np.array([1.0, 0.0, 1.0]),
+            },
+            "benunit": {
+                "benunit_id": np.array([0, 1, 2]),
+                "uc_tcl_affected_benunit_proxy": np.array([True, False, True]),
+                "uc_tcl_affected_child_count_proxy": np.array([3.0, 0.0, 2.0]),
+                "uc_tcl_qualifying_child_count": np.array([4.0, 0.0, 2.0]),
+                "uc_tcl_claimant_receives_pip": np.array([True, True, False]),
             },
         }
 
@@ -469,6 +474,9 @@ class StubUKAdapter:
         )
 
     def household_condition(self, condition):
+        if condition["variable"] == "region":
+            assert condition["map_to"] == "benunit"
+            return np.array([True, True, True])
         assert condition["variable"] == "pip"
         assert condition["entity"] == "person"
         assert condition["reduce"] == "sum"
@@ -685,7 +693,7 @@ def test_materialize_uk_ledger_targets_with_stub_adapter():
             ),
             TargetSpec(
                 name="dwp.uc.two_child_limit.children_affected",
-                entity="household",
+                entity="benunit",
                 measure="dwp/uc/two_child_limit/children_affected",
                 value=1.0,
                 source="test",
@@ -695,7 +703,7 @@ def test_materialize_uk_ledger_targets_with_stub_adapter():
             ),
             TargetSpec(
                 name="dwp.uc.two_child_limit.children_claimant_pip",
-                entity="household",
+                entity="benunit",
                 measure="dwp/uc/two_child_limit/adult_pip_children",
                 value=1.0,
                 source="test",
@@ -722,16 +730,15 @@ def test_materialize_uk_ledger_targets_with_stub_adapter():
         0.0,
         1.0,
     ]
-    # Child counts, not household indicators: the declared value_reduction
-    # sums the flag over each household's people. A boolean any-collapse
-    # would have published [1.0, 0.0, 1.0] against a count target.
-    assert adapter.tables["household"][
+    # The binding reads the prepared affected-child count, preserving its
+    # difference from the benefit-unit indicator [1.0, 0.0, 1.0].
+    assert adapter.tables["benunit"][
         "dwp/uc/two_child_limit/children_affected"
     ].tolist() == [3.0, 0.0, 2.0]
-    # Sheet 04B's claimant-PIP row counts every child in affected households
-    # satisfying the PIP condition, not only the children carrying the
-    # affected flag. Household 0 therefore contributes four, not three.
-    assert adapter.tables["household"][
+    # Sheet 04B counts all qualifying children in affected claims whose own
+    # claimant receives PIP. The first prepared unit contributes four, not
+    # its three affected children or its one affected-unit indicator.
+    assert adapter.tables["benunit"][
         "dwp/uc/two_child_limit/adult_pip_children"
     ].tolist() == [4.0, 0.0, 0.0]
 
@@ -788,17 +795,25 @@ def _uc_composition_frame():
             "benunit": pd.DataFrame(
                 {
                     "benunit_id": np.arange(4),
-                    "family_type": [
+                    "uc_calibration_family_type": [
                         "LONE_PARENT",
                         "SINGLE",
                         "LONE_PARENT",
                         "SINGLE",
                     ],
+                    "uc_calibration_administrative_family_type": [
+                        "LONE_PARENT",
+                        "UNKNOWN",
+                        "UNKNOWN",
+                        "SINGLE",
+                    ],
                     "universal_credit": [100.0, 0.0, 0.0, 100.0],
-                    "num_children": [1, 0, 1, 0],
+                    "uc_calibration_child_count": [1, 0, 1, 0],
                 }
             ),
-            "household": pd.DataFrame({"household_id": np.arange(2)}),
+            "household": pd.DataFrame(
+                {"household_id": np.arange(2), "region": ["LONDON", "SCOTLAND"]}
+            ),
         },
         EntitySchema(group_entities=("benunit", "household")),
         {"household": Weights(np.array([10.0, 20.0]), WeightKind.DESIGN)},
@@ -847,6 +862,112 @@ def test_uc_composition_materializes_at_benunit_grain():
     assert adapter.tables["benunit"][
         "dwp/uc/claimants_single_no_children"
     ].tolist() == [0.0, 0.0, 0.0, 1.0]
+
+
+def test_uc_national_counts_exclude_ni_and_unknown_regions_at_benunit_grain():
+    """The GB source excludes Northern Ireland, not just on the fact selector.
+
+    DWP methodology: Creating a Great Britain dataset. Multiple benefit units
+    share each dwelling; order differs between benefit-unit and household ids.
+    """
+    import pandas as pd
+
+    from microcosm.build.uk_runtime.ledger_targets import UKFrameTargetAdapter
+    from microcosm.frame import EntitySchema, Frame, WeightKind, Weights
+
+    regions = ["NORTHERN_IRELAND", "LONDON", "WALES", "SCOTLAND", "UNKNOWN"]
+    household_ids = np.array([4, 3, 2, 1, 0, 4, 3, 2, 1, 0])
+    frame = Frame(
+        {
+            "person": pd.DataFrame(
+                {
+                    "person_id": np.arange(10),
+                    "person_benunit_id": np.arange(10),
+                    "person_household_id": household_ids,
+                }
+            ),
+            "benunit": pd.DataFrame(
+                {
+                    "benunit_id": np.arange(10),
+                    "universal_credit": np.full(10, 29_000.0),
+                    "uc_calibration_family_type": ["COUPLE_NO_CHILDREN"] * 10,
+                    "uc_calibration_administrative_family_type": ["COUPLE_NO_CHILDREN"]
+                    * 10,
+                    "uc_calibration_child_count": np.ones(10),
+                }
+            ),
+            "household": pd.DataFrame(
+                {"household_id": np.arange(5), "region": regions}
+            ),
+        },
+        EntitySchema(group_entities=("benunit", "household")),
+        {"household": Weights(np.ones(5), WeightKind.DESIGN)},
+    )
+    ids = [
+        "dwp.uc.households",
+        "dwp.uc.households_children_1",
+        "dwp.uc.households_couple_no_children",
+        "dwp.uc.payment_distribution_couple_no_children",
+    ]
+    registry = TargetRegistry(
+        [
+            TargetSpec(
+                name=target_id,
+                entity="benunit",
+                measure=target_id,
+                value=1.0,
+                source="synthetic; DWP UC_Households GB",
+                metadata={
+                    "contract_target_id": target_id,
+                    "ledger_filter_monthly_award_amount_bands": "£2400.01 to £2500.00",
+                },
+            )
+            for target_id in ids
+        ],
+        country="uk",
+    )
+    adapter = UKFrameTargetAdapter(frame)
+    result = materialize_uk_ledger_targets(adapter, registry, period=2025)
+    assert not result.skipped
+    expected = [0.0, 1.0, 1.0, 1.0, 0.0] * 2
+    for target_id in ids:
+        assert adapter.tables["benunit"][target_id].tolist() == expected
+
+
+def test_household_geography_condition_projects_through_benefit_unit_links():
+    from microcosm.build.uk_runtime.ledger_targets import UKFrameTargetAdapter
+
+    adapter = UKFrameTargetAdapter(_uc_composition_frame())
+    adapter.tables["household"]["region"] = ["NORTHERN_IRELAND", "SCOTLAND"]
+    result = adapter.household_condition(
+        {
+            "entity": "household",
+            "variable": "region",
+            "reduce": "any",
+            "operator": "in",
+            "value": ["SCOTLAND"],
+            "map_to": "benunit",
+        }
+    )
+    assert result.tolist() == [False, False, True, True]
+
+
+def test_household_geography_projection_refuses_benunits_spanning_dwellings():
+    from microcosm.build.uk_runtime.ledger_targets import UKFrameTargetAdapter
+
+    adapter = UKFrameTargetAdapter(_uc_composition_frame())
+    adapter.tables["person"].loc[1, "person_household_id"] = 1
+    with pytest.raises(ValueError, match="groups span multiple households"):
+        adapter.household_condition(
+            {
+                "entity": "household",
+                "variable": "region",
+                "reduce": "any",
+                "operator": "==",
+                "value": "SCOTLAND",
+                "map_to": "benunit",
+            }
+        )
 
 
 def test_household_condition_reduces_person_level_conditions():

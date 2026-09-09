@@ -39,7 +39,7 @@ us = [
 # The UK extra adds the rules engine for local metric generation from a
 # Microcosm UK H5. Target tables remain explicit inputs, and the base package
 # still does not import policyengine-uk at import time.
-uk = ["policyengine-uk>=2.93", "h5py>=3", "tables>=3"]
+uk = ["policyengine-uk>=2.97.0", "h5py>=3", "tables>=3"]
 
 [project.scripts]
 microcosm-export-us-l0-refit-h5 = "microcosm.build.us_runtime.l0_refit_export:main"

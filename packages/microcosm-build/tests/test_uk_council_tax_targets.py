@@ -4,9 +4,19 @@ import copy
 import json
 from importlib import resources as importlib_resources
 
+import numpy as np
+import pandas as pd
 import pytest
 
+from microcosm.build.country_spec import load_country_spec
+from microcosm.build.uk_runtime.ledger_targets import (
+    UKFrameTargetAdapter,
+    materialize_uk_ledger_targets,
+)
 from microcosm.build.uk_runtime.local_targets import load_uk_population_contract
+from microcosm.calibrate import TargetRegistry, TargetSpec
+from microcosm.calibrate.matrix import build_constraint_matrix
+from microcosm.frame import EntitySchema, Frame, WeightKind, Weights
 from tools.generate_uk_local_target_references import _area_signed_deferrals
 
 
@@ -24,6 +34,74 @@ def _membership() -> dict:
         .joinpath("local_target_reference_membership.json")
         .read_text()
     )
+
+
+def test_national_voa_matrix_counts_only_england_for_every_band_and_total() -> None:
+    """The E92000001 fact must not absorb Wales/Scotland/NI household mass."""
+    rows = [
+        (country, band)
+        for country in ("ENGLAND", "WALES", "SCOTLAND", "NORTHERN_IRELAND")
+        for band in "ABCDEFGH"
+    ]
+    ids = np.arange(len(rows), dtype="int64")
+    frame = Frame(
+        {
+            "person": pd.DataFrame(
+                {"person_id": ids, "person_benunit_id": ids, "person_household_id": ids}
+            ),
+            "benunit": pd.DataFrame({"benunit_id": ids}),
+            "household": pd.DataFrame(
+                {
+                    "household_id": ids,
+                    "country": [x[0] for x in rows],
+                    "council_tax_band": [x[1] for x in rows],
+                    "household_num_benunits": np.ones(len(rows)),
+                }
+            ),
+        },
+        EntitySchema(group_entities=("benunit", "household")),
+        {"household": Weights(np.ones(len(rows)), WeightKind.DESIGN)},
+    )
+    refs = [
+        r
+        for r in load_country_spec("uk").target_references
+        if r.name.startswith("voa.council_tax_stock.")
+    ]
+    assert len(refs) == 9
+    assert all(r.ledger_selector["geography_id"] == "E92000001" for r in refs)
+    registry = TargetRegistry(
+        [
+            TargetSpec(
+                name=r.name,
+                entity=r.entity,
+                measure=r.measure,
+                value=1,
+                period=2025,
+                source="synthetic",
+                metadata=dict(r.metadata),
+            )
+            for r in refs
+        ],
+        country="uk",
+    )
+    adapter = UKFrameTargetAdapter(frame)
+    result = materialize_uk_ledger_targets(
+        adapter, registry, period=2025, band_edge_registry=registry
+    )
+    assert not result.skipped
+    problem = build_constraint_matrix(
+        adapter.to_frame(), registry.to_target_set(), weight_entity="household"
+    )
+    for name, values in zip(problem.names, problem.matrix.toarray(), strict=True):
+        band = (
+            name.split("@")[0].rsplit("band_", 1)[-1].upper()
+            if "band_" in name
+            else None
+        )
+        expected = [
+            country == "ENGLAND" and (band is None or b == band) for country, b in rows
+        ]
+        np.testing.assert_array_equal(values, expected, err_msg=name)
 
 
 def test_council_tax_band_cells_activate_and_defer_as_measured() -> None:

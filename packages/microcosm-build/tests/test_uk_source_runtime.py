@@ -183,3 +183,51 @@ def test_materialize_rules_engine_predictors_refuses_non_uk_context() -> None:
             _operation(),
             _context(engine=StubRulesEngine(), country="us"),
         )
+
+
+class _PeriodRecordingEngine(StubRulesEngine):
+    def __init__(self) -> None:
+        super().__init__()
+        self.periods: list[int | str] = []
+
+    def materialize(
+        self,
+        bundle: Frame,
+        variables: Sequence[str],
+        period: int | str,
+    ) -> Mapping[str, np.ndarray]:
+        self.periods.append(period)
+        return {"projected_income": self._values}
+
+
+def test_materialize_rules_engine_predictors_honours_a_declared_year_rule() -> None:
+    # The context says 2023; the declared rule names the release calibration
+    # year, and the declaration wins (#862).
+    handler = uk_source_operation_handlers()["materialize_rules_engine_predictors"]
+    engine = _PeriodRecordingEngine()
+    operation = SourceOperationSpec.from_mapping(
+        {
+            "kind": "materialize_rules_engine_predictors",
+            "predictors": ["projected_income"],
+            "year_rule": "calibration_year",
+        }
+    )
+
+    result = handler(None, operation, _context(engine=engine))
+
+    assert engine.periods == [2025]
+    assert result.table("person")["projected_income"].tolist() == [12.0, 34.0]
+
+
+def test_materialize_rules_engine_predictors_refuses_an_unknown_year_rule() -> None:
+    handler = uk_source_operation_handlers()["materialize_rules_engine_predictors"]
+    operation = SourceOperationSpec.from_mapping(
+        {
+            "kind": "materialize_rules_engine_predictors",
+            "predictors": ["projected_income"],
+            "year_rule": "frame_period",
+        }
+    )
+
+    with pytest.raises(SourceRuntimeError, match="Unknown UK year_rule"):
+        handler(None, operation, _context(engine=_PeriodRecordingEngine()))

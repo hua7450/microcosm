@@ -129,30 +129,34 @@ def test_driver_refuses_bad_sha_and_path_alias(tmp_path: Path):
 def test_driver_refuses_feed_outside_the_committed_pin_without_override():
     driver = _load_driver_module()
 
-    with pytest.raises(SystemExit, match="committed UK feed pin"):
+    with pytest.raises(SystemExit, match="committed UK national feed pin"):
         driver._check_committed_ledger_feed_pin(
             "b" * 64,
+            manifest_sha256=driver.load_uk_national_chronicle_feed().manifest_sha256,
             allow_unpinned_feed=False,
         )
 
     driver._check_committed_ledger_feed_pin(
         "b" * 64,
+        manifest_sha256="c" * 64,
         allow_unpinned_feed=True,
     )
 
 
+@pytest.mark.parametrize("allow_unpinned_feed", [False, True])
 def test_driver_threads_registry_exclusions_resolver_and_overrides(
-    monkeypatch, tmp_path, capsys
+    monkeypatch, tmp_path, capsys, allow_unpinned_feed
 ):
     driver = _load_driver_module()
     calls = []
     registry = _registry()
     pruned_registry = TargetRegistry([], country="uk")
+    pin = driver.load_uk_national_chronicle_feed()
     artifact = SimpleNamespace(
         path=tmp_path / "ledger",
         facts=({"fact": 1},),
-        facts_sha256=driver._LEDGER_FACT_FEED_PIN["facts_sha256"],
-        manifest_sha256="c" * 64,
+        facts_sha256="b" * 64 if allow_unpinned_feed else pin.facts_sha256,
+        manifest_sha256="c" * 64 if allow_unpinned_feed else pin.manifest_sha256,
     )
     artifact.path.mkdir()
     (artifact.path / "consumer_facts.jsonl").write_text("{}", encoding="utf-8")
@@ -202,7 +206,8 @@ def test_driver_threads_registry_exclusions_resolver_and_overrides(
     argv[argv.index("--input-sha256") + 1] = driver._sha256_file(
         Path(argv[argv.index("--input-h5") + 1])
     )
-    result = driver.main(argv + ["--epochs", "128"])
+    extra = ["--allow-unpinned-feed"] if allow_unpinned_feed else []
+    result = driver.main(argv + ["--epochs", "128", *extra])
 
     assert result == 0
     call = calls[0]
@@ -217,12 +222,13 @@ def test_driver_threads_registry_exclusions_resolver_and_overrides(
         call["measure_resolver"].kwargs["simulation_source"] == call["paths"].input_h5
     )
     assert call["source_pins"]["ledger_facts"] == {
-        "sha256": driver._LEDGER_FACT_FEED_PIN["facts_sha256"],
+        "sha256": artifact.facts_sha256,
         "size_bytes": 2,
     }
     assert call["run_config_extra"] == {
         "calibration_year": 2025,
-        "allow_unpinned_feed": False,
+        "allow_unpinned_feed": allow_unpinned_feed,
+        "national_chronicle_feed_pin": pin.to_dict(),
     }
     assert call["progress_callback"] is None
     assert call["event_callback"] is None
@@ -265,11 +271,12 @@ def test_driver_records_local_calibration_stage_coverage(
 ) -> None:
     driver = _load_driver_module()
     registry = _registry()
+    pin = driver.load_uk_national_chronicle_feed()
     artifact = SimpleNamespace(
         path=tmp_path / "ledger",
         facts=({"fact": 1},),
-        facts_sha256=driver._LEDGER_FACT_FEED_PIN["facts_sha256"],
-        manifest_sha256="c" * 64,
+        facts_sha256=pin.facts_sha256,
+        manifest_sha256=pin.manifest_sha256,
     )
     artifact.path.mkdir()
     (artifact.path / "consumer_facts.jsonl").write_text("{}", encoding="utf-8")
@@ -378,3 +385,49 @@ def test_driver_refuses_the_national_release_id(tmp_path: Path):
     args[base.index("--release-id") + 1] = "microcosm-uk-2024-25-national"
     with pytest.raises(SystemExit):
         driver._parse_args(args)
+
+
+def test_driver_accepts_the_merged_national_feed_without_local_promotion():
+    from microcosm.build.uk_runtime.local_target_census import _LEDGER_FACT_FEED_PIN
+
+    driver = _load_driver_module()
+    driver._check_committed_ledger_feed_pin(
+        "4a50ee9568a01bbb57f73d927084ed6b4b9e52249b51a2338455874ae6e382b5",
+        manifest_sha256="a95d0ee9f87f36947eaecdb3de29cf81a91e47ccaa822fed42da677eedca877f",
+        allow_unpinned_feed=False,
+    )
+    assert _LEDGER_FACT_FEED_PIN["facts_sha256"] == (
+        "6ae49d7d7ab297df25a0b9bfe2d6776827c672d284fbb360957fe8337089549f"
+    )
+    assert _LEDGER_FACT_FEED_PIN["manifest_sha256"] == (
+        "dcda51d6496aea67f768a284e7955c7520e7c8b91e2bed3569f247567b7153f0"
+    )
+
+
+@pytest.mark.parametrize("manifest_sha256", ["c" * 64, None])
+def test_driver_refuses_unpinned_national_manifest(manifest_sha256):
+    driver = _load_driver_module()
+    with pytest.raises(SystemExit, match="manifest"):
+        driver._check_committed_ledger_feed_pin(
+            "4a50ee9568a01bbb57f73d927084ed6b4b9e52249b51a2338455874ae6e382b5",
+            manifest_sha256=manifest_sha256,
+            allow_unpinned_feed=False,
+        )
+
+
+def test_driver_checks_loaded_manifest_before_compiling_targets(monkeypatch, tmp_path):
+    driver = _load_driver_module()
+    pin = driver.load_uk_national_chronicle_feed()
+    artifact = SimpleNamespace(facts_sha256=pin.facts_sha256, manifest_sha256="c" * 64)
+    monkeypatch.setattr(
+        driver, "load_ledger_consumer_artifact", lambda *a, **k: artifact
+    )
+    monkeypatch.setattr(
+        driver,
+        "compile_uk_target_registry",
+        lambda *a, **k: pytest.fail(
+            "Targets must not compile from an unpinned artifact"
+        ),
+    )
+    with pytest.raises(SystemExit, match="manifest"):
+        driver.main(_args(tmp_path))

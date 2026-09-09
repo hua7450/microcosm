@@ -1,0 +1,124 @@
+{
+  "runs": [
+    {
+      "file": "publication-control-focused_contracts.xml",
+      "tests": 370,
+      "counts": {
+        "pass": 363,
+        "fail": 1,
+        "skip": 6,
+        "error": 0
+      },
+      "failures": [
+        {
+          "id": "packages.microcosm-build.tests.test_uk_release_input_coverage_manifest::test_cached_candidate_regeneration_matches_committed_evidence",
+          "message": "AssertionError: assert {'column_enti....0, ...}, ...} == {'column_enti....0, ...}, ...}\n  \n  Omitting 13 identical items, use -vv to show\n  Differing items:\n  {'engine': {'h5_input_aliases': {'capital_gains': 'capital_gains_before_response', 'employee_pension_contributions': '...ns_reported', 'employment_income': 'employment_income_before_lsr'}, 'package': 'policyengine-uk', 'version': '2.94.0'}} != {'engine': {'h5_input_aliases': {'capital_gains': 'capital_gains_before_response', 'employee_pension_contributions': '...ns_reported', 'employment_income': 'employment_income_before_lsr'}, 'package': 'policyengine-uk', 'version': '2.89.0'}}\n  Use -v to get more diff"
+        }
+      ],
+      "artifact_sha256": "eef5e3dcd97e9dd14dc23cfda9b20aaa38252b70340eadfd9dd45732edbaad9f"
+    },
+    {
+      "file": "publication-control-full_graph_and_legacy_oracle.xml",
+      "tests": 336,
+      "counts": {
+        "pass": 335,
+        "fail": 0,
+        "skip": 1,
+        "error": 0
+      },
+      "failures": [],
+      "artifact_sha256": "92d2db7f3346209c8052b010f017071b22394e015ca999377657508889000820"
+    },
+    {
+      "file": "publication-treatment-focused_contracts.xml",
+      "tests": 386,
+      "counts": {
+        "pass": 378,
+        "fail": 2,
+        "skip": 6,
+        "error": 0
+      },
+      "failures": [
+        {
+          "id": "packages.microcosm-build.tests.test_spec_engine_country_bundles::test_country_bundle_loads_once_and_compiles_through_the_shared_core[uk-0accc39d40d8c8106f4c9bc5562ccca50f1212cd2a8cdf72f416978ca12570ff-expected_columns2-expected_entities2]",
+          "message": "AssertionError: assert 'e0dd9175920f...ead91dd16dd9b' == '0accc39d40d8...6978ca12570ff'\n  \n  - 0accc39d40d8c8106f4c9bc5562ccca50f1212cd2a8cdf72f416978ca12570ff\n  + e0dd9175920f6d1368a74957367182dc4d6357ffbdb1f728457ead91dd16dd9b"
+        },
+        {
+          "id": "packages.microcosm-build.tests.test_uk_release_input_coverage_manifest::test_cached_candidate_regeneration_matches_committed_evidence",
+          "message": "AssertionError: assert {'column_enti....0, ...}, ...} == {'column_enti....0, ...}, ...}\n  \n  Omitting 13 identical items, use -vv to show\n  Differing items:\n  {'engine': {'h5_input_aliases': {'capital_gains': 'capital_gains_before_response', 'employee_pension_contributions': '...ns_reported', 'employment_income': 'employment_income_before_lsr'}, 'package': 'policyengine-uk', 'version': '2.94.0'}} != {'engine': {'h5_input_aliases': {'capital_gains': 'capital_gains_before_response', 'employee_pension_contributions': '...ns_reported', 'employment_income': 'employment_income_before_lsr'}, 'package': 'policyengine-uk', 'version': '2.89.0'}}\n  Use -v to get more diff"
+        }
+      ],
+      "artifact_sha256": "1ee61424dfbd7acb0ae6222d16291ea4cc970e0b0f0c67cf09e647062a593adc"
+    },
+    {
+      "file": "publication-treatment-full_graph_and_legacy_oracle.xml",
+      "tests": 336,
+      "counts": {
+        "pass": 335,
+        "fail": 0,
+        "skip": 1,
+        "error": 0
+      },
+      "failures": [],
+      "artifact_sha256": "90b233ae40b89e75bb912bee62e9a1d80166b668fe5c52d34ef5f4ff2324b014"
+    },
+    {
+      "file": "publication-treatment-data-contract.xml",
+      "tests": 229,
+      "counts": {
+        "pass": 229,
+        "fail": 0,
+        "skip": 0,
+        "error": 0
+      },
+      "failures": [],
+      "artifact_sha256": "77ed8bb341884f094f67621b48bf3dac4b96d49f767a7d4b290605b659f2fef0"
+    },
+    {
+      "file": "publication-country-pin-rerun.xml",
+      "tests": 18,
+      "counts": {
+        "pass": 18,
+        "fail": 0,
+        "skip": 0,
+        "error": 0
+      },
+      "failures": [],
+      "artifact_sha256": "ef9ba96e0e75d3dbcc30d21a1bed3acc40546984c4c42418eb3d2c39a1a254b0"
+    },
+    {
+      "file": "publication-final-spi-rerun.xml",
+      "tests": 38,
+      "counts": {
+        "pass": 37,
+        "fail": 0,
+        "skip": 1,
+        "error": 0
+      },
+      "failures": [],
+      "artifact_sha256": "7d59b254c8d42c48716690a72c4c8f703d221a585294f2a926d839ac52dc6e9e"
+    }
+  ],
+  "unique_treatment_latest_status": {
+    "pass": 943,
+    "fail": 1,
+    "skip": 7,
+    "error": 0
+  },
+  "note": "Unique treatment statuses canonicalize only the reviewed old/new UK-spec SHA parameter to the same logical case, then let later country/SPI reruns supersede earlier states; initial failing invocations remain individually recorded. This is not a clean whole-suite rerun.",
+  "command_reference": {
+    "normal_initialization": "uv run --no-sync python -c 'import microcosm.build.uk_runtime; from microcosm.build.country_spec import load_country_spec; from microcosm.build.spec_engine import load_bundle; load_bundle(\"uk\"); load_country_spec(\"uk\")'",
+    "focused_contracts": "uv run --no-sync pytest packages/microcosm-build/tests/test_uk_spi_income.py packages/microcosm-build/tests/test_uk_spi_spine.py packages/microcosm-build/tests/test_uk_spi_support.py packages/microcosm-build/tests/test_uk_source_stages.py packages/microcosm-build/tests/test_uk_source_runtime.py packages/microcosm-build/tests/test_spec_engine_schema.py packages/microcosm-build/tests/test_spec_engine_country_bundles.py packages/microcosm-build/tests/test_spec_engine_reemission.py packages/microcosm-build/tests/test_spec_engine_field_usage.py packages/microcosm-build/tests/test_release_input_coverage.py packages/microcosm-build/tests/test_uk_release_input_coverage_manifest.py packages/microcosm-build/tests/test_uk_graph.py packages/microcosm-build/tests/test_ledger_artifact.py packages/microcosm-build/tests/test_uk_ledger_targets.py packages/microcosm-build/tests/test_uk_target_references.py packages/microcosm-build/tests/test_uk_national_calibration.py packages/microcosm-build/tests/test_uk_terminal_gates.py -q",
+    "full_graph_and_legacy_oracle": "uv run --no-sync pytest packages/microcosm-graph/tests -q",
+    "actual_uk_engine": "uv run --no-sync pytest packages/microcosm-build/tests/test_uk_spi_income.py packages/microcosm-build/tests/test_uk_graph.py packages/microcosm-graph/tests/test_acceptance_h_parity.py -m requires_uk -q",
+    "coverage_regenerate": "uv run --no-sync python tools/build_uk_release_input_coverage_manifest.py",
+    "coverage_check": "uv run --no-sync python tools/build_uk_release_input_coverage_manifest.py --check",
+    "fixture_regenerate": "uv run --no-sync python tools/graph_uk_spine_fixture.py",
+    "inventory": "uv run --no-sync python tools/ci_test_groups.py --verify",
+    "ci_uk_inventory": "uv run --no-sync python tools/ci_test_groups.py --list uk",
+    "lint": "uv run --no-sync ruff check .",
+    "data_contract": "uv run --no-sync pytest packages/microcosm-data/tests/test_contract.py -q",
+    "country_pin_rerun": "uv run --no-sync pytest packages/microcosm-build/tests/test_spec_engine_country_bundles.py -q",
+    "spi_format_rerun": "uv run --no-sync pytest packages/microcosm-build/tests/test_uk_spi_income.py -q"
+  }
+}

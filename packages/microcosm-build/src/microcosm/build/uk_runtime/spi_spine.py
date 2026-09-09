@@ -43,6 +43,9 @@ from microcosm.build.uk_runtime.release_input_coverage import (
 )
 from microcosm.build.uk_runtime.spi_income import (
     DEFAULT_SPI_DONOR_SAMPLE_SIZE,
+    SPI_DONOR_INCOME_YEAR,
+    SPI_INCOME_UPRATING_VARIABLES,
+    SPI_MINIMUM_RECIPIENT_AGE,
     SPI_SOURCE_TI_FORMULA,
     SPI_STAGE2_REVIEWED_ABSENT_OUTPUTS,
     UKSPIIncomeImputationResult,
@@ -174,6 +177,7 @@ SPI_SPINE_STAGE2_PREDICTORS = (
     "gender",
     "region",
     *FRS_ONLY_SPI_FILL_INCOME_PREDICTOR_COLUMNS,
+    "state_pension_receipt",
 )
 SPI_SPINE_STAGE2_OUTPUT_COLUMNS = tuple(
     column
@@ -233,6 +237,9 @@ class UKSPIIncomeSpineResult:
             "reviewed_absent_stage2_outputs": dict(
                 self.imputation.reviewed_absent_stage2_outputs
             ),
+            "recipient_minimum_age": SPI_MINIMUM_RECIPIENT_AGE,
+            "pension_receipt_bridge": self.imputation.pension_receipt_bridge,
+            "income_uprating": self.imputation.income_uprating,
             "targets": {
                 "count": len(self.source_targets.targets),
                 "classification": dict(self.replay_report.summary),
@@ -535,6 +542,15 @@ class UKSPIIncomeSpineStageTransform:
                 "initialize_frs_channel_columns"
             ],
             stage1_base_redraw_columns=redraw_op.parameters["columns"],
+            rebase_income_to_build_period=stage1_op.parameters[
+                "rebase_income_to_build_period"
+            ],
+            condition_on_state_pension_receipt=(
+                "state_pension_receipt"
+                in _operation(self.stage, "fit_weighted_qrf_stage2").parameters[
+                    "predictors"
+                ]
+            ),
         )
         result_frame = uk_national_frame(
             person=imputation.person,
@@ -863,6 +879,17 @@ def _assert_income_stage_parameters(
         raise ValueError("SPI income donor bootstrap must refit at uniform weight.")
     if tuple(stage1.parameters.get("predictors", ())) != SPI_SPINE_STAGE1_PREDICTORS:
         raise ValueError("SPI income stage-1 predictors drifted.")
+    if stage1.parameters.get("recipient_minimum_age") != SPI_MINIMUM_RECIPIENT_AGE:
+        raise ValueError("SPI income recipient age domain drifted.")
+    if stage1.parameters.get("rebase_income_to_build_period") is not True:
+        raise ValueError("SPI income build-year rebasing drifted.")
+    if stage1.parameters.get("donor_income_period") != SPI_DONOR_INCOME_YEAR:
+        raise ValueError("SPI donor income period drifted.")
+    if (
+        stage1.parameters.get("income_uprating_variables")
+        != SPI_INCOME_UPRATING_VARIABLES
+    ):
+        raise ValueError("SPI income uprating-variable map drifted.")
     if tuple(stage1.parameters.get("outputs", ())) != SPI_INCOME_QRF_OUTPUT_COLUMNS:
         raise ValueError("SPI income stage-1 outputs drifted.")
     initialization = dict(stage1.parameters.get("initialize_frs_channel_columns", {}))

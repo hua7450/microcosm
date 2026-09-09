@@ -264,7 +264,12 @@ class _Cell:
 
 
 _ROOT_PERSON_STRING = {"gender", "marital_status"}
-_ROOT_PERSON_BOOL = {"is_household_head", "is_benunit_head", "is_parent"}
+_ROOT_PERSON_BOOL = {
+    "is_household_head",
+    "is_benunit_head",
+    "is_parent",
+    "is_uc_claimant",
+}
 _ROOT_PERSON_INT = {"age"}
 _ROOT_PERSON_FLOAT: set[str] = set()
 _ROOT_BENUNIT_TYPES = {

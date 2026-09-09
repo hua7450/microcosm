@@ -75,6 +75,23 @@ def uk_gates():
     return load_country_spec("uk").gates
 
 
+def test_declared_export_surface_preserves_claimants_and_matches_runtime(uk_gates):
+    from microcosm.build.uk_runtime.terminal_gates import (
+        UK_ALLOWED_EXTRA_EXPORT_COLUMNS,
+    )
+
+    entry = next(entry for entry in uk_gates.gates if entry.id == "uk_export_surface")
+    declared = set(entry.parameters["allowed_extra_columns"])
+    assert "person.is_uc_claimant" in declared
+    assert declared == set(UK_ALLOWED_EXTRA_EXPORT_COLUMNS)
+    battery = _run_battery(
+        _tables(),
+        parity=_parity(candidate_columns={"person.age", "person.is_uc_claimant"}),
+    )
+    outcome = next(o for o in battery.outcomes if o.entry.id == "uk_export_surface")
+    assert outcome.status is GateStatus.PASSED
+
+
 def _tables(*, n: int = 4, weights=None):
     if weights is None:
         weights = np.ones(n, dtype=float)
