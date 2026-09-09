@@ -677,8 +677,8 @@
           "locator": "benefits.tab",
           "role": "frs_table",
           "runtime_sha256_required": true,
-          "sha256": "64b7e7c5b7d42a72444bf26d1b9d4127e9dca4f262be3e2ea3d93b8f6841d482",
-          "size_bytes": 12894,
+          "sha256": "e438d4e81045c45caa93a1d6f8462a484429f510647c267b67ae3cefc05a1acc",
+          "size_bytes": 14946,
           "table": "benefits",
           "vintage": "synthetic-h2"
         }
@@ -978,8 +978,8 @@
           "locator": "benefits.tab",
           "role": "frs_table",
           "runtime_sha256_required": true,
-          "sha256": "64b7e7c5b7d42a72444bf26d1b9d4127e9dca4f262be3e2ea3d93b8f6841d482",
-          "size_bytes": 12894,
+          "sha256": "e438d4e81045c45caa93a1d6f8462a484429f510647c267b67ae3cefc05a1acc",
+          "size_bytes": 14946,
           "table": "benefits",
           "vintage": "synthetic-h2"
         },

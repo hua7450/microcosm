@@ -1,6 +1,10 @@
 import json
+from pathlib import Path
 
+import microcosm.build.staging as staging_module
 from microcosm.build.staging import StagingTelemetry
+
+V1_FIXTURE = Path(__file__).parent / "fixtures" / "staging" / "v1"
 
 
 class FakeApi:
@@ -186,3 +190,52 @@ def test_uploads_succeeded_is_zero_for_a_local_only_run(tmp_path):
 
     assert telemetry.uploads_succeeded == 0
     assert (tmp_path / "run-d" / "progress.json").is_file()
+
+
+def test_us_version_1_bundle_matches_fixed_fixture(tmp_path, monkeypatch):
+    timestamps = iter(
+        [
+            "2026-01-01T00:00:01+00:00",
+            "2026-01-01T00:00:02+00:00",
+            "2026-01-01T00:00:03+00:00",
+            "2026-01-01T00:00:04+00:00",
+            "2026-01-01T00:00:05+00:00",
+            "2026-01-01T00:00:06+00:00",
+            "2026-01-01T00:00:07+00:00",
+        ]
+    )
+    monkeypatch.setattr(staging_module, "_now", lambda: next(timestamps))
+
+    class FixtureApi(FakeApi):
+        def hf_hub_download(self, **kwargs):
+            raise FileNotFoundError
+
+    run_dir = tmp_path / "v1-us-fixture"
+    telemetry = StagingTelemetry(
+        run_id="v1-us-fixture",
+        candidate_release_id="populace-us-2024-v1-fixture",
+        run_dir=run_dir,
+        repo_id="policyengine/populace-us-staging",
+        api=FixtureApi(),
+        upload_interval_seconds=float("inf"),
+        started_at="2026-01-01T00:00:00+00:00",
+    )
+    telemetry.stage("calibrating", message="Calibration started.", n_targets=2)
+    telemetry.calibration_progress(
+        {"kind": "calibration_epoch", "epoch": 1, "epochs": 2, "loss": 1.5}
+    )
+    telemetry.complete()
+
+    for filename in (
+        "run_manifest.json",
+        "progress.json",
+        "calibration_progress.json",
+        "latest_staging.json",
+        "runs.json",
+    ):
+        assert json.loads((run_dir / filename).read_text()) == json.loads(
+            (V1_FIXTURE / filename).read_text()
+        )
+    assert (run_dir / "events.ndjson").read_text().splitlines() == (
+        V1_FIXTURE / "events.ndjson"
+    ).read_text().splitlines()

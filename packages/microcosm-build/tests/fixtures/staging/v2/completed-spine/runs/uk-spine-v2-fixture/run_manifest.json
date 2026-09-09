@@ -1,0 +1,49 @@
+{
+  "artifacts": [],
+  "candidate_id": "uk-spine-v2-fixture",
+  "country_code": "GB",
+  "current_stage": "complete",
+  "delivery": {
+    "configured_repository": null,
+    "contract_version": 2,
+    "enabled": true,
+    "last_error_code": null,
+    "mode": "local_only",
+    "opt_out_reason": null,
+    "read_back": "not_requested",
+    "run_id": "uk-spine-v2-fixture",
+    "upload_attempts": 0,
+    "upload_successes": 0
+  },
+  "failure": null,
+  "non_release": true,
+  "operation_id": "uk_frs_spine",
+  "paths": {
+    "calibration_progress": null,
+    "events": "runs/uk-spine-v2-fixture/events.ndjson",
+    "progress": "runs/uk-spine-v2-fixture/progress.json"
+  },
+  "pipeline": {
+    "id": "uk_national_spine",
+    "version": "2026.09"
+  },
+  "release_id": null,
+  "run_id": "uk-spine-v2-fixture",
+  "run_kind": "smoke",
+  "sample": {
+    "eligible_source_families": 25,
+    "forced_additions": 2,
+    "mode": "bounded_source_households",
+    "proportional_request": 5,
+    "realized_household_rows": 9,
+    "realized_source_families": 7,
+    "receipt_sha256": "54dddbf009cba29994aba73df3984b981b696eb3905009245acdfcbcc428961f",
+    "requested_source_households": 5,
+    "seed": 42
+  },
+  "schema_name": "microcosm.staging.run-manifest",
+  "schema_version": 2,
+  "started_at": "2026-01-02T00:00:00+00:00",
+  "status": "completed",
+  "updated_at": "2026-01-02T00:00:07+00:00"
+}

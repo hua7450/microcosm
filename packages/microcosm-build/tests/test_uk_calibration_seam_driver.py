@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
+from microcosm.build.staging_v2 import validate_v2_bundle
 from microcosm.build.uk_runtime.ledger_targets import UKLedgerTargetCompilation
 from microcosm.calibrate import TargetRegistry, TargetSpec
 
@@ -67,6 +69,7 @@ def _args(tmp_path: Path) -> list[str]:
         str(paths["record"]),
         "--release-id",
         "dev-calibration",
+        "--no-staging",
     ]
 
 
@@ -221,7 +224,149 @@ def test_driver_threads_registry_exclusions_resolver_and_overrides(
         "calibration_year": 2025,
         "allow_unpinned_feed": False,
     }
+    assert call["progress_callback"] is None
+    assert call["event_callback"] is None
+    assert call["staging_delivery"] == {
+        "contract_version": 2,
+        "enabled": False,
+        "mode": "disabled",
+        "run_id": None,
+        "configured_repository": None,
+        "upload_attempts": 0,
+        "upload_successes": 0,
+        "read_back": "not_requested",
+        "last_error_code": None,
+        "opt_out_reason": "--no-staging",
+    }
     assert "uk_target_fit" in capsys.readouterr().out
+
+
+def test_driver_exposes_shared_staging_modes(tmp_path: Path) -> None:
+    driver = _load_driver_module()
+    base = _args(tmp_path)
+    without_disabled = base[: base.index("--no-staging")]
+
+    remote = driver._parse_args(without_disabled)
+    local = driver._parse_args([*without_disabled, "--staging-local-only"])
+
+    assert remote.staging_repo_id == "policyengine/populace-uk-staging"
+    assert not remote.staging_local_only and not remote.no_staging
+    assert local.staging_local_only and not local.no_staging
+    with pytest.raises(SystemExit):
+        driver._parse_args([*without_disabled, "--staging-repo-id", ""])
+    with pytest.raises(SystemExit):
+        driver._parse_args(
+            [*without_disabled, "--staging-local-only", "--staging-read-back"]
+        )
+
+
+def test_driver_records_local_calibration_stage_coverage(
+    monkeypatch, tmp_path: Path
+) -> None:
+    driver = _load_driver_module()
+    registry = _registry()
+    artifact = SimpleNamespace(
+        path=tmp_path / "ledger",
+        facts=({"fact": 1},),
+        facts_sha256=driver._LEDGER_FACT_FEED_PIN["facts_sha256"],
+        manifest_sha256="c" * 64,
+    )
+    artifact.path.mkdir()
+    (artifact.path / "consumer_facts.jsonl").write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(
+        driver, "load_ledger_consumer_artifact", lambda *args, **kwargs: artifact
+    )
+    monkeypatch.setattr(
+        driver,
+        "compile_uk_target_registry",
+        lambda facts, target_period: UKLedgerTargetCompilation(registry, ()),
+    )
+    monkeypatch.setattr(
+        driver, "load_uk_frs_release", lambda: SimpleNamespace(calibration_year=2025)
+    )
+    monkeypatch.setattr(
+        driver, "load_uk_calibration_measure_exclusions", lambda path: ()
+    )
+    monkeypatch.setattr(
+        driver,
+        "apply_uk_calibration_measure_exclusions",
+        lambda active, exclusions: (active, {}),
+    )
+    monkeypatch.setattr(driver, "UKMeasureResolver", lambda **kwargs: object())
+
+    def fake_run(**kwargs):
+        callback = kwargs["event_callback"]
+        for stage_id in (
+            "input_loading",
+            "measure_resolution",
+            "calibration",
+            "diagnostics",
+            "release_check_evaluation",
+            "candidate_h5_creation",
+            "build_record_creation",
+        ):
+            callback(stage_id, "started", {})
+            callback(stage_id, "completed", {"aggregate_count": 1})
+        kwargs["progress_callback"](
+            {
+                "kind": "calibration_epoch",
+                "epoch": 1,
+                "epochs": 2,
+                "phase": "solve",
+                "loss": 1.5,
+                "iteration": 1,
+            }
+        )
+        return SimpleNamespace(
+            staging_sha256="1" * 64,
+            diagnostics_sha256="2" * 64,
+            terminal_gate_sha256="3" * 64,
+            build_record_sha256="4" * 64,
+            build_record={
+                "gate_summary": {"uk_target_fit": "passed"},
+                "staging_delivery": kwargs["staging_delivery"],
+            },
+        )
+
+    monkeypatch.setattr(driver, "run_uk_calibration", fake_run)
+    argv = _args(tmp_path)
+    argv = argv[: argv.index("--no-staging")]
+    input_path = Path(argv[argv.index("--input-h5") + 1])
+    argv[argv.index("--input-sha256") + 1] = driver._sha256_file(input_path)
+    staging_root = tmp_path / "telemetry"
+    argv.extend(
+        [
+            "--staging-local-only",
+            "--staging-dir",
+            str(staging_root),
+            "--staging-run-id",
+            "calibration-stage-test",
+        ]
+    )
+
+    assert driver.main(argv) == 0
+
+    bundle = validate_v2_bundle(staging_root, "calibration-stage-test")
+    assert bundle["calibration_progress"]["events"][0]["epoch"] == 1
+    completed = {
+        event["stage_id"]
+        for event in bundle["events"]
+        if event["status"] == "completed"
+    }
+    assert {
+        "target_compilation",
+        "input_loading",
+        "measure_resolution",
+        "calibration",
+        "diagnostics",
+        "release_check_evaluation",
+        "candidate_h5_creation",
+        "build_record_creation",
+        "complete",
+    } <= completed
+    record_path = Path(argv[argv.index("--build-record-json") + 1])
+    record = json.loads(record_path.read_text())
+    assert record["staging_delivery"]["mode"] == "local_only"
 
 
 def test_driver_refuses_the_national_release_id(tmp_path: Path):

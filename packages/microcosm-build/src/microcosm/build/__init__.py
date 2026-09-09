@@ -164,6 +164,7 @@ from microcosm.build.monetary_targets import (  # noqa: E402 - after compat gate
 from microcosm.build.plan import (  # noqa: E402 - after the compat gate
     DonorSpec,
     Stage,
+    StageObservation,
     StagePlan,
     StageRecord,
 )
@@ -210,6 +211,7 @@ __all__ = [
     "ReleaseContractManifest",
     "ResolvedCountrySpec",
     "Stage",
+    "StageObservation",
     "StagePlan",
     "StageRecord",
     "SourceRuntimeConfig",

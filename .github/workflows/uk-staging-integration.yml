@@ -1,0 +1,61 @@
+name: UK staging integration
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/uk-staging-integration.yml"
+      - "build/uk/**"
+      - "packages/microcosm-build/src/microcosm/build/**"
+      - "packages/microcosm-build/tests/fixtures/staging/**"
+      - "packages/microcosm-build/tests/test_staging*.py"
+      - "packages/microcosm-build/tests/test_uk_*.py"
+      - "packages/microcosm-graph/tests/fixtures/parity/uk_spine/**"
+      - "tools/build_uk_frs_spine.py"
+      - "tools/provision_uk_staging_repository.py"
+      - "uv.lock"
+      - "pyproject.toml"
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-smoke:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    environment: staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+      - name: Sync workspace with the UK rules engine
+        run: uv sync --all-packages --locked --extra uk
+      - name: Run the deterministic UK staging smoke build
+        run: >-
+          uv run --no-sync pytest
+          packages/microcosm-build/tests/test_uk_staging_integration.py
+          -q -s -p no:cacheprovider
+      - name: Detect the optional repository read credential
+        id: hf-read
+        env:
+          HF_TOKEN: ${{ secrets.HF_STAGING_READ_TOKEN }}
+        run: |
+          if [ -n "${HF_TOKEN:-}" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Optionally verify access-controlled repository reads
+        if: steps.hf-read.outputs.configured == 'true'
+        env:
+          HF_TOKEN: ${{ secrets.HF_STAGING_READ_TOKEN }}
+        run: >-
+          uv run --no-sync python tools/provision_uk_staging_repository.py
+          --verify-access

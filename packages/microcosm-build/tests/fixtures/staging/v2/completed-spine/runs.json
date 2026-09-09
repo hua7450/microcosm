@@ -1,0 +1,21 @@
+{
+  "runs": [
+    {
+      "candidate_id": "uk-spine-v2-fixture",
+      "country_code": "GB",
+      "non_release": true,
+      "progress_path": "runs/uk-spine-v2-fixture/progress.json",
+      "release_id": null,
+      "run_id": "uk-spine-v2-fixture",
+      "run_kind": "smoke",
+      "run_manifest_path": "runs/uk-spine-v2-fixture/run_manifest.json",
+      "stage": "complete",
+      "started_at": "2026-01-02T00:00:00+00:00",
+      "status": "completed",
+      "updated_at": "2026-01-02T00:00:07+00:00"
+    }
+  ],
+  "schema_name": "microcosm.staging.run-index",
+  "schema_version": 2,
+  "updated_at": "2026-01-02T00:00:07+00:00"
+}

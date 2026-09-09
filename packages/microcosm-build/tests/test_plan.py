@@ -112,6 +112,47 @@ class TestExecution:
         assert len(lines) == 2 and "Fed SCF 2022" in lines[0]
         assert plan.donors() == (("wealth", SCF),)
 
+    def test_observer_reports_ordered_aggregate_stage_lifecycle(
+        self, small_frame
+    ) -> None:
+        observations = []
+        plan = StagePlan(
+            [
+                Stage(
+                    name="wealth",
+                    transform=_add_column("net_worth", np.asarray([1, 0, 2, 0])),
+                    produces=("net_worth",),
+                )
+            ]
+        )
+
+        result, _records = plan.run(small_frame, observer=observations.append)
+
+        assert [item.status for item in observations] == ["started", "completed"]
+        assert [item.stage_id for item in observations] == ["wealth", "wealth"]
+        assert observations[0].produced_column_count == 0
+        assert observations[1].produced_column_count == 1
+        assert observations[1].elapsed_seconds >= 0.0
+        assert observations[1].entity_row_counts == {
+            entity: len(result.table(entity)) for entity in result.entities
+        }
+        assert not hasattr(observations[1], "source_values")
+
+    def test_observer_reports_failure_without_source_values(self, small_frame) -> None:
+        observations = []
+        plan = StagePlan(
+            [Stage(name="x", transform=lambda frame: frame, consumes=("absent",))]
+        )
+
+        with pytest.raises(ValueError, match="consumes 'absent'"):
+            plan.run(small_frame, observer=observations.append)
+
+        assert [item.status for item in observations] == ["started", "failed"]
+        assert observations[-1].produced_column_count == 0
+        assert observations[-1].entity_row_counts == {
+            entity: len(small_frame.table(entity)) for entity in small_frame.entities
+        }
+
     def test_missing_consumed_column_aborts_before_running(self, small_frame) -> None:
         ran = []
 

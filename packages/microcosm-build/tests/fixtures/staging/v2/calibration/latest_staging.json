@@ -1,0 +1,14 @@
+{
+  "candidate_id": "uk-calibration-candidate",
+  "paths": {
+    "calibration_progress": "runs/uk-calibration-v2-fixture/calibration_progress.json",
+    "events": "runs/uk-calibration-v2-fixture/events.ndjson",
+    "progress": "runs/uk-calibration-v2-fixture/progress.json",
+    "run_manifest": "runs/uk-calibration-v2-fixture/run_manifest.json"
+  },
+  "release_id": "populace-uk-2023-v2-fixture",
+  "run_id": "uk-calibration-v2-fixture",
+  "schema_name": "microcosm.staging.latest-run",
+  "schema_version": 2,
+  "updated_at": "2026-01-03T00:00:04+00:00"
+}

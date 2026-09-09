@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -493,6 +496,78 @@ def test_spine_sampling_is_stratified_keeps_families_and_normalizes(
     )
     assert receipt["normalization_factor"] > 0.0
     assert receipt["rung_token"] == rung
+
+
+def test_spine_source_household_count_is_deterministic_and_receipted() -> None:
+    frame = _spine_family_frame(families_per_region=4)
+    first, receipt = sample_uk_spine_frame(
+        frame, source_households=5, seed=19
+    )
+    repeated, repeated_receipt = sample_uk_spine_frame(
+        frame, source_households=5, seed=19
+    )
+    different, different_receipt = sample_uk_spine_frame(
+        frame, source_households=5, seed=20
+    )
+
+    first_ids = first.table("household")["household_id"].tolist()
+    assert repeated.table("household")["household_id"].tolist() == first_ids
+    assert different.table("household")["household_id"].tolist() != first_ids
+    assert receipt == repeated_receipt
+    assert receipt["sample_mode"] == "bounded_source_households"
+    assert receipt["requested_source_households"] == 5
+    assert receipt["eligible_source_families"] == 8
+    assert receipt["proportional_request"] == 5
+    assert receipt["realized_source_families"] == 5 + receipt["forced_additions"]
+    assert receipt["forced_additions"] > 0
+    assert receipt["realized_household_rows"] == len(first_ids)
+    assert receipt["realized_household_rows"] >= 5
+    assert receipt["rung_token"] == "h0005"
+    assert different_receipt["receipt_sha256"] != receipt["receipt_sha256"]
+    without_digest = {key: value for key, value in receipt.items() if key != "receipt_sha256"}
+    expected_digest = hashlib.sha256(
+        json.dumps(
+            without_digest, sort_keys=True, separators=(",", ":"), allow_nan=False
+        ).encode()
+    ).hexdigest()
+    assert receipt["receipt_sha256"] == expected_digest
+
+
+def test_spine_source_household_count_keeps_complete_families() -> None:
+    frame = _spine_family_frame(families_per_region=4)
+    full_units, _ = uk_spine_source_family_units(frame)
+    household_ids = frame.table("household")["household_id"].to_numpy()
+    full_rows = {
+        family: set(household_ids[full_units == family].tolist())
+        for family in np.unique(full_units)
+    }
+
+    sampled, _receipt = sample_uk_spine_frame(
+        frame, source_households=5, seed=19
+    )
+    sampled_units, _ = uk_spine_source_family_units(sampled)
+    sampled_ids = set(sampled.table("household")["household_id"].tolist())
+
+    for family in np.unique(sampled_units):
+        assert full_rows[family] <= sampled_ids
+
+
+@pytest.mark.parametrize(
+    ("count", "message"),
+    [
+        (1, "cannot retain one unit from each"),
+        (9, "exceeds the eligible inventory"),
+    ],
+)
+def test_spine_source_household_count_refuses_invalid_structural_target(
+    count: int, message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        sample_uk_spine_frame(
+            _spine_family_frame(families_per_region=4),
+            source_households=count,
+            seed=19,
+        )
 
 
 def test_spine_sampling_missing_lineage_column_fails_closed() -> None:

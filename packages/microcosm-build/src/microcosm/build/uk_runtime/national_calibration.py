@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 import numpy as np
@@ -52,6 +52,10 @@ class UKNationalCalibrationStage:
         doctrine: UKNationalSolveDoctrine = UK_NATIONAL_SOLVE_DOCTRINE,
         measure_resolver: object | None = None,
         band_edge_registry: TargetRegistry,
+        progress_callback: Callable[[dict[str, object]], None] | None = None,
+        stage_callback: (
+            Callable[[str, str, Mapping[str, object]], None] | None
+        ) = None,
     ) -> None:
         self.compilation = (
             registry
@@ -74,6 +78,8 @@ class UKNationalCalibrationStage:
         self.period = period
         self.doctrine = doctrine
         self.measure_resolver = measure_resolver
+        self.progress_callback = progress_callback
+        self.stage_callback = stage_callback
         self.manifest: dict[str, object] | None = None
         self.diagnostics: tuple[dict[str, object], ...] = ()
         self.solve_result: CalibrationResult | None = None
@@ -92,7 +98,19 @@ class UKNationalCalibrationStage:
         original_columns = {
             entity: set(table.columns) for entity, table in adapter.tables.items()
         }
+        self._notify_stage("measure_resolution", "started", {})
         measure_resolution = self._resolve_measures(frame)
+        self._notify_stage(
+            "measure_resolution",
+            "completed",
+            {
+                "resolved_measure_count": (
+                    0
+                    if measure_resolution is None
+                    else len(measure_resolution.measure_inputs)
+                )
+            },
+        )
         if measure_resolution is not None:
             _inject_measure_inputs(adapter, measure_resolution.measure_inputs)
         materialized = materialize_uk_ledger_targets(
@@ -138,6 +156,7 @@ class UKNationalCalibrationStage:
             l0_lambda=self.doctrine.l0_lambda,
             target_loss_cap=self.doctrine.target_loss_cap,
             target_loss_weights=target_loss_weights,
+            progress_callback=self.progress_callback,
         )
         if result.skipped or len(result.problem.names) != declared:
             skipped = [item.name for item in result.skipped]
@@ -209,6 +228,12 @@ class UKNationalCalibrationStage:
         self.manifest = manifest
         self.output_content_identity = uk_frame_content_identity(clean_frame)
         return clean_frame
+
+    def _notify_stage(
+        self, stage_id: str, status: str, details: Mapping[str, object]
+    ) -> None:
+        if self.stage_callback is not None:
+            self.stage_callback(stage_id, status, details)
 
     def _resolve_measures(self, frame: Frame) -> MeasureResolution | None:
         if self.measure_resolver is None:

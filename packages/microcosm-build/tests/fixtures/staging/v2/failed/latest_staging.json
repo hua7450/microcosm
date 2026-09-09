@@ -1,0 +1,14 @@
+{
+  "candidate_id": "uk-failed-v2-fixture",
+  "paths": {
+    "calibration_progress": null,
+    "events": "runs/uk-failed-v2-fixture/events.ndjson",
+    "progress": "runs/uk-failed-v2-fixture/progress.json",
+    "run_manifest": "runs/uk-failed-v2-fixture/run_manifest.json"
+  },
+  "release_id": null,
+  "run_id": "uk-failed-v2-fixture",
+  "schema_name": "microcosm.staging.latest-run",
+  "schema_version": 2,
+  "updated_at": "2026-01-04T00:00:02+00:00"
+}

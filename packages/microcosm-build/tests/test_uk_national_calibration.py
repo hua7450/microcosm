@@ -332,6 +332,31 @@ def test_uc_calibration_compiles_and_moves_weighted_count_towards_fact() -> None
     assert stage.manifest["solve"]["n_households"] == 4
 
 
+def test_stage_forwards_solver_progress_and_measure_lifecycle() -> None:
+    progress: list[dict[str, object]] = []
+    stages: list[tuple[str, str, dict[str, object]]] = []
+    stage = UKNationalCalibrationStage(
+        _registry(),
+        band_edge_registry=_registry(),
+        period=2025,
+        doctrine=UKNationalSolveDoctrine(epochs=5),
+        progress_callback=progress.append,
+        stage_callback=lambda stage_id, status, details: stages.append(
+            (stage_id, status, dict(details))
+        ),
+    )
+
+    stage(_frame())
+
+    assert progress
+    assert all(event["kind"] == "calibration_epoch" for event in progress)
+    assert [(stage_id, status) for stage_id, status, _details in stages] == [
+        ("measure_resolution", "started"),
+        ("measure_resolution", "completed"),
+    ]
+    assert stages[-1][2] == {"resolved_measure_count": 0}
+
+
 def test_uc_calibration_stage_accepts_benunit_grain_reference_on_nested_frame() -> None:
     frame = _nested_frame()
     stage = UKNationalCalibrationStage(

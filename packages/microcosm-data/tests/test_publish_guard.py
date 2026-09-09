@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from microcosm.data.publish_cli import (
+    _non_release_artifact,
     _reform_validation_skipped,
     _staging_undelivered,
     main,
@@ -62,6 +63,27 @@ def _write_bm(release_dir: Path, manifest: dict) -> None:
     (release_dir / "build_manifest.json").write_text(json.dumps(manifest))
 
 
+def test_publish_refuses_non_release_smoke_even_with_staging_override(
+    tmp_path, capsys, monkeypatch
+):
+    _write_bm(
+        tmp_path,
+        {
+            "build_id": "uk-frs-spine-h0100-s578-x",
+            "non_release": True,
+            "release_posture": "non_release_smoke",
+            "staging": {"enabled": False, "reason": "--no-staging"},
+        },
+    )
+    assert _non_release_artifact(tmp_path) is True
+    monkeypatch.delenv("SLACK_WEBHOOK_POPULACE_US", raising=False)
+
+    rc = main([str(tmp_path), "--allow-missing-staging"])
+
+    assert rc == 1
+    assert "non-release smoke output" in capsys.readouterr().err
+
+
 def test_staging_undelivered_reads_the_manifest_not_the_country(tmp_path):
     assert _staging_undelivered(tmp_path) is False
 
@@ -109,6 +131,60 @@ def test_staging_undelivered_reads_the_manifest_not_the_country(tmp_path):
         },
     )
     assert _staging_undelivered(tmp_path) is False
+
+
+def _version_2_delivery(**overrides) -> dict:
+    payload = {
+        "contract_version": 2,
+        "enabled": True,
+        "mode": "local_and_remote",
+        "run_id": "uk-run",
+        "configured_repository": "policyengine/populace-uk-staging",
+        "upload_attempts": 4,
+        "upload_successes": 4,
+        "read_back": "not_requested",
+        "last_error_code": None,
+        "opt_out_reason": None,
+    }
+    payload.update(overrides)
+    return payload
+
+
+@pytest.mark.parametrize(
+    ("delivery", "undelivered"),
+    [
+        (_version_2_delivery(), False),
+        (_version_2_delivery(upload_attempts=0, upload_successes=0), True),
+        (
+            _version_2_delivery(
+                mode="local_only",
+                configured_repository=None,
+                upload_attempts=0,
+                upload_successes=0,
+            ),
+            True,
+        ),
+        (
+            _version_2_delivery(
+                enabled=False,
+                mode="disabled",
+                run_id=None,
+                configured_repository=None,
+                upload_attempts=0,
+                upload_successes=0,
+                opt_out_reason="--no-staging",
+            ),
+            False,
+        ),
+        (_version_2_delivery(contract_version=999), True),
+        (_version_2_delivery(upload_attempts=1, upload_successes=2), True),
+        ({"contract_version": 2, "enabled": True}, True),
+    ],
+)
+def test_version_2_staging_delivery_parser(tmp_path, delivery, undelivered):
+    _write_bm(tmp_path, {"build_id": "x", "staging": delivery})
+
+    assert _staging_undelivered(tmp_path) is undelivered
 
 
 def test_publish_refused_when_staging_never_delivered(tmp_path, capsys, monkeypatch):
@@ -185,6 +261,67 @@ def test_publish_proceeds_when_staging_delivered(tmp_path, capsys, monkeypatch):
     monkeypatch.delenv("SLACK_WEBHOOK_POPULACE_US", raising=False)
     rc = cli.main([str(tmp_path)])
     assert rc == 0
+    assert "refusing to publish" not in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("delivery", "expected"),
+    [
+        (_version_2_delivery(), 0),
+        (_version_2_delivery(upload_attempts=0, upload_successes=0), 1),
+        (
+            _version_2_delivery(
+                mode="local_only",
+                configured_repository=None,
+                upload_attempts=0,
+                upload_successes=0,
+            ),
+            1,
+        ),
+        (
+            _version_2_delivery(
+                enabled=False,
+                mode="disabled",
+                run_id=None,
+                configured_repository=None,
+                upload_attempts=0,
+                upload_successes=0,
+                opt_out_reason="--no-staging",
+            ),
+            0,
+        ),
+    ],
+)
+def test_version_2_publication_decisions(
+    tmp_path, capsys, monkeypatch, delivery, expected
+):
+    _write_bm(tmp_path, {"build_id": "x", "staging": delivery})
+    cli = _stub_publish(monkeypatch)
+    monkeypatch.delenv("SLACK_WEBHOOK_POPULACE_US", raising=False)
+
+    assert cli.main([str(tmp_path)]) == expected
+    assert ("refusing to publish" in capsys.readouterr().err) is (expected == 1)
+
+
+def test_version_2_local_only_can_use_explicit_override(
+    tmp_path, capsys, monkeypatch
+):
+    _write_bm(
+        tmp_path,
+        {
+            "build_id": "x",
+            "staging": _version_2_delivery(
+                mode="local_only",
+                configured_repository=None,
+                upload_attempts=0,
+                upload_successes=0,
+            ),
+        },
+    )
+    cli = _stub_publish(monkeypatch)
+    monkeypatch.delenv("SLACK_WEBHOOK_POPULACE_US", raising=False)
+
+    assert cli.main([str(tmp_path), "--allow-missing-staging"]) == 0
     assert "refusing to publish" not in capsys.readouterr().err
 
 

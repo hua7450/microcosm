@@ -66,6 +66,20 @@ module or dependency. CI tests the merge ref, so merge main and re-pin rather
 than hunting for an environment leak. Editable installs hide packaging breaks;
 if you touch packaging, build wheels locally before pushing.
 
+The separate `.github/workflows/uk-staging-integration.yml` workflow runs the
+real UK spine command against the committed synthetic fixture. It requests 63
+source families with seed 42, uses `--smoke --staging-local-only`, writes only
+under the runner's temporary directory, and is not part of `ci-ok`. It runs on
+manual dispatch and path-scoped same-repository pull requests; fork-originated
+pull requests are skipped. The job has `contents: read`, does not persist
+checkout credentials, receives no external writer credential, and may perform
+a separate repository-card read only when `HF_STAGING_READ_TOKEN` is present.
+Run its test locally with:
+
+```bash
+uv run pytest packages/microcosm-build/tests/test_uk_staging_integration.py -q -s
+```
+
 ## The PR-CI / certification boundary
 
 PR CI is secrets-free and never touches restricted microdata. Green PR checks

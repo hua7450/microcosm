@@ -244,6 +244,18 @@ def _build_assembler_inputs(
             "sha256": sha256(green_certification_inputs["seam_report_path"])
         },
     }
+    build_record["staging_delivery"] = {
+        "contract_version": 2,
+        "enabled": False,
+        "mode": "disabled",
+        "run_id": None,
+        "configured_repository": None,
+        "upload_attempts": 0,
+        "upload_successes": 0,
+        "read_back": "not_requested",
+        "last_error_code": None,
+        "opt_out_reason": "test fixture deliberately disables staging",
+    }
 
     certification_path = tmp_path / "release_certification.json"
     compose_inputs = {
@@ -316,7 +328,18 @@ def test_assemble_green_release_dir(assembler_inputs, capsys) -> None:
 
     build_manifest = json.loads((release_dir / "build_manifest.json").read_text())
     release_manifest = json.loads((release_dir / "release_manifest.json").read_text())
-    assert "staging" not in build_manifest
+    assert build_manifest["staging"] == {
+        "contract_version": 2,
+        "enabled": False,
+        "mode": "disabled",
+        "run_id": None,
+        "configured_repository": None,
+        "upload_attempts": 0,
+        "upload_successes": 0,
+        "read_back": "not_requested",
+        "last_error_code": None,
+        "opt_out_reason": "test fixture deliberately disables staging",
+    }
     assert build_manifest["attempt_id"] == _ATTEMPT_ID
     assert build_manifest["cut_tag"] == _CUT_TAG
     assert {entry["revision"] for entry in release_manifest["artifacts"].values()} == {
@@ -350,6 +373,39 @@ def test_assemble_green_release_dir(assembler_inputs, capsys) -> None:
     ]
 
 
+def test_assemble_preserves_successful_version_2_delivery(
+    assembler_inputs, capsys
+) -> None:
+    record_path = assembler_inputs["diagnostics"].parent / "build_record.json"
+    record = json.loads(record_path.read_text())
+    delivery = {
+        "contract_version": 2,
+        "enabled": True,
+        "mode": "local_and_remote",
+        "run_id": "uk-calibration-run",
+        "configured_repository": "policyengine/populace-uk-staging",
+        "upload_attempts": 8,
+        "upload_successes": 8,
+        "read_back": "passed",
+        "last_error_code": None,
+        "opt_out_reason": None,
+    }
+    record["staging_delivery"] = delivery
+    record_path.write_text(json.dumps(record), encoding="utf-8")
+
+    assert _load_driver_module().main(assembler_inputs["argv"]) == 0
+    capsys.readouterr()
+    manifest = json.loads(
+        (
+            assembler_inputs["out_dir"]
+            / UK_NATIONAL_RELEASE_ID
+            / "build_manifest.json"
+        ).read_text()
+    )
+
+    assert manifest["staging"] == delivery
+
+
 def test_assemble_refuses_candidate_sha_mismatch(assembler_inputs) -> None:
     assembler_inputs["candidate"].write_bytes(
         assembler_inputs["candidate"].read_bytes() + b"tampered"
@@ -363,6 +419,60 @@ def test_assemble_refuses_unshippable_certification(assembler_inputs) -> None:
     certification["shippable"] = False
     assembler_inputs["certification"].write_text(json.dumps(certification))
     with pytest.raises(SystemExit, match="shippable must be true"):
+        _load_driver_module().main(assembler_inputs["argv"])
+
+
+def test_assemble_refuses_non_release_smoke_spine(assembler_inputs) -> None:
+    h5py = pytest.importorskip("h5py")
+    with h5py.File(assembler_inputs["spine"], mode="r+") as file:
+        file.attrs["populace_non_release"] = True
+        file.attrs["populace_release_posture"] = "smoke"
+
+    with pytest.raises(SystemExit, match="non-release smoke H5"):
+        _load_driver_module().main(assembler_inputs["argv"])
+
+
+def test_assemble_refuses_non_release_smoke_sidecar(assembler_inputs) -> None:
+    assembler_inputs["spine"].with_suffix(".build.json").write_text(
+        json.dumps({"non_release": True, "release_posture": "non_release_smoke"}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SystemExit, match="non-release smoke spine sidecar"):
+        _load_driver_module().main(assembler_inputs["argv"])
+
+
+@pytest.mark.parametrize(
+    "replacement",
+    [
+        None,
+        {"contract_version": 999},
+        {
+            "contract_version": 2,
+            "enabled": True,
+            "mode": "local_and_remote",
+            "run_id": "run",
+            "configured_repository": None,
+            "upload_attempts": 0,
+            "upload_successes": 0,
+            "read_back": "not_requested",
+            "last_error_code": None,
+            "opt_out_reason": None,
+        },
+    ],
+)
+def test_assemble_refuses_invalid_staging_delivery(
+    assembler_inputs, replacement
+) -> None:
+    record_path = assembler_inputs["diagnostics"].parent / "build_record.json"
+    record = json.loads(record_path.read_text())
+    if replacement is None:
+        del record["staging_delivery"]
+    else:
+        record["staging_delivery"] = replacement
+    record_path.write_text(json.dumps(record), encoding="utf-8")
+
+    with pytest.raises(SystemExit, match="staging-delivery"):
         _load_driver_module().main(assembler_inputs["argv"])
 
 

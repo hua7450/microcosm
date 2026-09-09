@@ -25,12 +25,19 @@ from __future__ import annotations
 import time
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
+from typing import Literal
 
 import pandas as pd
 
 from microcosm.frame import Frame
 
-__all__ = ["DonorSpec", "Stage", "StagePlan", "StageRecord"]
+__all__ = [
+    "DonorSpec",
+    "Stage",
+    "StageObservation",
+    "StagePlan",
+    "StageRecord",
+]
 
 
 @dataclass(frozen=True)
@@ -117,6 +124,17 @@ class StageRecord:
     seconds: float = 0.0
 
 
+@dataclass(frozen=True)
+class StageObservation:
+    """Aggregate-only notification emitted around one stage execution."""
+
+    stage_id: str
+    status: Literal["started", "completed", "failed"]
+    elapsed_seconds: float
+    produced_column_count: int
+    entity_row_counts: Mapping[str, int]
+
+
 class StagePlan:
     """An ordered, validated sequence of :class:`Stage` steps.
 
@@ -174,12 +192,14 @@ class StagePlan:
         frame: Frame,
         *,
         log: Callable[[str], None] = lambda message: None,
+        observer: Callable[[StageObservation], None] | None = None,
     ) -> tuple[Frame, tuple[StageRecord, ...]]:
         """Execute the plan over ``frame``.
 
         Args:
             frame: The assembled input frame.
             log: Progress sink (one line per stage).
+            observer: Optional aggregate-only stage lifecycle callback.
 
         Returns:
             The final frame and one :class:`StageRecord` per stage.
@@ -193,33 +213,66 @@ class StagePlan:
         records: list[StageRecord] = []
         current = frame
         for stage in self._stages:
-            for column in stage.consumes:
-                try:
-                    current.column_entity(column)
-                except ValueError as error:
-                    raise ValueError(
-                        f"Stage {stage.name!r} consumes {column!r}, which is "
-                        "not on the frame when the stage runs."
-                    ) from error
             started = time.perf_counter()
-            result = stage.transform(current)
-            elapsed = time.perf_counter() - started
-            if not isinstance(result, Frame):
-                raise TypeError(
-                    f"Stage {stage.name!r} must return a Frame, got "
-                    f"{type(result).__name__}."
+            if observer is not None:
+                observer(
+                    StageObservation(
+                        stage_id=stage.name,
+                        status="started",
+                        elapsed_seconds=0.0,
+                        produced_column_count=0,
+                        entity_row_counts=_entity_row_counts(current),
+                    )
                 )
-            shares: dict[str, float] = {}
-            for column in stage.produces:
-                try:
-                    entity = result.column_entity(column)
-                except ValueError as error:
-                    raise ValueError(
-                        f"Stage {stage.name!r} declared it produces "
-                        f"{column!r} but the column is absent after the "
-                        "stage ran."
-                    ) from error
-                shares[column] = _nonzero_share(result.table(entity)[column])
+            try:
+                for column in stage.consumes:
+                    try:
+                        current.column_entity(column)
+                    except ValueError as error:
+                        raise ValueError(
+                            f"Stage {stage.name!r} consumes {column!r}, which is "
+                            "not on the frame when the stage runs."
+                        ) from error
+                result = stage.transform(current)
+                if not isinstance(result, Frame):
+                    raise TypeError(
+                        f"Stage {stage.name!r} must return a Frame, got "
+                        f"{type(result).__name__}."
+                    )
+                shares: dict[str, float] = {}
+                for column in stage.produces:
+                    try:
+                        entity = result.column_entity(column)
+                    except ValueError as error:
+                        raise ValueError(
+                            f"Stage {stage.name!r} declared it produces "
+                            f"{column!r} but the column is absent after the "
+                            "stage ran."
+                        ) from error
+                    shares[column] = _nonzero_share(result.table(entity)[column])
+            except Exception:
+                if observer is not None:
+                    observer(
+                        StageObservation(
+                            stage_id=stage.name,
+                            status="failed",
+                            elapsed_seconds=time.perf_counter() - started,
+                            produced_column_count=0,
+                            entity_row_counts=_entity_row_counts(current),
+                        )
+                    )
+                raise
+            elapsed = time.perf_counter() - started
+            if observer is not None:
+                observer(
+                    StageObservation(
+                        stage_id=stage.name,
+                        status="completed",
+                        elapsed_seconds=elapsed,
+                        produced_column_count=len(stage.produces),
+                        entity_row_counts=_entity_row_counts(result),
+                    )
+                )
             current = result
             record = StageRecord(
                 stage=stage.name,
@@ -235,6 +288,10 @@ class StagePlan:
                 f"{len(stage.produces)} column(s) in {elapsed:.1f}s"
             )
         return current, tuple(records)
+
+
+def _entity_row_counts(frame: Frame) -> dict[str, int]:
+    return {entity: int(len(frame.table(entity))) for entity in frame.entities}
 
 
 def _nonzero_share(column: pd.Series) -> float:

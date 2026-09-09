@@ -10,6 +10,22 @@ from pathlib import Path
 from microcosm.data.release import publish_release
 
 
+def _non_release_artifact(release_dir: Path) -> bool:
+    """Return whether the manifest explicitly identifies non-release output."""
+
+    path = release_dir / "build_manifest.json"
+    if not path.exists():
+        return False
+    try:
+        manifest = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return False
+    return isinstance(manifest, dict) and (
+        manifest.get("non_release") is True
+        or manifest.get("release_posture") == "non_release_smoke"
+    )
+
+
 def _staging_undelivered(release_dir: Path) -> bool:
     """True if a build that should have staged has nothing to show for it.
 
@@ -30,9 +46,67 @@ def _staging_undelivered(release_dir: Path) -> bool:
     staging = manifest["staging"]
     if not isinstance(staging, dict) or not staging:
         return True
+    if "contract_version" in staging:
+        return _version_2_staging_undelivered(staging)
     if staging.get("enabled") is False:
-        return False
+        return not bool(staging.get("reason"))
     return not staging.get("uploads_succeeded")
+
+
+def _version_2_staging_undelivered(staging: dict[str, object]) -> bool:
+    """Validate publication-relevant version 2 delivery semantics."""
+
+    required = {
+        "contract_version",
+        "enabled",
+        "mode",
+        "run_id",
+        "configured_repository",
+        "upload_attempts",
+        "upload_successes",
+        "read_back",
+        "last_error_code",
+        "opt_out_reason",
+    }
+    if set(staging) != required or staging.get("contract_version") != 2:
+        return True
+    enabled = staging.get("enabled")
+    mode = staging.get("mode")
+    run_id = staging.get("run_id")
+    repository = staging.get("configured_repository")
+    attempts = staging.get("upload_attempts")
+    successes = staging.get("upload_successes")
+    read_back = staging.get("read_back")
+    reason = staging.get("opt_out_reason")
+    if (
+        not isinstance(enabled, bool)
+        or isinstance(attempts, bool)
+        or not isinstance(attempts, int)
+        or attempts < 0
+        or isinstance(successes, bool)
+        or not isinstance(successes, int)
+        or successes < 0
+        or successes > attempts
+        or read_back not in {"not_requested", "passed", "failed"}
+    ):
+        return True
+    if not enabled:
+        return not (
+            mode == "disabled"
+            and run_id is None
+            and repository is None
+            and attempts == 0
+            and successes == 0
+            and isinstance(reason, str)
+            and bool(reason.strip())
+        )
+    if reason is not None or not isinstance(run_id, str) or not run_id:
+        return True
+    if mode == "local_only":
+        return True
+    if mode != "local_and_remote" or not isinstance(repository, str) or not repository:
+        return True
+    return successes == 0
 
 
 def _reform_validation_skipped(release_dir: Path) -> bool:
@@ -154,6 +228,14 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--tag-only requires --no-latest.")
     if args.tag_only and not args.create_tag:
         parser.error("--tag-only requires tag creation; remove --no-create-tag.")
+
+    if _non_release_artifact(Path(args.release_dir)):
+        print(
+            "refusing to publish: build_manifest.json identifies this as "
+            "non-release smoke output.",
+            file=sys.stderr,
+        )
+        return 1
 
     if not args.allow_incomplete_reform_validation and _reform_validation_skipped(
         Path(args.release_dir)

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -365,6 +365,7 @@ class UKSPISupportChannelStageTransform:
     # by the survey-side sample fraction so the prior-mass pairing holds at
     # every rung (f100 keeps the declared count exactly).
     sample_fraction: float = 1.0
+    sample_fraction_provider: Callable[[], float] | None = None
     # Populated only by a live run; resume paths must re-run or skip evidence.
     last_result: UKSPISupportResult | None = field(default=None, init=False)
 
@@ -375,8 +376,13 @@ class UKSPISupportChannelStageTransform:
             self.stage,
             seed=self.seed,
         )
-        if self.sample_fraction != 1.0 and count is not None:
-            count = max(1, int(round(count * self.sample_fraction)))
+        sample_fraction = (
+            self.sample_fraction_provider()
+            if self.sample_fraction_provider is not None
+            else self.sample_fraction
+        )
+        if sample_fraction != 1.0 and count is not None:
+            count = max(1, int(round(count * sample_fraction)))
         result = build_uk_spi_support_channel(
             tables["person"],
             tables["benunit"],

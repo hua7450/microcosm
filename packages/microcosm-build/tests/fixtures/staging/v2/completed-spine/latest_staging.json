@@ -1,0 +1,14 @@
+{
+  "candidate_id": "uk-spine-v2-fixture",
+  "paths": {
+    "calibration_progress": null,
+    "events": "runs/uk-spine-v2-fixture/events.ndjson",
+    "progress": "runs/uk-spine-v2-fixture/progress.json",
+    "run_manifest": "runs/uk-spine-v2-fixture/run_manifest.json"
+  },
+  "release_id": null,
+  "run_id": "uk-spine-v2-fixture",
+  "schema_name": "microcosm.staging.latest-run",
+  "schema_version": 2,
+  "updated_at": "2026-01-02T00:00:07+00:00"
+}

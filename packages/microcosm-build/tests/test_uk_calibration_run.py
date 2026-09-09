@@ -223,6 +223,20 @@ def test_run_uk_calibration_writes_cross_pinned_outputs(monkeypatch, tmp_path: P
         "input_h5": {"sha256": _sha(input_h5), "size_bytes": input_h5.stat().st_size},
         "ledger_facts": {"sha256": "a" * 64, "size_bytes": 1},
     }
+    progress: list[dict[str, object]] = []
+    events: list[tuple[str, str, dict[str, object]]] = []
+    delivery = {
+        "contract_version": 2,
+        "enabled": False,
+        "mode": "disabled",
+        "run_id": None,
+        "configured_repository": None,
+        "upload_attempts": 0,
+        "upload_successes": 0,
+        "read_back": "not_requested",
+        "last_error_code": None,
+        "opt_out_reason": "test",
+    }
 
     result = run_uk_calibration(
         paths=paths,
@@ -238,12 +252,31 @@ def test_run_uk_calibration_writes_cross_pinned_outputs(monkeypatch, tmp_path: P
         source_pins=source_pins,
         run_config_extra={"calibration_year": 2025},
         release_id="test-run",
+        progress_callback=progress.append,
+        event_callback=lambda stage_id, status, details: events.append(
+            (stage_id, status, dict(details))
+        ),
+        staging_delivery=delivery,
     )
 
     assert paths.staging_h5.exists()
     assert paths.diagnostics_json.exists()
     assert paths.build_record_json.exists()
     assert paths.terminal_gate_json.exists()
+    assert progress and progress[0]["kind"] == "calibration_epoch"
+    completed = {
+        stage_id for stage_id, status, _details in events if status == "completed"
+    }
+    assert {
+        "input_loading",
+        "measure_resolution",
+        "calibration",
+        "diagnostics",
+        "release_check_evaluation",
+        "candidate_h5_creation",
+        "build_record_creation",
+    } <= completed
+    assert result.build_record["staging_delivery"] == delivery
     assert result.build_record["artifacts"]["staging_h5"]["sha256"] == _sha(
         paths.staging_h5
     )
