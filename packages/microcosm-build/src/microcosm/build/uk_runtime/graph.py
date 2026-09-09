@@ -192,6 +192,8 @@ _STAGE_CONSUMES: Mapping[str, frozenset[tuple[str, str]] | None] = {
     "uc_reporter_redraw": None,
     "uc_capital_coherence": frozenset(
         {
+            ("person", "is_benunit_head"),
+            ("person", "is_parent"),
             ("person", "person_support_channel"),
             ("person", "universal_credit_reported"),
             ("benunit", "benunit_support_channel"),

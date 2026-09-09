@@ -201,6 +201,48 @@ def test_capital_donor_cells_use_claimant_partnership_and_preserve_marital_statu
     pd.testing.assert_series_equal(result["is_married"], marital_before)
 
 
+def test_graph_projection_preserves_claimant_roles_for_capital_donor_cells():
+    from microcosm.build.uk_runtime.graph import uk_spine_graph
+    from microcosm.build.uk_runtime.graph_kernels import UKStageKernel
+    from microcosm.graph.executor import _project_context
+    from microcosm.graph.population import Population
+
+    frame = _frame()
+    person = frame.table("person")
+    benunit = frame.table("benunit")
+    person["age"] = 30
+    person["person_support_channel"] = person["person_benunit_id"].map(
+        benunit.set_index("benunit_id")["benunit_support_channel"]
+    )
+    frame.table("household")["region"] = "LONDON"
+    # A cohabiting couple and a married single claimant must retain their
+    # FRS claimant-role donor cells after the graph projects stage inputs.
+    benunit.loc[benunit["benunit_id"] == 1007, "is_married"] = False
+    benunit.loc[benunit["benunit_id"] == 1005, "is_married"] = True
+    expected = cohere_uc_capital(frame).frame.table("benunit")
+    node = uk_spine_graph(source_mode="split").node("uc_capital_coherence")
+    context = _project_context(
+        node,
+        Population.from_frame(frame, "before_capital_coherence"),
+        key="0" * 64,
+        sources={},
+        tolerances={},
+        numerics={},
+    )
+    result = UKStageKernel(
+        "uc_capital_coherence",
+        transform=UKUCCapitalCoherenceStageTransform(stage=_stage()),
+    ).run(context)
+
+    for column in ("frs_benunit_capital", "uc_reported_capital", "would_claim_uc"):
+        pd.testing.assert_series_equal(
+            result.columns[("benunit", column)],
+            expected.set_index("benunit_id")[column],
+        )
+    assert result.columns[("benunit", "frs_benunit_capital")].loc[1007] == 3_000
+    assert result.columns[("benunit", "frs_benunit_capital")].loc[1005] == 200
+
+
 def test_transform_is_deterministic_and_idempotent() -> None:
     transform = UKUCCapitalCoherenceStageTransform(stage=_stage())
 
