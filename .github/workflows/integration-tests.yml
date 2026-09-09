@@ -1,0 +1,25 @@
+name: Integration tests
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  uk-staging-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+      - name: Run integration tests
+        env:
+          HF_STAGING_READ_TOKEN: ${{ secrets.HF_STAGING_READ_TOKEN }}
+        run: bash tools/run_integration_tests.sh

@@ -20,10 +20,28 @@ FIXTURE = (
     ROOT / "packages/microcosm-graph/tests/fixtures/parity/uk_spine/sources"
 )
 DRIVER = ROOT / "tools/build_uk_frs_spine.py"
+WORKFLOW = ROOT / ".github/workflows/integration-tests.yml"
+WORKFLOW_SCRIPT = ROOT / "tools/run_integration_tests.sh"
 SOURCE_HOUSEHOLDS = 63
 REALIZED_SOURCE_FAMILIES = 69
 SEED = 42
 RUN_ID = "ci-uk-smoke-h0063-s42"
+
+
+def test_integration_workflow_runs_without_environment_approval() -> None:
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+    script = WORKFLOW_SCRIPT.read_text(encoding="utf-8")
+
+    assert "name: Integration tests" in workflow
+    assert "pull_request:" in workflow
+    assert "paths:" not in workflow
+    assert "environment:" not in workflow
+    assert "head.repo.full_name" not in workflow
+    assert "run: |" not in workflow
+    assert "run: bash tools/run_integration_tests.sh" in workflow
+    assert "uv sync --all-packages --locked --extra uk" in script
+    assert "test_uk_staging_integration.py" in script
+    assert "HF_STAGING_READ_TOKEN" in script
 
 
 def _tracked_state() -> str:

@@ -26,18 +26,21 @@ permissions again.
 
 The GitHub `staging` environment did not exist when inspected on 2026-09-08.
 It was then created with required reviewers `@anth-volk` and `@MaxGhenis`,
-self-review prevention enabled, and no environment secrets. The environment is
-audited or reconciled idempotently with:
+self-review prevention enabled, and no environment secrets. The general
+integration-test workflow does not reference this protected environment, so
+these reviewers do not delay its synthetic tests. The environment is audited
+or reconciled idempotently with:
 
 ```bash
 uv run python tools/configure_github_staging_environment.py
 uv run python tools/configure_github_staging_environment.py --apply
 ```
 
-The setup permits no environment secret except the optional
-`HF_STAGING_READ_TOKEN`. That credential, if installed later, may read only the
-private repository card. The integration build itself receives no external
-service writer credential.
+The setup permits no environment secret except `HF_STAGING_READ_TOKEN`. The
+general integration-test workflow instead reads that optional name as a
+repository-level Actions secret, where it may read only the private repository
+card. Fork pull requests do not receive it. The integration build itself
+receives no external service writer credential.
 
 ## Contract fixture ownership
 
@@ -161,7 +164,8 @@ publication refuse that evidence even when remote delivery succeeded.
 Continuous integration uses a much smaller deterministic synthetic input and
 `--staging-local-only`. Every output stays below the runner's temporary
 directory, checkout credentials are not persisted, repository permission is
-`contents: read`, and fork-originated pull requests do not run the job.
+`contents: read`, and fork-originated pull requests run without secrets. The
+job does not reference the protected GitHub `staging` environment.
 
 The deterministic fixture contains 135 source families and exercises all 28
 current UK spine transformations. Five requested families is valid for the
@@ -189,12 +193,12 @@ uv run python tools/build_uk_frs_spine.py \
 
 This fixture option refuses licensed input options, remote staging, and any
 non-smoke use. The workflow
-`.github/workflows/uk-staging-integration.yml` runs the integration test on
-manual dispatch and same-repository pull requests that touch its documented
-paths. The test prints total and per-transformation elapsed time. A local
-Apple-silicon run completed the command in approximately 45 seconds on
-2026-09-08; dependency setup and runner variance remain within the initial
-15-minute workflow timeout.
+`.github/workflows/integration-tests.yml` runs on manual dispatch and every
+pull request to `main`, without a path filter. Its shell commands live in
+`tools/run_integration_tests.sh`. The test prints total and per-transformation
+elapsed time. A local Apple-silicon run completed the command in approximately
+45 seconds on 2026-09-08; dependency setup and runner variance remain within
+the initial 15-minute workflow timeout.
 
 ### Local 100-source-household interface check
 
