@@ -158,6 +158,54 @@ def test_prepared_column_path_materializes_filtered_values():
     ]
 
 
+@pytest.mark.parametrize("fact_period", [2024, 2025])
+@pytest.mark.parametrize("require_matching_fact_period", [None, False, True])
+def test_existing_measure_respects_fact_guard_at_default_measurement_period(
+    fact_period, require_matching_fact_period
+):
+    class ExistingMeasureAdapter(StubAdapter):
+        def has_column(self, entity, variable):
+            return variable in self.tables[entity]
+
+    adapter = ExistingMeasureAdapter()
+    adapter.set_column("person", "income_measure", [999.0, 999.0, 999.0])
+    registry = TargetRegistry(
+        [
+            TargetSpec(
+                name="income",
+                entity="person",
+                measure="income_measure",
+                value=60.0,
+                source="test",
+                metadata={
+                    "contract_target_id": "income",
+                    "ledger_fact_period": str(fact_period),
+                },
+            )
+        ],
+        country="uk",
+    )
+    binding = {"value_variable": "income"}
+    if require_matching_fact_period is not None:
+        binding["require_matching_fact_period"] = require_matching_fact_period
+    contract = {"income": {"bindings": {"policyengine": binding}}}
+
+    result = materialize_target_bindings(adapter, registry, contract, period=2025)
+
+    if require_matching_fact_period and fact_period != 2025:
+        assert len(result.skipped) == 1
+        assert "observation period '2024'" in result.skipped[0].reason
+        assert "measurement period 2025" in result.skipped[0].reason
+    else:
+        assert not result.skipped
+    expected = (
+        [10.0, 20.0, 30.0]
+        if require_matching_fact_period and fact_period == 2025
+        else [999.0, 999.0, 999.0]
+    )
+    assert adapter.tables["person"]["income_measure"].tolist() == expected
+
+
 def test_generic_provider_kinds_materialize_expected_columns():
     registry = TargetRegistry(
         [

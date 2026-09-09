@@ -748,6 +748,17 @@ def test_candidate_engine_surface_reuses_one_resolver(
     _write_staging_h5(input_h5)
     frame, _ = builder.load_uk_national_frame(input_h5)
     constructions = []
+    cgt_period_contract = {
+        "version": "uk-cgt-measurement-v2",
+        "input_period": "2024",
+        "calibration_period": 2025,
+        "bound_measurements": {
+            "cgt_2024_gains": {
+                "model_variable": "capital_gains",
+                "measurement_period": 2024,
+            }
+        },
+    }
 
     class StubResolver:
         def __init__(self, **kwargs):
@@ -759,6 +770,7 @@ def test_candidate_engine_surface_reuses_one_resolver(
             return {
                 "mode": "stub",
                 "policyengine_uk_version": "test",
+                "cgt_period_contract": cgt_period_contract,
             }
 
     monkeypatch.setattr(
@@ -790,15 +802,18 @@ def test_candidate_engine_surface_reuses_one_resolver(
         "national_inputs": 0,
         "local_metrics": {"constituency": 1, "la": 1},
         "blocks": 1,
+        "cgt_period_contract": cgt_period_contract,
     }
     assert set(local_metrics) == {"constituency", "la"}
     assert len(national.targets) == 0
     assert restore(prepared).table("household").equals(frame.table("household"))
 
 
+@pytest.mark.parametrize("second_cgt_period", [2024, 2025, None])
 def test_candidate_engine_surface_resolves_real_per_clone_blocks(
     monkeypatch,
     tmp_path,
+    second_cgt_period,
 ) -> None:
     pytest.importorskip("tables")
     builder = _load_builder_module()
@@ -823,9 +838,23 @@ def test_candidate_engine_surface_resolves_real_per_clone_blocks(
             constructions.append(kwargs)
             self.simulation = object()
             self.contract_targets = {}
+            self.cgt_period = 2024 if len(constructions) == 1 else second_cgt_period
 
         def receipt(self):
-            return {"mode": "stub", "policyengine_uk_version": "test"}
+            receipt = {"mode": "stub", "policyengine_uk_version": "test"}
+            if self.cgt_period is not None:
+                receipt["cgt_period_contract"] = {
+                    "version": "uk-cgt-measurement-v2",
+                    "input_period": "2024",
+                    "calibration_period": 2025,
+                    "bound_measurements": {
+                        "cgt_2024_gains": {
+                            "model_variable": "capital_gains",
+                            "measurement_period": self.cgt_period,
+                        }
+                    },
+                }
+            return receipt
 
     monkeypatch.setattr(
         builder,
@@ -835,14 +864,23 @@ def test_candidate_engine_surface_resolves_real_per_clone_blocks(
             index=household_ids,
         ),
     )
-    prepared, restore, _, metrics, receipt = builder._resolve_candidate_engine_surface(
-        clone.frame,
-        TargetRegistry([], country="uk"),
-        period=2025,
-        scratch_dir=tmp_path / "block-scratch",
-        resolver_factory=StubResolver,
-        blocks=2,
-    )
+
+    def resolve():
+        return builder._resolve_candidate_engine_surface(
+            clone.frame,
+            TargetRegistry([], country="uk"),
+            period=2025,
+            scratch_dir=tmp_path / "block-scratch",
+            resolver_factory=StubResolver,
+            blocks=2,
+        )
+
+    if second_cgt_period != 2024:
+        with pytest.raises(RuntimeError, match="CGT period contract is inconsistent"):
+            resolve()
+        return
+
+    prepared, restore, _, metrics, receipt = resolve()
 
     assert len(constructions) == 2
     assert [len(call["frame"].table("household")) for call in constructions] == [
@@ -850,6 +888,12 @@ def test_candidate_engine_surface_resolves_real_per_clone_blocks(
         12,
     ]
     assert receipt["blocks"] == 2
+    assert receipt["cgt_period_contract"]["bound_measurements"] == {
+        "cgt_2024_gains": {
+            "model_variable": "capital_gains",
+            "measurement_period": 2024,
+        }
+    }
     assert receipt["deviation"] == "per_clone_block_engine_resolution"
     sensitivity = receipt["block_sensitivity"]
     assert (

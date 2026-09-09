@@ -1,6 +1,6 @@
 {
   "country": "uk",
-  "description": "UK active-subset Ledger target references for the FRS 2024-25 line. Rows are generated from the national rows in uk_population_targets.json: name is the contract target_id or an incumbent-compatible fan-out row name; ledger_selector is the contract selector plus geography pins; entity is from_entity, then map_to, then household; measure is the prepared-column metric name or fan-out row name; family is the contract family; period is the model and calibration year 2025. Observation windows are declared separately from the FRS 2024-25 survey vintage. Observed values stay in Ledger facts and resolve through each reference's declared value operation. Deferred classes and geography-pin decisions are recorded in uk/target_reference_membership.json. metadata.measure_kind records that measures are prepared columns produced from the contract binding payload referenced by metadata.contract_target_id.",
+  "description": "UK active-subset Ledger target references for the FRS 2024-25 line. Rows are generated from the national rows in uk_population_targets.json: name is the contract target_id or an incumbent-compatible fan-out row name; ledger_selector is the contract selector plus geography pins; entity is from_entity, then map_to, then household; measure is the prepared-column metric name or fan-out row name; family is the contract family; period is the model and calibration year 2025, distinct from the FRS 2024-25 base period 2024. Observation windows are declared separately; metadata.measurement_period records observed-year exceptions. Observed values stay in Ledger facts and resolve through each reference's declared value operation. Deferred classes and geography-pin decisions are recorded in uk/target_reference_membership.json. metadata.measure_kind records that measures are prepared columns produced from the contract binding payload referenced by metadata.contract_target_id.",
   "allowed_value_operations": [
     "identity",
     "sum",
@@ -145,23 +145,31 @@
       "assertion_policy": "allow_source_projection"
     },
     {
-      "name": "obr.capital_gains_tax",
+      "name": "hmrc.cgt.liability_total",
       "ledger_selector": {
-        "source_name": "obr",
-        "source_concept": "obr.capital_gains_tax",
-        "entity_name": "person",
+        "source_name": "hmrc",
+        "source_concept": "hmrc.cgt_tax_individuals",
+        "groupby_dimension": "hmrc.cgt_table1_line",
+        "entity_name": "tax_unit",
+        "aggregate_fact_key": "ledger.aggregate_fact.v2:222c397017de7bff0a6583a7",
+        "period_type": "tax_year",
+        "period_value": 2024,
         "geography_level": "country",
         "geography_id": "K02000001"
       },
       "entity": "person",
-      "measure": "obr/capital_gains_tax",
-      "family": "obr",
+      "measure": "hmrc/cgt_liability",
+      "family": "hmrc_cgt",
       "period": 2025,
       "metadata": {
-        "contract_target_id": "obr.capital_gains_tax",
-        "measure_kind": "prepared_column"
+        "contract_target_id": "hmrc.cgt.liability_total",
+        "measure_kind": "prepared_column",
+        "observation_basis": "individuals_observed_disposal_year_2024_liability",
+        "measurement_period": "2024",
+        "source_period_policy": "exact_observation"
       },
-      "assertion_policy": "allow_source_projection"
+      "uprating_from_period": "2024",
+      "uprating_to_period": 2025
     },
     {
       "name": "obr.sdlt",
@@ -3999,8 +4007,12 @@
       "name": "hmrc.cgt.taxpayers_total",
       "ledger_selector": {
         "source_name": "hmrc",
-        "source_concept": "hmrc.cgt_taxpayers_total",
+        "source_concept": "hmrc.cgt_taxpayers_individuals",
         "groupby_dimension": "hmrc.cgt_table1_line",
+        "entity_name": "tax_unit",
+        "aggregate_fact_key": "ledger.aggregate_fact.v2:31d709fc393c2bf4d04efca5",
+        "period_type": "tax_year",
+        "period_value": 2024,
         "geography_level": "country",
         "geography_id": "K02000001"
       },
@@ -4010,7 +4022,10 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "hmrc.cgt.taxpayers_total",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "observation_basis": "individuals_observed_disposal_year_2024_net_gains_and_aea",
+        "measurement_period": "2024",
+        "source_period_policy": "exact_observation"
       },
       "uprating_from_period": "2024",
       "uprating_to_period": 2025
@@ -4019,9 +4034,12 @@
       "name": "hmrc.cgt.gains_total",
       "ledger_selector": {
         "source_name": "hmrc",
-        "source_concept": "hmrc.cgt_gains_total",
+        "source_concept": "hmrc.cgt_gains_individuals",
         "groupby_dimension": "hmrc.cgt_table1_line",
         "entity_name": "tax_unit",
+        "aggregate_fact_key": "ledger.aggregate_fact.v2:12060d20a417d85d67cf24e8",
+        "period_type": "tax_year",
+        "period_value": 2024,
         "geography_level": "country",
         "geography_id": "K02000001"
       },
@@ -4031,7 +4049,10 @@
       "period": 2025,
       "metadata": {
         "contract_target_id": "hmrc.cgt.gains_total",
-        "measure_kind": "prepared_column"
+        "measure_kind": "prepared_column",
+        "observation_basis": "individuals_observed_disposal_year_2024_net_gains_and_aea",
+        "measurement_period": "2024",
+        "source_period_policy": "exact_observation"
       },
       "uprating_from_period": "2024",
       "uprating_to_period": 2025

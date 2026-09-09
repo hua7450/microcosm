@@ -432,7 +432,9 @@ class StubUKAdapter:
         child_flags = np.array([True, True, True, False, False, True, True])
         self.tables = {
             "person": {
-                "capital_gains": np.array([0.0, 0.0, 0.0, 5_000.0, 0.0, 0.0, 20_000.0]),
+                "cgt_2024_gains": np.array(
+                    [0.0, 0.0, 0.0, 5_000.0, 0.0, 0.0, 20_000.0]
+                ),
                 "person_household_id": person_household,
                 "uc_is_child_limit_affected": child_flags,
                 "is_child": np.array([True, True, True, True, False, True, True]),
@@ -485,7 +487,7 @@ class StubUKAdapter:
 
     def parameter(self, name, period):
         assert name == "gov.hmrc.cgt.annual_exempt_amount"
-        assert period == 2025
+        assert period == 2024
         return 6_000.0
 
     def counterfactual_delta(self, binding, period):
@@ -689,7 +691,10 @@ def test_materialize_uk_ledger_targets_with_stub_adapter():
                 measure="hmrc/cgt_taxpayers",
                 value=378_000.0,
                 source="test",
-                metadata={"contract_target_id": "hmrc.cgt.taxpayers_total"},
+                metadata={
+                    "contract_target_id": "hmrc.cgt.taxpayers_total",
+                    "ledger_fact_period": "2024",
+                },
             ),
             TargetSpec(
                 name="dwp.uc.two_child_limit.children_affected",

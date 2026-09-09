@@ -152,6 +152,9 @@ def resolve_target_measures(
     source frame rather than on the restored output.
     """
 
+    validate_period = getattr(provider, "validate_period", None)
+    if callable(validate_period):
+        validate_period(period)
     contract = _measure_resolution_contract(
         registry, provider, contract_targets=contract_targets
     )
@@ -484,12 +487,16 @@ def materialize_target_bindings(
     )
     skipped: list[MaterializationSkip] = []
     for spec in registry.specs:
-        if hasattr(adapter, "has_column") and adapter.has_column(
-            spec.entity, spec.measure
-        ):
-            continue
         contract_target_id = spec.metadata.get("contract_target_id")
         target = contract_targets.get(str(contract_target_id))
+        binding = target["bindings"]["policyengine"] if target is not None else {}
+        if (
+            hasattr(adapter, "has_column")
+            and adapter.has_column(spec.entity, spec.measure)
+            and "measurement_period" not in binding
+            and not binding.get("require_matching_fact_period")
+        ):
+            continue
         if target is None:
             skipped.append(
                 MaterializationSkip(
@@ -499,14 +506,23 @@ def materialize_target_bindings(
                 )
             )
             continue
-        binding = target["bindings"]["policyengine"]
+        # A period-constrained binding must validate its fact and prepare again.
+        # A pre-existing column has no period provenance and may be stale.
         kind = binding.get("kind")
         try:
+            measurement_period = binding.get("measurement_period", period)
+            if binding.get("require_matching_fact_period") and str(
+                spec.metadata.get("ledger_fact_period")
+            ) != str(measurement_period):
+                raise ValueError(
+                    f"observation period {spec.metadata.get('ledger_fact_period')!r} "
+                    f"does not match declared measurement period {measurement_period}"
+                )
             if kind:
                 provider = provider_registry.get(str(kind))
                 if provider is None:
                     raise ValueError(f"unsupported binding kind {kind!r}")
-                values = provider(adapter, binding, period)
+                values = provider(adapter, binding, measurement_period)
             else:
                 band = None
                 if binding.get("groupby_variable"):

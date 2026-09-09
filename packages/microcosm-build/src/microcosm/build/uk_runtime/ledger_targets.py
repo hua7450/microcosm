@@ -6,7 +6,7 @@ import json
 import math
 import re
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from functools import lru_cache
 from importlib import resources as importlib_resources
 from typing import Any
@@ -266,6 +266,15 @@ def compile_uk_target_registry(
             registry = validate_uc_source_month_coverage(
                 restamped, registry, candidate_facts
             )
+            if reference.name == "hmrc.cgt.liability_total":
+                cash_metadata = _cgt_cash_diagnostic_metadata(fact_rows)
+                registry = TargetRegistry(
+                    (
+                        replace(row, metadata={**row.metadata, **cash_metadata})
+                        for row in registry.specs
+                    ),
+                    country="uk",
+                )
         except ValueError as error:
             unsupported.append(
                 {
@@ -280,6 +289,54 @@ def compile_uk_target_registry(
         TargetRegistry(compiled, country="uk"),
         tuple(unsupported),
     )
+
+
+def _cgt_cash_diagnostic_metadata(
+    facts: tuple[Mapping[str, Any], ...],
+) -> dict[str, str]:
+    """Retain the original forecast without adding a cash row to fitting.
+
+    The cash period and exact Chronicle fact identity are consumer declarations,
+    independent of the calibration period. The normal TargetSpec metadata path
+    carries this receipt into both national and local registries.
+    """
+    contract = json.loads(
+        importlib_resources.files("microcosm.build.uk")
+        .joinpath(UK_POPULATION_TARGETS_RESOURCE)
+        .read_text(encoding="utf-8")
+    )
+    try:
+        declaration = contract["diagnostic_references"]["obr.capital_gains_tax"]
+        if declaration["attach_to_target"] != "hmrc.cgt.liability_total":
+            raise ValueError("unexpected receiving target")
+        reference = LedgerTargetReference(**declaration["reference"])
+        if not reference.ledger_fact_key:
+            raise ValueError("the original forecast must have an exact fact pin")
+        candidates = tuple(
+            fact
+            for fact in _candidate_facts_for_reference(facts, reference)
+            if fact.get("aggregate_fact_key") == reference.ledger_fact_key
+            and fact.get("period", {}).get("type")
+            == declaration["required_period_type"]
+            and fact.get("assertion") == declaration["required_assertion"]
+        )
+        (cash,) = compile_ledger_target_references(
+            candidates, [reference], country="uk"
+        ).specs
+        if cash.metadata["ledger_fact_period"] != str(reference.period):
+            raise ValueError("forecast period does not match its declaration")
+    except (KeyError, TypeError, ValueError) as error:
+        raise ValueError(
+            f"CGT cash diagnostic could not be retained: {error}"
+        ) from error
+    return {
+        "cgt_cash_diagnostic_role": "diagnostic_only_not_in_fit",
+        "cgt_cash_reconciliation_status": "unresolved",
+        "cgt_cash_diagnostic_value_gbp": str(cash.value),
+        "cgt_cash_diagnostic_period": str(cash.period),
+        "cgt_cash_diagnostic_source": cash.source,
+        **{f"cgt_cash_diagnostic_{key}": value for key, value in cash.metadata.items()},
+    }
 
 
 def load_uk_local_area_crosswalk() -> dict[str, Any]:

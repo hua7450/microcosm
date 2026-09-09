@@ -42,6 +42,8 @@ BINDING_KINDS = {
 }
 PROJECTION_FAMILIES = {"obr", "slc_borrowers", "scotgov_social_security"}
 NATIONAL_SELECTOR_KEYS = {
+    "aggregate_fact_key",
+    "period_value",
     "source_name",
     "source_concept",
     "source_measure_id",
@@ -74,6 +76,8 @@ POLICYENGINE_BINDING_KEYS = {
     "value_reduction",
     "map_to",
     "metric_name",
+    "measurement_period",
+    "require_matching_fact_period",
     "notes",
     "output_delta",
     "output_variable",
@@ -197,8 +201,8 @@ def test_uk_population_targets_shape_order_and_registry_accounting() -> None:
     assert set(mapped_target_ids).isdisjoint(unmapped_declarations)
     assert mapped_target_ids | set(unmapped_declarations) == set(registry_scope)
     assert all(reason for reason in unmapped_declarations.values())
-    assert len(mapped_target_ids) == 184
-    assert len(unmapped_declarations) == 18
+    assert len(mapped_target_ids) == 183
+    assert len(unmapped_declarations) == 19
     suppressed_ancestors = parity["suppressed_ancestors"]
     assert len(suppressed_ancestors) == 5
     assert set(suppressed_ancestors).isdisjoint(parity["mapped"])
@@ -379,6 +383,8 @@ def test_childcare_bus_observation_basis_and_entity_pins_are_closed_world() -> N
         "annual_unique_count",
         "january_stock",
         "fiscal_year_flow",
+        "individuals_observed_disposal_year_2024_liability",
+        "individuals_observed_disposal_year_2024_net_gains_and_aea",
     }
     allowed_operations = set(resource["allowed_value_operations"])
     for target in resource["targets"]:
@@ -823,6 +829,7 @@ def test_uk_population_cgt_contract_names_match_runtime_specs() -> None:
     assert UK_CGT_TARGET_SPECS == ()
     assert cgt_metric_names == [
         "hmrc/capital_gains_total",
+        "hmrc/cgt_liability",
         "hmrc/cgt_taxpayers",
     ]
     assert mapped["hmrc/capital_gains_total"] == "hmrc.cgt.gains_total"

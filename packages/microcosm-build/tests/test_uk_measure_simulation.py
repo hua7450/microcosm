@@ -106,6 +106,257 @@ def test_compute_uk_measure_input_native_route():
     assert values.tolist() == [1.0, 2.0, 3.0]
 
 
+@pytest.mark.parametrize("year,factor", [(2024, 1.0), (2025, 1.1)])
+def test_cgt_period_measures_bypass_stored_inputs_without_mutation(
+    monkeypatch, tmp_path, year, factor
+):
+    from microcosm.build.target_materialization import (
+        materialize_target_bindings,
+        resolve_target_measures,
+    )
+
+    frame = FrameStub()
+    frame.metadata = {"time_period": "2024"}
+    frame.table("person")["capital_gains"] = [2900.0, 3000.0, 20000.0]
+    frame.table("person")["capital_gains_tax"] = [99.0, 99.0, 99.0]
+    original = frame.table("person").copy(deep=True)
+    gains = original.capital_gains.to_numpy() * factor
+    tax = np.maximum(gains - 3000, 0) * 0.18
+    sim = SimulationStub(
+        {"capital_gains": ("person", gains), "capital_gains_tax": ("person", tax)}
+    )
+    monkeypatch.setitem(
+        sys.modules,
+        "policyengine_uk",
+        SimpleNamespace(__version__="2.97.0", Microsimulation=lambda **kw: sim),
+    )
+    resolver = UKMeasureResolver(
+        simulation_source=tmp_path / "input.h5",
+        scratch_dir=tmp_path,
+        year=year,
+        frame=frame,
+    )
+    names = (
+        "hmrc.cgt.gains_total",
+        "hmrc.cgt.taxpayers_total",
+        "hmrc.cgt.liability_total",
+    )
+    resolver.contract_targets = {
+        name: {"bindings": {"policyengine": binding}}
+        for name, binding in zip(
+            names,
+            [
+                {
+                    "kind": "parameter_gated_threshold",
+                    "gate_parameter": "gov.hmrc.cgt.annual_exempt_amount",
+                    "gated_variable": "cgt_calibration_gains",
+                    "value_variable": "cgt_calibration_gains",
+                    "from_entity": "person",
+                    "measurement_period": year,
+                },
+                {
+                    "kind": "parameter_gated_threshold",
+                    "gate_parameter": "gov.hmrc.cgt.annual_exempt_amount",
+                    "gated_variable": "cgt_calibration_gains",
+                    "value_variable": "person_count",
+                    "from_entity": "person",
+                    "measurement_period": year,
+                },
+                {
+                    "value_variable": "cgt_calibration_tax",
+                    "from_entity": "person",
+                    "measurement_period": year,
+                },
+            ],
+            strict=True,
+        )
+    }
+    registry = TargetRegistry(
+        [
+            TargetSpec(
+                name=name,
+                entity="person",
+                measure=f"test_{i}",
+                value=1,
+                source="test",
+                metadata={"contract_target_id": name},
+            )
+            for i, name in enumerate(names)
+        ],
+        country="uk",
+    )
+
+    class Adapter:
+        def __init__(self):
+            self.person = original.copy(deep=True)
+            self.tables = {"person": self.person}
+
+        def column(self, entity, variable):
+            if variable not in self.person:
+                raise KeyError(f"{entity}.{variable}")
+            return self.person[variable].to_numpy()
+
+        def set_column(self, entity, variable, values):
+            self.person[variable] = values
+
+        def parameter(self, path, period):
+            assert period == year
+            return 3000.0
+
+    result = resolve_target_measures(Adapter, registry, resolver, period=year)
+    adapter = Adapter()
+    for (entity, variable), values in result.measure_inputs.items():
+        adapter.set_column(entity, variable, values)
+    materialized = materialize_target_bindings(
+        adapter, registry, resolver.contract_targets, period=year
+    )
+    assert not materialized.skipped
+    np.testing.assert_allclose(adapter.person.test_0, np.where(gains > 3000, gains, 0))
+    np.testing.assert_array_equal(adapter.person.test_1, gains > 3000)
+    np.testing.assert_allclose(adapter.person.test_2, tax)
+    assert {call[:2] for call in sim.calls} == {
+        ("capital_gains", year),
+        ("capital_gains_tax", year),
+    }
+    pd.testing.assert_frame_equal(frame.table("person"), original)
+    pd.testing.assert_series_equal(adapter.person.capital_gains, original.capital_gains)
+    receipt = result.receipt["provider"]["cgt_period_contract"]
+    assert receipt["input_period"] == "2024"
+    assert receipt["default_engine_period"] == year
+    assert receipt["gains_basis"] == "after_losses_before_annual_exempt_amount"
+    with pytest.raises(ValueError, match="measurement period"):
+        resolve_target_measures(Adapter, registry, resolver, period=year + 1)
+
+
+def test_resolver_refuses_persisted_cgt_measure_aliases(monkeypatch, tmp_path):
+    frame = FrameStub()
+    frame.table("person")["cgt_calibration_gains"] = [1, 2, 3]
+    monkeypatch.setitem(
+        sys.modules,
+        "policyengine_uk",
+        SimpleNamespace(
+            __version__="2.97.0", Microsimulation=lambda **kw: SimulationStub({})
+        ),
+    )
+    with pytest.raises(ValueError, match="must not be persisted"):
+        UKMeasureResolver(
+            simulation_source=tmp_path / "input.h5",
+            scratch_dir=tmp_path,
+            year=2025,
+            frame=frame,
+        )
+
+
+@pytest.mark.parametrize("measurement_period", [2023, 2025])
+def test_resolver_rejects_amount_threshold_year_mismatch(
+    monkeypatch, tmp_path, measurement_period
+):
+    monkeypatch.setattr(
+        measure_simulation,
+        "_policyengine_uk_module",
+        lambda: SimpleNamespace(__version__="test"),
+    )
+    monkeypatch.setattr(
+        measure_simulation,
+        "_uk_contract_targets",
+        lambda: {
+            "cgt": {
+                "bindings": {
+                    "policyengine": {
+                        "value_variable": "cgt_2024_gains",
+                        "measurement_period": measurement_period,
+                    }
+                }
+            }
+        },
+    )
+    with pytest.raises(ValueError, match="amount/threshold period mismatch"):
+        UKMeasureResolver(
+            simulation_source=tmp_path / "input.h5",
+            scratch_dir=tmp_path,
+            frame=FrameStub(),
+            year=2025,
+            microsimulation_factory=lambda **_: SimulationStub({}),
+        )
+
+
+def test_dated_cgt_measure_uses_disposal_year_with_later_calibration_year():
+    sim = SimulationStub(
+        {"capital_gains": ("person", np.array([3000.0, 5000.0, 20000.0]))}
+    )
+    values, route = compute_uk_measure_input(
+        FrameStub(), sim, "person", "cgt_2024_gains", 2025
+    )
+    assert sim.calls == [("capital_gains", 2024, None)]
+    assert route == "engine_period:2024:capital_gains:native"
+    assert (values > 3000).tolist() == [False, True, True]
+
+
+@pytest.mark.parametrize("precomputed", [False, True])
+def test_dated_cgt_binding_gates_at_observation_year_and_refuses_stale_fact(
+    precomputed,
+):
+    from microcosm.build.target_materialization import materialize_target_bindings
+
+    class Adapter:
+        values = np.array([999.0, 999.0, 999.0])
+
+        def has_column(self, entity, name):
+            return precomputed
+
+        def parameter(self, name, period):
+            assert period == 2024
+            return 3000.0
+
+        def column(self, entity, variable):
+            assert variable == "cgt_2024_gains"
+            return np.array([3000.0, 5000.0, 20000.0])
+
+        def set_column(self, entity, variable, values):
+            self.values = values
+
+    binding = {
+        "bindings": {
+            "policyengine": {
+                "kind": "parameter_gated_threshold",
+                "gate_parameter": "gov.hmrc.cgt.annual_exempt_amount",
+                "gated_variable": "cgt_2024_gains",
+                "value_variable": "person_count",
+                "from_entity": "person",
+                "measurement_period": 2024,
+                "require_matching_fact_period": True,
+            }
+        }
+    }
+    for fact_year in (2024, 2023):
+        registry = TargetRegistry(
+            [
+                TargetSpec(
+                    name="cgt",
+                    entity="person",
+                    measure="cgt",
+                    value=1,
+                    source="test",
+                    metadata={
+                        "contract_target_id": "cgt",
+                        "ledger_fact_period": str(fact_year),
+                    },
+                )
+            ],
+            country="uk",
+        )
+        adapter = Adapter()
+        result = materialize_target_bindings(
+            adapter, registry, {"cgt": binding}, period=2025
+        )
+        if fact_year == 2024:
+            assert not result.skipped
+            assert adapter.values.tolist() == [0.0, 1.0, 1.0]
+        else:
+            assert len(result.skipped) == 1
+            assert "observation period" in result.skipped[0].reason
+
+
 def test_compute_uk_measure_input_categorical_broadcast_group_to_person():
     sim = SimulationStub({"family_type": ("benunit", np.array(["couple", "single"]))})
 

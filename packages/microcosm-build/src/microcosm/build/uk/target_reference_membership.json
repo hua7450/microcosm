@@ -38,7 +38,7 @@
       "geography_level": "country",
       "geography_id": "K02000001"
     },
-    "obr.capital_gains_tax": {
+    "hmrc.cgt.liability_total": {
       "geography_level": "country",
       "geography_id": "K02000001"
     },
@@ -879,6 +879,11 @@
     "slc.repayments.england_total_higher_education"
   ],
   "uprating_holds": [
+    {
+      "name": "hmrc.cgt.liability_total",
+      "from": "2024",
+      "to": "2025"
+    },
     {
       "name": "isc.private_school_students",
       "from": "2024-01",
@@ -2811,18 +2816,18 @@
         }
       ]
     },
-    "obr.capital_gains_tax": {
+    "hmrc.cgt.liability_total": {
       "status": "active",
       "candidates": [
         {
-          "name": "obr.capital_gains_tax",
+          "name": "hmrc.cgt.liability_total",
           "status": "active",
-          "matched_fact_count_overall": 7,
-          "matched_fact_count_at_or_before_period": 2,
+          "matched_fact_count_overall": 1,
+          "matched_fact_count_at_or_before_period": 1,
           "resolved_period": 2025,
-          "resolved_value": 21801546197.09165,
-          "resolved_fact_period": "2025",
-          "resolved_fact_key": "ledger_aggregate_fact_v2_93699bb9caa7ec0d6833f420"
+          "resolved_value": 22503000000.0,
+          "resolved_fact_period": "2024",
+          "resolved_fact_key": "ledger_aggregate_fact_v2_222c397017de7bff0a6583a7"
         }
       ]
     },
@@ -4752,12 +4757,12 @@
         {
           "name": "hmrc.cgt.taxpayers_total",
           "status": "active",
-          "matched_fact_count_overall": 38,
-          "matched_fact_count_at_or_before_period": 38,
+          "matched_fact_count_overall": 1,
+          "matched_fact_count_at_or_before_period": 1,
           "resolved_period": 2025,
-          "resolved_value": 584000.0,
+          "resolved_value": 551000.0,
           "resolved_fact_period": "2024",
-          "resolved_fact_key": "ledger_aggregate_fact_v2_ec8cf88ffb8304ce72228e8b"
+          "resolved_fact_key": "ledger_aggregate_fact_v2_31d709fc393c2bf4d04efca5"
         }
       ]
     },
@@ -4767,12 +4772,12 @@
         {
           "name": "hmrc.cgt.gains_total",
           "status": "active",
-          "matched_fact_count_overall": 38,
-          "matched_fact_count_at_or_before_period": 38,
+          "matched_fact_count_overall": 1,
+          "matched_fact_count_at_or_before_period": 1,
           "resolved_period": 2025,
-          "resolved_value": 127316000000.0,
+          "resolved_value": 119258000000.0,
           "resolved_fact_period": "2024",
-          "resolved_fact_key": "ledger_aggregate_fact_v2_a9969c2a306f713f6bb203fc"
+          "resolved_fact_key": "ledger_aggregate_fact_v2_12060d20a417d85d67cf24e8"
         }
       ]
     },

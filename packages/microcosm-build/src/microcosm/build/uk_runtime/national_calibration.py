@@ -67,6 +67,8 @@ class UKNationalCalibrationStage:
         # The materialization period is the declared calibration year the
         # registry was compiled at — never the input frame's base-year
         # time_period, which lags it (survey 2024, calibration 2025).
+        # A binding can separately declare its observed measurement period,
+        # as the three individual CGT rows do for FY2024-25.
         if not isinstance(period, int) or isinstance(period, bool) or period <= 0:
             raise ValueError(
                 f"period must be the declared calibration year, got {period!r}."

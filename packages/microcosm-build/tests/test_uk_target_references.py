@@ -231,6 +231,10 @@ def test_uk_target_references_follow_contract_derivation_rules() -> None:
             expected_metadata["uk_uc_expected_source_months"] = json.dumps(
                 source_months, separators=(",", ":")
             )
+        if "measurement_period" in binding:
+            expected_metadata["measurement_period"] = str(binding["measurement_period"])
+        if binding.get("require_matching_fact_period"):
+            expected_metadata["source_period_policy"] = "exact_observation"
         assert reference["metadata"] == expected_metadata
         # The measure is a prepared column, so the pointed-to contract binding
         # must carry what the microcosm#622 materializer needs to prepare it.
@@ -652,9 +656,9 @@ def test_uk_target_references_compile_from_real_staged_feed_rows() -> None:
     assert slc_plan_2.value == pytest.approx(2_778_253_361.64)
     assert slc_plan_2.metadata["ledger_member_fact_count"] == "2"
 
-    assert targets["hmrc.cgt.gains_total"].value == 65_937_000_000
-    assert targets["hmrc.cgt.taxpayers_total"].value == 378_000
-    assert targets["hmrc.cgt.gains_total"].metadata["ledger_fact_period"] == "2023"
+    assert targets["hmrc.cgt.gains_total"].value == 119_258_000_000
+    assert targets["hmrc.cgt.taxpayers_total"].value == 551_000
+    assert targets["hmrc.cgt.gains_total"].metadata["ledger_fact_period"] == "2024"
 
     caseload = targets["dwp.uc.households"]
     assert caseload.value == 6_197_311

@@ -414,6 +414,12 @@ def _resolve_candidate_engine_surface(
     versions = {receipt.get("policyengine_uk_version") for receipt in resolver_receipts}
     if len(modes) != 1 or len(versions) != 1:
         raise RuntimeError("per-clone engine resolver provenance is inconsistent.")
+    cgt_period_contract = resolver_receipts[0].get("cgt_period_contract")
+    if any(
+        block_receipt.get("cgt_period_contract") != cgt_period_contract
+        for block_receipt in resolver_receipts[1:]
+    ):
+        raise RuntimeError("per-clone CGT period contract is inconsistent.")
     receipt = {
         "mode": next(iter(modes)),
         "engine_version": next(iter(versions)),
@@ -427,6 +433,8 @@ def _resolve_candidate_engine_surface(
         },
         "blocks": blocks,
     }
+    if cgt_period_contract is not None:
+        receipt["cgt_period_contract"] = cgt_period_contract
     if blocks > 1:
         receipt["deviation"] = "per_clone_block_engine_resolution"
         present = sorted(

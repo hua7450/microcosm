@@ -19,8 +19,8 @@
     "pinned_ref": "12a1e028afeef08d8b2d74ee03fd9de3a78b2dd3",
     "pinned_version": "1.56.16",
     "registry_rows": 652,
-    "mapped_rows": 610,
-    "excluded_rows": 42,
+    "mapped_rows": 609,
+    "excluded_rows": 43,
     "mapped": {
       "dwp/benefit_capped_households": "dwp.benefit_cap.capped_households",
       "dwp/esa_claimants": "dwp.esa_claimants",
@@ -318,7 +318,6 @@
       "hmrc/state_pension_income_band_50_000_to_70_000": "hmrc.spi.state_pension.amount_by_total_income_band",
       "hmrc/state_pension_income_band_70_000_to_100_000": "hmrc.spi.state_pension.amount_by_total_income_band",
       "obr/attendance_allowance": "obr.attendance_allowance",
-      "obr/capital_gains_tax": "obr.capital_gains_tax",
       "obr/carers_allowance": "obr.carers_allowance",
       "obr/child_benefit": "obr.child_benefit",
       "obr/council_tax": "obr.council_tax",
@@ -675,7 +674,8 @@
       "ons/tenure_england_owned_with_mortgage": "England tenure counts come from an LA-grain workbook uk-data code-sums; ruled non-portable as national facts on chronicle#133 - moved to the wave-3 LA package (chronicle#134).",
       "ons/tenure_england_rented_privately": "England tenure counts come from an LA-grain workbook uk-data code-sums; ruled non-portable as national facts on chronicle#133 - moved to the wave-3 LA package (chronicle#134).",
       "ons/tenure_england_social_rent": "England tenure counts come from an LA-grain workbook uk-data code-sums; ruled non-portable as national facts on chronicle#133 - moved to the wave-3 LA package (chronicle#134).",
-      "ons/tenure_england_total": "England tenure counts come from an LA-grain workbook uk-data code-sums; ruled non-portable as national facts on chronicle#133 - moved to the wave-3 LA package (chronicle#134)."
+      "ons/tenure_england_total": "England tenure counts come from an LA-grain workbook uk-data code-sums; ruled non-portable as national facts on chronicle#133 - moved to the wave-3 LA package (chronicle#134).",
+      "obr/capital_gains_tax": "Observed FY2024-25 treatment (#875): the incumbent OBR cash forecast is retained only as diagnostic provenance. It has no same-basis liability mapping and is removed from fitting; no source value is adjusted."
     },
     "unmapped_declarations": {
       "hmrc.salary_sacrifice.it_relief_basic_rate": "New declaration backed by chronicle#139 salary-sacrifice facts; the incumbent source CSV is still 410-Gone at 12a1e028 and its rows are silently suppressed by the bare-except drop in build_loss_matrix.py:376-394.",
@@ -695,7 +695,8 @@
       "dft.bus_fare_receipts.england_outside_london": "#789 consumer target.",
       "dft.bus_net_support.england_outside_london": "#789 consumer target.",
       "dft.bus_fare_receipts.uk": "#789 consumer target.",
-      "dft.bus_net_support.uk": "#789 consumer target."
+      "dft.bus_net_support.uk": "#789 consumer target.",
+      "hmrc.cgt.liability_total": "Observed FY2024-25 individuals liability from the pinned HMRC Table 1 fact. No incumbent same-basis liability target; OBR cash is a separate diagnostic."
     },
     "suppressed_ancestors": {
       "hmrc/salary_sacrifice_it_relief_basic_rate": {
@@ -735,7 +736,7 @@
       "obr.ni_self_employed",
       "obr.vat",
       "obr.fuel_duties",
-      "obr.capital_gains_tax",
+      "hmrc.cgt.liability_total",
       "obr.sdlt",
       "obr.attendance_allowance",
       "obr.carers_allowance",
@@ -1573,34 +1574,41 @@
       }
     },
     {
-      "target_id": "obr.capital_gains_tax",
-      "family": "obr",
+      "target_id": "hmrc.cgt.liability_total",
+      "family": "hmrc_cgt",
       "geography_levels": [
         "country"
       ],
       "measurement": {
         "entity": "person",
         "concept": "uk.tax.capital_gains_tax.amount",
-        "map_to": "household"
+        "map_to": "household",
+        "observation_basis": "individuals_observed_disposal_year_2024_liability"
       },
       "bindings": {
         "policyengine": {
-          "metric_name": "obr/capital_gains_tax",
-          "value_variable": "capital_gains_tax",
+          "metric_name": "hmrc/cgt_liability",
+          "value_variable": "cgt_2024_tax",
           "from_entity": "person",
-          "map_to": "household"
+          "map_to": "household",
+          "notes": "Individuals-only observed FY2024-25 liability from HMRC Table 1, including the published provisional status. Measure the same cgt_2024_tax engine array as the dated diagnostic control. The original OBR FY2025-26 cash forecast survives separately as unresolved diagnostic provenance; it is not a liability target or an identified forward-year bridge (microcosm#875).",
+          "measurement_period": 2024,
+          "require_matching_fact_period": true
         },
         "axiom": {
-          "metric_name": "obr/capital_gains_tax",
+          "metric_name": "hmrc/cgt_liability",
           "status": "pending",
           "value_rule": "uk.tax.capital_gains_tax.amount"
         }
       },
-      "assertion_policy": "allow_source_projection",
       "ledger_selector": {
-        "source_name": "obr",
-        "source_concept": "obr.capital_gains_tax",
-        "entity_name": "person"
+        "source_name": "hmrc",
+        "source_concept": "hmrc.cgt_tax_individuals",
+        "groupby_dimension": "hmrc.cgt_table1_line",
+        "entity_name": "tax_unit",
+        "aggregate_fact_key": "ledger.aggregate_fact.v2:222c397017de7bff0a6583a7",
+        "period_type": "tax_year",
+        "period_value": 2024
       }
     },
     {
@@ -3117,19 +3125,22 @@
             "operator": ">",
             "value": "gov.hmrc.cgt.annual_exempt_amount"
           }
-        ]
+        ],
+        "observation_basis": "individuals_observed_disposal_year_2024_net_gains_and_aea"
       },
       "bindings": {
         "policyengine": {
           "metric_name": "hmrc/cgt_taxpayers",
           "kind": "parameter_gated_threshold",
           "gate_parameter": "gov.hmrc.cgt.annual_exempt_amount",
-          "gated_variable": "capital_gains",
+          "gated_variable": "cgt_2024_gains",
           "gate_comparison": ">",
           "value_variable": "person_count",
           "from_entity": "person",
           "map_to": "household",
-          "notes": "A CGT taxpayer means gains above the annual exempt amount in force that year, read live from the parameter tree - gating only the count (not the amount) would target a mean gain over two different populations (sources/hmrc_cgt.py:1-46)."
+          "notes": "Individuals-only observed FY2024-25 net gains after losses and before AEA. Both gains and taxpayer proxy use engine disposal year 2024 and its AEA, while other calibration families may use 2025. The source fact period must match. Persisted gains remain unchanged. A 2025 projection is separate: the imputed non-taxpayer remainder piles up at the AEA and must not be uprated into a calibrated incidence forecast without supporting evidence (microcosm#875).",
+          "measurement_period": 2024,
+          "require_matching_fact_period": true
         },
         "axiom": {
           "metric_name": "hmrc/cgt_taxpayers",
@@ -3139,8 +3150,12 @@
       },
       "ledger_selector": {
         "source_name": "hmrc",
-        "source_concept": "hmrc.cgt_taxpayers_total",
-        "groupby_dimension": "hmrc.cgt_table1_line"
+        "source_concept": "hmrc.cgt_taxpayers_individuals",
+        "groupby_dimension": "hmrc.cgt_table1_line",
+        "entity_name": "tax_unit",
+        "aggregate_fact_key": "ledger.aggregate_fact.v2:31d709fc393c2bf4d04efca5",
+        "period_type": "tax_year",
+        "period_value": 2024
       }
     },
     {
@@ -3159,19 +3174,22 @@
             "operator": ">",
             "value": "gov.hmrc.cgt.annual_exempt_amount"
           }
-        ]
+        ],
+        "observation_basis": "individuals_observed_disposal_year_2024_net_gains_and_aea"
       },
       "bindings": {
         "policyengine": {
           "metric_name": "hmrc/capital_gains_total",
           "kind": "parameter_gated_threshold",
           "gate_parameter": "gov.hmrc.cgt.annual_exempt_amount",
-          "gated_variable": "capital_gains",
+          "gated_variable": "cgt_2024_gains",
           "gate_comparison": ">",
-          "value_variable": "capital_gains",
+          "value_variable": "cgt_2024_gains",
           "from_entity": "person",
           "map_to": "household",
-          "notes": "Gains summed over people whose gains exceed the annual exempt amount (sources/hmrc_cgt.py:86-104). Also the single-homing successor for populace's UK_CGT_TARGET_SPECS (microcosm#622 item 6)."
+          "notes": "Individuals-only observed FY2024-25 net gains after losses and before AEA. Both gains and taxpayer proxy use engine disposal year 2024 and its AEA, while other calibration families may use 2025. The source fact period must match. Persisted gains remain unchanged. A 2025 projection is separate: the imputed non-taxpayer remainder piles up at the AEA and must not be uprated into a calibrated incidence forecast without supporting evidence (microcosm#875).",
+          "measurement_period": 2024,
+          "require_matching_fact_period": true
         },
         "axiom": {
           "metric_name": "hmrc/capital_gains_total",
@@ -3181,9 +3199,12 @@
       },
       "ledger_selector": {
         "source_name": "hmrc",
-        "source_concept": "hmrc.cgt_gains_total",
+        "source_concept": "hmrc.cgt_gains_individuals",
         "groupby_dimension": "hmrc.cgt_table1_line",
-        "entity_name": "tax_unit"
+        "entity_name": "tax_unit",
+        "aggregate_fact_key": "ledger.aggregate_fact.v2:12060d20a417d85d67cf24e8",
+        "period_type": "tax_year",
+        "period_value": 2024
       }
     },
     {
@@ -13930,5 +13951,33 @@
       },
       "selector_note": "VOA counts dwellings; absent cells are signed deferrals and binding is fenced by voa_dwellings_vs_household_frame."
     }
-  ]
+  ],
+  "diagnostic_references": {
+    "obr.capital_gains_tax": {
+      "attach_to_target": "hmrc.cgt.liability_total",
+      "required_period_type": "fiscal_year",
+      "required_assertion": "source_projection",
+      "reference": {
+        "name": "obr.capital_gains_tax",
+        "ledger_selector": {
+          "source_name": "obr",
+          "source_concept": "obr.capital_gains_tax",
+          "entity_name": "person",
+          "geography_level": "country",
+          "geography_id": "K02000001"
+        },
+        "entity": "person",
+        "measure": "obr/capital_gains_tax",
+        "family": "obr",
+        "period": 2025,
+        "metadata": {
+          "diagnostic_role": "cash_receipts_forecast_unreconciled"
+        },
+        "assertion_policy": "allow_source_projection",
+        "period_match_policy": "exact",
+        "ledger_fact_key": "ledger.aggregate_fact.v2:93699bb9caa7ec0d6833f420"
+      },
+      "notes": "Original March 2026 OBR FY2025-26 cash forecast retained unchanged as diagnostic provenance only. No liability-to-cash payment bridge is identified; never insert this diagnostic into the fitting registry."
+    }
+  }
 }

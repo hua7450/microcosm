@@ -52,10 +52,12 @@ POLICYENGINE_BINDING_KEYS = frozenset(
         "kind",
         "map_to",
         "metric_name",
+        "measurement_period",
         "notes",
         "output_delta",
         "output_variable",
         "reduce",
+        "require_matching_fact_period",
         "source_lines",
         "threshold_price_base_year",
         "value_expression",
@@ -75,8 +77,9 @@ DESCRIPTION = (
     "is the contract selector plus geography pins; entity is from_entity, "
     "then map_to, then household; measure is the prepared-column metric name "
     "or fan-out row name; family is the contract family; period is the model "
-    "and calibration year 2025. Observation windows are declared separately "
-    "from the FRS 2024-25 survey vintage. Observed values stay in Ledger facts "
+    "and calibration year 2025, distinct from the FRS 2024-25 base period 2024. "
+    "Observation windows are declared separately; metadata.measurement_period "
+    "records observed-year exceptions. Observed values stay in Ledger facts "
     "and resolve through each reference's declared value operation. Deferred "
     "classes and geography-pin decisions are recorded in "
     "uk/target_reference_membership.json. metadata.measure_kind records that "
@@ -342,6 +345,11 @@ def _reference_metadata(contract: Mapping[str, Any]) -> dict[str, dict[str, str]
         metadata = {}
         if measurement.get("observation_basis") is not None:
             metadata["observation_basis"] = str(measurement["observation_basis"])
+        binding = target.get("bindings", {}).get("policyengine", {})
+        if binding.get("measurement_period") is not None:
+            metadata["measurement_period"] = str(binding["measurement_period"])
+        if binding.get("require_matching_fact_period"):
+            metadata["source_period_policy"] = "exact_observation"
         if "source_months" in measurement:
             if target.get("family") != "dwp_universal_credit":
                 raise ValueError("source_months is currently a UK UC-only declaration.")

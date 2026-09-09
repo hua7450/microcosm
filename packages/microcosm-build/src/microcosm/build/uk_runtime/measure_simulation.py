@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import warnings
 from datetime import date
 from importlib import resources as importlib_resources
@@ -41,6 +42,24 @@ _ENTITY_ID = {
 _UC_CALIBRATION_VARIABLES = frozenset(
     {"uc_calibration_family_type", "uc_calibration_child_count"}
 )
+
+# Reserved, transient measurement names: using the model's input name here
+# would let a persisted base-period column bypass requested-year calculation.
+# Both the taxpayer mask and amount must use the same engine-year net gains.
+_CGT_CALIBRATION_VARIABLES = {
+    "cgt_calibration_gains": "capital_gains",
+    "cgt_calibration_tax": "capital_gains_tax",
+}
+_CGT_DATED_MEASURE = re.compile(r"^cgt_(20[0-9]{2})_(gains|tax)$")
+
+
+def _cgt_model_measure(variable: str, default_year: int) -> tuple[str, int] | None:
+    if variable in _CGT_CALIBRATION_VARIABLES:
+        return _CGT_CALIBRATION_VARIABLES[variable], default_year
+    match = _CGT_DATED_MEASURE.fullmatch(variable)
+    if match:
+        return _CGT_CALIBRATION_VARIABLES[f"cgt_calibration_{match[2]}"], int(match[1])
+    return None
 
 
 def _uc_calibration_composition(
@@ -90,6 +109,16 @@ def compute_uk_measure_input(
     frame: Any, simulation: Any, entity: str, variable: str, year: int
 ) -> tuple[np.ndarray, str]:
     """Compute one policyengine-uk variable at the requested entity grain."""
+
+    cgt_measure = _cgt_model_measure(variable, year)
+    if cgt_measure is not None:
+        if entity != "person":
+            raise KeyError(f"CGT calibration measures are person-only: {entity}")
+        model_variable, measure_year = cgt_measure
+        values, route = compute_uk_measure_input(
+            frame, simulation, entity, model_variable, measure_year
+        )
+        return values, f"engine_period:{measure_year}:{model_variable}:{route}"
 
     if variable in UC_TARGET_VARIABLES:
         if entity != "benunit":
@@ -269,16 +298,71 @@ class UKMeasureResolver:
             if frame is None:
                 frame, _provenance = load_uk_national_frame(source_path)
         self.frame = frame
+        reserved = {
+            str(name)
+            for name in frame.table("person")
+            if _cgt_model_measure(str(name), self.year) is not None
+        }
+        if reserved:
+            raise ValueError(
+                "CGT calibration measures must not be persisted as source inputs: "
+                f"{sorted(reserved)}"
+            )
         self.simulation = factory(dataset=str(source_path))
         validate_uc_claimant_input(self.simulation, frame.table("person"), self.year)
+        self.contract_targets = _uk_contract_targets()
+        bound_cgt_periods = {}
+        for target_id, target in self.contract_targets.items():
+            binding = target["bindings"]["policyengine"]
+            for key in ("gated_variable", "value_variable"):
+                name = str(binding.get(key, ""))
+                cgt_measure = _cgt_model_measure(name, self.year)
+                if cgt_measure is None:
+                    continue
+                model_variable, measure_year = cgt_measure
+                if int(binding.get("measurement_period", self.year)) != measure_year:
+                    raise ValueError(
+                        f"CGT amount/threshold period mismatch: {target_id}"
+                    )
+                bound_cgt_periods[name] = {
+                    "model_variable": model_variable,
+                    "measurement_period": measure_year,
+                }
         self._receipt = {
             "mode": mode,
             "source_path": str(source_path),
             "policyengine_uk_version": _policyengine_uk_version(policyengine_uk),
+            "cgt_period_contract": {
+                "version": "uk-cgt-measurement-v2",
+                "input_period": getattr(frame, "metadata", {}).get("time_period"),
+                "calibration_period": self.year,
+                "default_engine_period": self.year,
+                "bound_measurements": bound_cgt_periods,
+                "dated_measures": {
+                    "naming": "cgt_<disposal_year>_<gains|tax>",
+                    "period": "explicit_disposal_year_in_variable_name",
+                    "policy_threshold_period": "binding.measurement_period",
+                },
+                "model_variables": dict(_CGT_CALIBRATION_VARIABLES),
+                "gains_basis": "after_losses_before_annual_exempt_amount",
+                "losses_treatment": "already_in_net_gains_no_second_deduction",
+                "population": "individuals",
+                "taxpayer_proxy": "engine_year_net_gains_above_engine_year_aea",
+                "gate_parameter": "gov.hmrc.cgt.annual_exempt_amount",
+                "input_mutation": False,
+            },
         }
-        self.contract_targets = _uk_contract_targets()
+
         self._uc_tcl_measures_used: set[str] = set()
         self._uc_paid_measures_used: set[str] = set()
+
+    def validate_period(self, period: int | str) -> None:
+        """Refuse thresholds and simulated inputs from different periods."""
+        if str(period) != str(self.year):
+            raise ValueError(
+                f"UK measurement period {self.year} does not match target period "
+                f"{period}."
+            )
 
     def knows(self, entity: str, variable: str) -> bool:
         """Whether a route in :func:`compute_uk_measure_input` reaches here.
@@ -295,6 +379,9 @@ class UKMeasureResolver:
             | UC_PAID_TARGET_VARIABLES
         ):
             return entity == "benunit"
+        cgt_measure = _cgt_model_measure(variable, self.year)
+        if cgt_measure is not None:
+            return entity == "person" and self.knows(entity, cgt_measure[0])
         definition = self.simulation.tax_benefit_system.variables.get(variable)
         if definition is None or entity not in _ENTITY_ID:
             return False
@@ -311,6 +398,8 @@ class UKMeasureResolver:
         return getattr(definition, "value_type", None) in (int, float)
 
     def entity_for(self, variable: str) -> str | None:
+        if _cgt_model_measure(variable, self.year) is not None:
+            return "person"
         if (
             variable
             in _UC_CALIBRATION_VARIABLES

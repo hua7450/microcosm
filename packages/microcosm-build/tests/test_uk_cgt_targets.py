@@ -1,13 +1,15 @@
 """Tests for the UK capital gains Ledger target references.
 
-The published populace-uk surface carries no capital gains targets, which
-leaves the gains distribution unanchored (1.47m CGT taxpayers against HMRC's
-378k). These tests pin the declared facts, their provenance, and the coverage
-requirement that makes their absence a build failure rather than a silence.
+These tests pin individuals-only facts, provenance and required coverage.
+The fixture also contains historical trust-inclusive totals; those must not
+enter a person-level calibration by accident.
 """
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
 
 from microcosm.build.country_spec import load_country_spec
 from microcosm.build.ledger_targets import compile_ledger_target_references
@@ -17,10 +19,25 @@ from microcosm.build.uk_runtime.fiscal_targets import (
     UK_CGT_TARGET_SPECS,
     UK_FISCAL_TARGET_REGISTRY,
 )
+from microcosm.build.uk_runtime.ledger_targets import compile_uk_target_registry
+from microcosm.calibrate import TargetRegistry
 
 FIXTURE_FEED_ROWS = (
     Path(__file__).parent / "fixtures" / "uk_target_reference_feed_rows.jsonl"
 )
+CGT_TARGET_NAMES = {
+    "hmrc.cgt.gains_total",
+    "hmrc.cgt.taxpayers_total",
+    "hmrc.cgt.liability_total",
+}
+
+
+def _facts():
+    return [
+        json.loads(line)
+        for line in FIXTURE_FEED_ROWS.read_text().splitlines()
+        if line.strip()
+    ]
 
 
 def _compiled_cgt_registry():
@@ -28,14 +45,28 @@ def _compiled_cgt_registry():
     references = [
         reference
         for reference in spec.target_references
-        if reference.name in {"hmrc.cgt.gains_total", "hmrc.cgt.taxpayers_total"}
+        if reference.name in CGT_TARGET_NAMES
     ]
-    facts = [
-        json.loads(line)
-        for line in FIXTURE_FEED_ROWS.read_text().splitlines()
-        if line.strip()
-    ]
-    return compile_ledger_target_references(facts, references, country="uk")
+    return compile_ledger_target_references(_facts(), references, country="uk")
+
+
+@pytest.fixture
+def compile_cgt(monkeypatch):
+    # Exercise the production compiler on the three reviewed references only;
+    # regeneration tests separately verify the complete national/UC roster.
+    from microcosm.build.uk_runtime import ledger_targets
+
+    references = tuple(
+        r
+        for r in load_country_spec("uk").target_references
+        if r.name in CGT_TARGET_NAMES
+    )
+    monkeypatch.setattr(
+        ledger_targets,
+        "load_country_spec",
+        lambda country: SimpleNamespace(target_references=references),
+    )
+    return compile_uk_target_registry
 
 
 def test_inline_cgt_target_specs_are_retired():
@@ -43,12 +74,12 @@ def test_inline_cgt_target_specs_are_retired():
     assert len(UK_FISCAL_TARGET_REGISTRY) == 0
 
 
-def test_compiled_references_declare_gains_total_and_taxpayer_count():
+def test_compiled_references_declare_three_observed_cgt_totals():
     registry = _compiled_cgt_registry()
 
-    assert {spec.name for spec in registry.specs} == {
-        "hmrc.cgt.gains_total",
-        "hmrc.cgt.taxpayers_total",
+    assert {spec.name for spec in registry.specs} == CGT_TARGET_NAMES
+    assert "obr.capital_gains_tax" not in {
+        reference.name for reference in load_country_spec("uk").target_references
     }
 
 
@@ -59,20 +90,62 @@ def test_every_compiled_fact_carries_provenance():
         assert spec.family == "hmrc_cgt"
 
 
-def test_compiled_facts_match_hmrc_2023_24_outturn():
+def test_compiled_facts_match_hmrc_2024_25_individuals_observations():
     by_name = {spec.name: spec for spec in _compiled_cgt_registry().specs}
-    assert by_name["hmrc.cgt.gains_total"].value == 65_937_000_000
-    assert by_name["hmrc.cgt.taxpayers_total"].value == 378_000
+    assert by_name["hmrc.cgt.gains_total"].value == 119_258_000_000
+    assert by_name["hmrc.cgt.taxpayers_total"].value == 551_000
+    liability = by_name["hmrc.cgt.liability_total"]
+    # Verbatim Chronicle 6fb700e Table 1 provisional observation, not OBR cash.
+    assert liability.value == 22_503_000_000
+    assert liability.metadata["ledger_aggregate_fact_key"] == (
+        "ledger.aggregate_fact.v2:222c397017de7bff0a6583a7"
+    )
     assert all(spec.period == 2025 for spec in by_name.values())
     assert all(
-        spec.metadata["ledger_fact_period"] == "2023" for spec in by_name.values()
+        spec.metadata["measurement_period"] == "2024" for spec in by_name.values()
+    )
+    assert all(
+        spec.metadata["source_period_policy"] == "exact_observation"
+        for spec in by_name.values()
+    )
+    assert all(
+        spec.metadata["ledger_fact_period"] == "2024" for spec in by_name.values()
+    )
+
+
+def test_individual_scope_is_pinned_to_table1_not_age_marginals():
+    references = load_country_spec("uk").target_references
+    cgt = [r for r in references if r.name.startswith("hmrc.cgt.")]
+    assert len(cgt) == 3
+    expected_keys = {
+        "hmrc.cgt.taxpayers_total": "31d709fc393c2bf4d04efca5",
+        "hmrc.cgt.gains_total": "12060d20a417d85d67cf24e8",
+        "hmrc.cgt.liability_total": "222c397017de7bff0a6583a7",
+    }
+    for reference in cgt:
+        assert reference.ledger_selector["aggregate_fact_key"] == (
+            "ledger.aggregate_fact.v2:" + expected_keys[reference.name]
+        )
+        assert reference.ledger_selector["period_type"] == "tax_year"
+        assert reference.ledger_selector["period_value"] == 2024
+    assert {r.ledger_selector["source_concept"] for r in cgt} == {
+        "hmrc.cgt_gains_individuals",
+        "hmrc.cgt_taxpayers_individuals",
+        "hmrc.cgt_tax_individuals",
+    }
+    assert all(
+        r.ledger_selector["groupby_dimension"] == "hmrc.cgt_table1_line" for r in cgt
     )
 
 
 def test_measures_are_declared_columns():
     """The registry refuses callables, so measures must be prepared columns."""
     measures = {spec.measure for spec in _compiled_cgt_registry().specs}
-    assert measures == {"hmrc/capital_gains_total", "hmrc/cgt_taxpayers"}
+    assert measures == {
+        "hmrc/capital_gains_total",
+        "hmrc/cgt_taxpayers",
+        "hmrc/cgt_liability",
+    }
     assert set(UK_CGT_REQUIRED_COLUMNS) == {
         "uk_cgt_measure_gains_amount",
         "uk_cgt_measure_taxpayer_count",
@@ -93,11 +166,120 @@ def test_registry_is_uk_and_content_addressed():
     assert UK_FISCAL_TARGET_REGISTRY.version
 
 
-def test_coverage_requires_both_facts():
-    """A build that drops either fact must fail the gate, not pass quietly."""
+def test_coverage_requires_all_three_observed_facts():
+    """A build that drops liability, gains or counts must fail coverage."""
     (requirement,) = UK_CGT_TARGET_COVERAGE_REQUIREMENTS
-    assert requirement.min_matches == 2
-    assert set(requirement.accepted_names) == {
-        "hmrc.cgt.gains_total",
-        "hmrc.cgt.taxpayers_total",
+    assert requirement.min_matches == 3
+    assert set(requirement.accepted_names) == CGT_TARGET_NAMES
+
+
+def test_original_cash_forecast_survives_only_as_diagnostic_metadata(
+    tmp_path, compile_cgt
+):
+    compilation = compile_cgt(_facts(), target_period=2025)
+    by_name = {spec.name: spec for spec in compilation.registry.specs}
+    assert "obr.capital_gains_tax" not in by_name
+    metadata = by_name["hmrc.cgt.liability_total"].metadata
+    assert metadata["cgt_cash_diagnostic_role"] == "diagnostic_only_not_in_fit"
+    assert metadata["cgt_cash_reconciliation_status"] == "unresolved"
+    assert float(metadata["cgt_cash_diagnostic_value_gbp"]) == 21_801_546_197.09165
+    assert metadata["cgt_cash_diagnostic_period"] == "2025"
+    assert metadata["cgt_cash_diagnostic_ledger_period_type"] == "fiscal_year"
+    assert metadata["cgt_cash_diagnostic_ledger_assertion"] == "source_projection"
+    assert metadata["cgt_cash_diagnostic_ledger_aggregate_fact_key"] == (
+        "ledger.aggregate_fact.v2:93699bb9caa7ec0d6833f420"
+    )
+    assert "obr.uk" in metadata["cgt_cash_diagnostic_source"]
+    # TargetSpec's normal serialization is used in national/local receipts.
+    path = compilation.registry.to_json(tmp_path / "registry.json")
+    restored = TargetRegistry.from_json(path)
+    assert metadata == next(
+        spec.metadata
+        for spec in restored.specs
+        if spec.name == "hmrc.cgt.liability_total"
+    )
+
+
+@pytest.mark.parametrize(
+    "cash_change",
+    ["missing", "wrong_year", "observation", "different_forecast", "wrong_period_type"],
+)
+def test_liability_compilation_refuses_lost_cash_diagnostic(cash_change, compile_cgt):
+    facts = _facts()
+    cash = [
+        fact
+        for fact in facts
+        if fact["observed_measure"]["source_concept"] == "obr.capital_gains_tax"
+    ]
+    assert cash
+    if cash_change == "missing":
+        facts = [fact for fact in facts if fact not in cash]
+    else:
+        for fact in cash:
+            if cash_change == "wrong_year":
+                fact["period"]["value"] = 2026
+            elif cash_change == "observation":
+                fact["assertion"] = "observation"
+            elif cash_change == "wrong_period_type":
+                fact["period"]["type"] = "tax_year"
+            else:
+                fact["aggregate_fact_key"] = "ledger.aggregate_fact.v2:replacement"
+                fact["value"] += 1
+    compilation = compile_cgt(facts, target_period=2025)
+    assert "hmrc.cgt.liability_total" not in {
+        spec.name for spec in compilation.registry.specs
     }
+    rejected = next(
+        row
+        for row in compilation.unsupported
+        if row["name"] == "hmrc.cgt.liability_total"
+    )
+    assert "cash diagnostic" in rejected["reason"]
+
+
+@pytest.mark.parametrize("name", sorted(CGT_TARGET_NAMES))
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "missing",
+        "wrong_key",
+        "wrong_scope",
+        "wrong_entity",
+        "wrong_period_type",
+        "wrong_year",
+    ],
+)
+def test_observed_reference_refuses_missing_or_mismatched_individual_fact(
+    name, mutation, compile_cgt
+):
+    facts = _facts()
+    reference = next(
+        r for r in load_country_spec("uk").target_references if r.name == name
+    )
+    fact = next(
+        f
+        for f in facts
+        if f["observed_measure"]["source_concept"]
+        == reference.ledger_selector["source_concept"]
+        and str(f["period"]["value"]) == "2024"
+    )
+    if mutation == "missing":
+        facts.remove(fact)
+    elif mutation == "wrong_key":
+        fact["aggregate_fact_key"] = "ledger.aggregate_fact.v2:other_release"
+    elif mutation == "wrong_period_type":
+        fact["period"]["type"] = "fiscal_year"
+    elif mutation == "wrong_year":
+        fact["period"]["value"] = 2025
+    elif mutation == "wrong_entity":
+        fact["entity"]["name"] = "trust"
+    else:
+        # The shared selector accepts a source or canonical concept. Change
+        # both representations so this fixture actually describes other scope.
+        wrong_concept = "hmrc.cgt_gains_total"
+        fact["observed_measure"]["source_concept"] = wrong_concept
+        fact["concept_alignment"]["source_concept"] = wrong_concept
+        fact["concept_alignment"]["canonical_concept"] = wrong_concept
+    compilation = compile_cgt(facts, target_period=2025)
+    assert name not in {row.name for row in compilation.registry.specs}
+    assert name in {row["name"] for row in compilation.unsupported}

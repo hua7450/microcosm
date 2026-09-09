@@ -65,18 +65,18 @@ UK_CGT_TARGET_SPECS: tuple = ()
 UK_CGT_TARGET_COVERAGE_REQUIREMENTS: tuple[TargetCoverageRequirement, ...] = (
     TargetCoverageRequirement(
         requirement_id="uk_capital_gains",
-        label="HMRC capital gains totals and taxpayer counts",
+        label="HMRC individual capital gains, taxpayer counts and liability",
         accepted_names=(
             "hmrc.cgt.gains_total",
             "hmrc.cgt.taxpayers_total",
+            "hmrc.cgt.liability_total",
         ),
-        min_matches=2,
+        min_matches=3,
         notes=(
-            "Without both facts the gains distribution is unanchored: the "
-            "published populace-uk release has 1.47m CGT taxpayers against "
-            "HMRC's 378k. A revenue-side target constrains what CGT raises, "
-            "not how gains are spread across households, so it does not "
-            "substitute for these."
+            "All three facts describe individuals in observed FY2024-25. "
+            "Liability alone cannot anchor the gains distribution or incidence. "
+            "The separately retained OBR cash forecast is an unresolved "
+            "diagnostic and cannot substitute for observed liability."
         ),
     ),
 )

@@ -180,9 +180,13 @@ class StubCrosstabResolver:
     }
 
     def knows(self, entity, variable):
-        return entity == "benunit" and variable in self.measures
+        return (entity, variable) == ("person", "cgt_2024_gains") or (
+            entity == "benunit" and variable in self.measures
+        )
 
     def compute(self, entity, variable):
+        if (entity, variable) == ("person", "cgt_2024_gains"):
+            return np.array([0.0, 7000.0, 12000.0, 500.0, 0.0, 0.0]), "stub_engine_year"
         assert self.knows(entity, variable)
         return self.measures[variable].copy(), "stub_benunit_tcl_measure"
 
@@ -242,7 +246,9 @@ def _fact_for_reference(
         if key in selector
     }
     return {
-        "aggregate_fact_key": f"ledger.aggregate_fact.v2:{reference.name}",
+        "aggregate_fact_key": selector.get(
+            "aggregate_fact_key", f"ledger.aggregate_fact.v2:{reference.name}"
+        ),
         "aggregation": {"method": "sum"},
         "assertion": "observation",
         "entity": {"name": selector.get("entity_name", reference.entity)},
@@ -258,7 +264,9 @@ def _fact_for_reference(
             "source_measure_id": selector.get("source_measure_id", "value"),
             "unit": "gbp",
         },
-        "period": {"type": "month", "value": f"{reference.period}-12"},
+        "period": {"type": "tax_year", "value": 2024}
+        if reference.name.startswith("hmrc.cgt.")
+        else {"type": "month", "value": f"{reference.period}-12"},
         "value": value,
     }
 
@@ -595,6 +603,9 @@ def test_packaged_binding_classes_materialize_through_national_stage() -> None:
     # The same table-scoped injection the resolution loop performs.
     for variable, values in resolver.measures.items():
         adapter.tables["benunit"][variable] = values.copy()
+    adapter.tables["person"]["cgt_2024_gains"] = np.array(
+        [0.0, 7000.0, 12000.0, 500.0, 0.0, 0.0]
+    )
     materialize_uk_ledger_targets(adapter, registry, period=2025)
     materialized = {
         ("benunit", "dwp/uc/households"): [1.0, 0.0, 1.0],
