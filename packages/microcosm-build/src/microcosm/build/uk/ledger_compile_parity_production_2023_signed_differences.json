@@ -1,11 +1,11 @@
 {
- "compiled_count": 222,
+ "compiled_count": 225,
  "counts_by_kind": {
   "calibration_drift": 12,
   "fixture_only": 125,
-  "ledger_only": 198
+  "ledger_only": 201
  },
- "difference_count": 335,
+ "difference_count": 338,
  "differences": [
   {
    "fixture_value": 82000.0,
@@ -912,17 +912,38 @@
   },
   {
    "kind": "ledger_only",
-   "ledger_value": 69861000000.0,
-   "name": "hmrc.cgt.gains_total",
+   "ledger_value": 6197311.0,
+   "name": "dwp.uc.households",
    "period": 2023,
-   "reason": "Ledger-compiled row has no fixture counterpart at this comparison period."
+   "reason": "Inherited PR #891 contract: current paid-UC counts use the explicit January-December 2025 source windows on the ec7169 national feed. This compares that declaration with the frozen 2023 production baseline; it does not redatum the observations to the comparison year or create a new year ruling."
   },
   {
    "kind": "ledger_only",
-   "ledger_value": 403000.0,
-   "name": "hmrc.cgt.taxpayers_total",
+   "ledger_value": 241130.91666666666,
+   "name": "dwp.uc.households_couple_no_children",
    "period": 2023,
-   "reason": "Ledger-compiled row has no fixture counterpart at this comparison period."
+   "reason": "Inherited PR #891 contract: current paid-UC counts use the explicit January-December 2025 source windows on the ec7169 national feed. This compares that declaration with the frozen 2023 production baseline; it does not redatum the observations to the comparison year or create a new year ruling."
+  },
+  {
+   "kind": "ledger_only",
+   "ledger_value": 826160.8333333334,
+   "name": "dwp.uc.households_couple_with_children",
+   "period": 2023,
+   "reason": "Inherited PR #891 contract: current paid-UC counts use the explicit January-December 2025 source windows on the ec7169 national feed. This compares that declaration with the frozen 2023 production baseline; it does not redatum the observations to the comparison year or create a new year ruling."
+  },
+  {
+   "kind": "ledger_only",
+   "ledger_value": 2990070.1666666665,
+   "name": "dwp.uc.households_single_no_children",
+   "period": 2023,
+   "reason": "Inherited PR #891 contract: current paid-UC counts use the explicit January-December 2025 source windows on the ec7169 national feed. This compares that declaration with the frozen 2023 production baseline; it does not redatum the observations to the comparison year or create a new year ruling."
+  },
+  {
+   "kind": "ledger_only",
+   "ledger_value": 2138780.1666666665,
+   "name": "dwp.uc.households_single_with_children",
+   "period": 2023,
+   "reason": "Inherited PR #891 contract: current paid-UC counts use the explicit January-December 2025 source windows on the ec7169 national feed. This compares that declaration with the frozen 2023 production baseline; it does not redatum the observations to the comparison year or create a new year ruling."
   },
   {
    "kind": "ledger_only",

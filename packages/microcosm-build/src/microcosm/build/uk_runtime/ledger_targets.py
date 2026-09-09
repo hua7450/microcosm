@@ -298,7 +298,8 @@ def _cgt_cash_diagnostic_metadata(
 
     The cash period and exact Chronicle fact identity are consumer declarations,
     independent of the calibration period. The normal TargetSpec metadata path
-    carries this receipt into both national and local registries.
+    carries this receipt into both national and local registries. Unavailable
+    diagnostic data must not disable independently observed HMRC targets.
     """
     contract = json.loads(
         importlib_resources.files("microcosm.build.uk")
@@ -312,6 +313,22 @@ def _cgt_cash_diagnostic_metadata(
         reference = LedgerTargetReference(**declaration["reference"])
         if not reference.ledger_fact_key:
             raise ValueError("the original forecast must have an exact fact pin")
+        if (
+            reference.name != "obr.capital_gains_tax"
+            or reference.period_match_policy != "exact"
+            or reference.assertion_policy != "allow_source_projection"
+            or declaration["required_period_type"] != "fiscal_year"
+            or declaration["required_assertion"] != "source_projection"
+        ):
+            raise ValueError("expected an exactly dated OBR cash forecast declaration")
+    except (KeyError, TypeError, ValueError) as error:
+        raise ValueError(f"Invalid CGT cash diagnostic declaration: {error}") from error
+
+    metadata = {
+        "cgt_cash_diagnostic_role": "diagnostic_only_not_in_fit",
+        "cgt_cash_reconciliation_status": "unresolved",
+    }
+    try:
         candidates = tuple(
             fact
             for fact in _candidate_facts_for_reference(facts, reference)
@@ -325,13 +342,21 @@ def _cgt_cash_diagnostic_metadata(
         ).specs
         if cash.metadata["ledger_fact_period"] != str(reference.period):
             raise ValueError("forecast period does not match its declaration")
-    except (KeyError, TypeError, ValueError) as error:
-        raise ValueError(
-            f"CGT cash diagnostic could not be retained: {error}"
-        ) from error
+    except ValueError as error:
+        return {
+            **metadata,
+            "cgt_cash_diagnostic_status": "unavailable",
+            "cgt_cash_diagnostic_unavailable_reason": str(error),
+            "cgt_cash_diagnostic_expected_fact_key": reference.ledger_fact_key,
+            "cgt_cash_diagnostic_expected_period": str(reference.period),
+            "cgt_cash_diagnostic_expected_period_type": declaration[
+                "required_period_type"
+            ],
+            "cgt_cash_diagnostic_expected_assertion": declaration["required_assertion"],
+        }
     return {
-        "cgt_cash_diagnostic_role": "diagnostic_only_not_in_fit",
-        "cgt_cash_reconciliation_status": "unresolved",
+        **metadata,
+        "cgt_cash_diagnostic_status": "available",
         "cgt_cash_diagnostic_value_gbp": str(cash.value),
         "cgt_cash_diagnostic_period": str(cash.period),
         "cgt_cash_diagnostic_source": cash.source,

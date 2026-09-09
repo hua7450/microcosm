@@ -6,6 +6,7 @@ enter a person-level calibration by accident.
 """
 
 import json
+from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -180,6 +181,7 @@ def test_original_cash_forecast_survives_only_as_diagnostic_metadata(
     by_name = {spec.name: spec for spec in compilation.registry.specs}
     assert "obr.capital_gains_tax" not in by_name
     metadata = by_name["hmrc.cgt.liability_total"].metadata
+    assert metadata["cgt_cash_diagnostic_status"] == "available"
     assert metadata["cgt_cash_diagnostic_role"] == "diagnostic_only_not_in_fit"
     assert metadata["cgt_cash_reconciliation_status"] == "unresolved"
     assert float(metadata["cgt_cash_diagnostic_value_gbp"]) == 21_801_546_197.09165
@@ -202,9 +204,18 @@ def test_original_cash_forecast_survives_only_as_diagnostic_metadata(
 
 @pytest.mark.parametrize(
     "cash_change",
-    ["missing", "wrong_year", "observation", "different_forecast", "wrong_period_type"],
+    [
+        "missing",
+        "wrong_year",
+        "observation",
+        "different_forecast",
+        "wrong_period_type",
+        "duplicate",
+    ],
 )
-def test_liability_compilation_refuses_lost_cash_diagnostic(cash_change, compile_cgt):
+def test_missing_cash_diagnostic_does_not_remove_observed_targets(
+    cash_change, compile_cgt, tmp_path
+):
     facts = _facts()
     cash = [
         fact
@@ -214,6 +225,8 @@ def test_liability_compilation_refuses_lost_cash_diagnostic(cash_change, compile
     assert cash
     if cash_change == "missing":
         facts = [fact for fact in facts if fact not in cash]
+    elif cash_change == "duplicate":
+        facts.append(deepcopy(cash[0]))
     else:
         for fact in cash:
             if cash_change == "wrong_year":
@@ -226,15 +239,30 @@ def test_liability_compilation_refuses_lost_cash_diagnostic(cash_change, compile
                 fact["aggregate_fact_key"] = "ledger.aggregate_fact.v2:replacement"
                 fact["value"] += 1
     compilation = compile_cgt(facts, target_period=2025)
-    assert "hmrc.cgt.liability_total" not in {
-        spec.name for spec in compilation.registry.specs
+    assert not compilation.unsupported
+    by_name = {spec.name: spec for spec in compilation.registry.specs}
+    assert {name: spec.value for name, spec in by_name.items()} == {
+        "hmrc.cgt.gains_total": 119_258_000_000,
+        "hmrc.cgt.taxpayers_total": 551_000,
+        "hmrc.cgt.liability_total": 22_503_000_000,
     }
-    rejected = next(
-        row
-        for row in compilation.unsupported
-        if row["name"] == "hmrc.cgt.liability_total"
+    metadata = by_name["hmrc.cgt.liability_total"].metadata
+    assert metadata["cgt_cash_diagnostic_status"] == "unavailable"
+    assert metadata["cgt_cash_diagnostic_unavailable_reason"]
+    assert metadata["cgt_cash_diagnostic_expected_fact_key"] == (
+        "ledger.aggregate_fact.v2:93699bb9caa7ec0d6833f420"
     )
-    assert "cash diagnostic" in rejected["reason"]
+    assert metadata["cgt_cash_diagnostic_expected_period"] == "2025"
+    assert metadata["cgt_cash_diagnostic_expected_period_type"] == "fiscal_year"
+    assert metadata["cgt_cash_diagnostic_expected_assertion"] == "source_projection"
+    assert "cgt_cash_diagnostic_value_gbp" not in metadata
+    assert "cgt_cash_diagnostic_source" not in metadata
+    restored = TargetRegistry.from_json(
+        compilation.registry.to_json(tmp_path / "registry.json")
+    )
+    assert metadata == next(
+        r.metadata for r in restored if r.name == "hmrc.cgt.liability_total"
+    )
 
 
 @pytest.mark.parametrize("name", sorted(CGT_TARGET_NAMES))
@@ -283,3 +311,77 @@ def test_observed_reference_refuses_missing_or_mismatched_individual_fact(
     compilation = compile_cgt(facts, target_period=2025)
     assert name not in {row.name for row in compilation.registry.specs}
     assert name in {row["name"] for row in compilation.unsupported}
+
+
+@pytest.mark.parametrize("change", ["missing", "receiver", "fact_key", "assertion"])
+def test_malformed_cash_declaration_remains_a_compile_error(
+    change, tmp_path, monkeypatch, compile_cgt
+):
+    from microcosm.build.uk_runtime import ledger_targets
+
+    resource = ledger_targets.importlib_resources.files("microcosm.build.uk")
+    contract = json.loads(resource.joinpath("uk_population_targets.json").read_text())
+    declaration = contract["diagnostic_references"]["obr.capital_gains_tax"]
+    if change == "missing":
+        del contract["diagnostic_references"]
+    elif change == "receiver":
+        declaration["attach_to_target"] = "hmrc.cgt.gains_total"
+    elif change == "fact_key":
+        declaration["reference"]["ledger_fact_key"] = None
+    else:
+        declaration["required_assertion"] = "observation"
+    (tmp_path / "uk_population_targets.json").write_text(json.dumps(contract))
+    original_files = ledger_targets.importlib_resources.files
+    monkeypatch.setattr(
+        ledger_targets.importlib_resources,
+        "files",
+        lambda package: (
+            tmp_path if package == "microcosm.build.uk" else original_files(package)
+        ),
+    )
+    compilation = compile_cgt(_facts(), target_period=2025)
+    assert "hmrc.cgt.liability_total" not in {r.name for r in compilation.registry}
+    assert any(
+        "cash diagnostic declaration" in r["reason"] for r in compilation.unsupported
+    )
+
+
+@pytest.mark.parametrize("name", sorted(CGT_TARGET_NAMES))
+def test_new_key_revision_does_not_silently_replace_pinned_observation(
+    name, compile_cgt
+):
+    facts = _facts()
+    reference = next(
+        r for r in load_country_spec("uk").target_references if r.name == name
+    )
+    original = next(
+        f
+        for f in facts
+        if f["aggregate_fact_key"] == reference.ledger_selector["aggregate_fact_key"]
+    )
+    revision = deepcopy(original)
+    revision["aggregate_fact_key"] = "ledger.aggregate_fact.v2:future_revision"
+    revision["value"] += 1
+    compilation = compile_cgt([*facts, revision], target_period=2025)
+    assert not compilation.unsupported
+    selected = next(r for r in compilation.registry if r.name == name)
+    assert selected.value == original["value"]
+    assert (
+        selected.metadata["ledger_aggregate_fact_key"] == original["aggregate_fact_key"]
+    )
+
+
+@pytest.mark.parametrize("name", sorted(CGT_TARGET_NAMES))
+def test_duplicate_pinned_observation_fails_loudly(name, compile_cgt):
+    facts = _facts()
+    reference = next(
+        r for r in load_country_spec("uk").target_references if r.name == name
+    )
+    original = next(
+        f
+        for f in facts
+        if f["aggregate_fact_key"] == reference.ledger_selector["aggregate_fact_key"]
+    )
+    compilation = compile_cgt([*facts, deepcopy(original)], target_period=2025)
+    assert name not in {r.name for r in compilation.registry}
+    assert name in {r["name"] for r in compilation.unsupported}

@@ -2,10 +2,10 @@
  "compiled_count": 415,
  "counts_by_kind": {
   "calibration_drift": 172,
-  "fixture_only": 267,
-  "ledger_only": 45
+  "fixture_only": 268,
+  "ledger_only": 46
  },
- "difference_count": 484,
+ "difference_count": 486,
  "differences": [
   {
    "fixture_value": 1608000.0,
@@ -321,6 +321,13 @@
    "name": "nts/households_two_plus_vehicles",
    "period": 2025,
    "reason": "Fixture row has no Ledger-compiled counterpart at this comparison period."
+  },
+  {
+   "fixture_value": 21801546197.09165,
+   "kind": "fixture_only",
+   "name": "obr.capital_gains_tax",
+   "period": 2025,
+   "reason": "PR #889 retains the exact March 2026 OBR FY2025-26 cash forecast as diagnostic provenance outside the FY2024-25 observation fit. The frozen incumbent fixture keeps its fitted cash row, so it is fixture-only on the current surface. This scoped change does not settle the general liability-to-cash translation tracked by #875."
   },
   {
    "fixture_value": 44117237614.71528,
@@ -2018,6 +2025,13 @@
   },
   {
    "kind": "ledger_only",
+   "ledger_value": 22503000000.0,
+   "name": "hmrc.cgt.liability_total",
+   "period": 2025,
+   "reason": "PR #889 adds HMRC FY2024-25 individuals-only liability of GBP 22,503,000,000 to the observed-year fit. The historical fixture has no equivalent liability row; this is a declared ledger-only observation, not a cash-receipts reconciliation."
+  },
+  {
+   "kind": "ledger_only",
    "ledger_value": 1800000000.0,
    "name": "hmrc.salary_sacrifice.it_relief_additional_rate",
    "period": 2025,
@@ -2202,82 +2216,82 @@
   {
    "fixture_value": 6700000.0,
    "kind": "calibration_drift",
-   "ledger_value": 6758888.888888889,
+   "ledger_value": 6197311.0,
    "name": "dwp.uc.households",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Inherited PR #891 contract: current paid-UC counts use the explicit January-December 2025 source windows on the ec7169 national feed. This compares that declaration with the frozen 2025 incumbent baseline; it does not redatum the observations to the comparison year or create a new year ruling."
   },
   {
    "fixture_value": 1222944.0,
    "kind": "calibration_drift",
-   "ledger_value": 1278537.0,
+   "ledger_value": 1190123.8333333333,
    "name": "dwp.uc.households_children_1",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Inherited PR #891 contract: current paid-UC counts use the explicit January-December 2025 source windows on the ec7169 national feed. This compares that declaration with the frozen 2025 incumbent baseline; it does not redatum the observations to the comparison year or create a new year ruling."
   },
   {
    "fixture_value": 1058967.0,
    "kind": "calibration_drift",
-   "ledger_value": 1100617.5555555555,
+   "ledger_value": 1049895.5,
    "name": "dwp.uc.households_children_2",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Inherited PR #891 contract: current paid-UC counts use the explicit January-December 2025 source windows on the ec7169 national feed. This compares that declaration with the frozen 2025 incumbent baseline; it does not redatum the observations to the comparison year or create a new year ruling."
   },
   {
    "fixture_value": 473500.0,
    "kind": "calibration_drift",
-   "ledger_value": 494553.22222222225,
+   "ledger_value": 477887.6666666667,
    "name": "dwp.uc.households_children_3",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Inherited PR #891 contract: current paid-UC counts use the explicit January-December 2025 source windows on the ec7169 national feed. This compares that declaration with the frozen 2025 incumbent baseline; it does not redatum the observations to the comparison year or create a new year ruling."
   },
   {
    "fixture_value": 166790.0,
    "kind": "calibration_drift",
-   "ledger_value": 174668.88888888888,
+   "ledger_value": 170713.66666666666,
    "name": "dwp.uc.households_children_4",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Inherited PR #891 contract: current paid-UC counts use the explicit January-December 2025 source windows on the ec7169 national feed. This compares that declaration with the frozen 2025 incumbent baseline; it does not redatum the observations to the comparison year or create a new year ruling."
   },
   {
    "fixture_value": 75910.0,
    "kind": "calibration_drift",
-   "ledger_value": 77376.77777777778,
+   "ledger_value": 76320.08333333333,
    "name": "dwp.uc.households_children_5_or_more",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Inherited PR #891 contract: current paid-UC counts use the explicit January-December 2025 source windows on the ec7169 national feed. This compares that declaration with the frozen 2025 incumbent baseline; it does not redatum the observations to the comparison year or create a new year ruling."
   },
   {
    "fixture_value": 231368.0,
    "kind": "calibration_drift",
-   "ledger_value": 284345.55555555556,
+   "ledger_value": 241130.91666666666,
    "name": "dwp.uc.households_couple_no_children",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Inherited PR #891 contract: current paid-UC counts use the explicit January-December 2025 source windows on the ec7169 national feed. This compares that declaration with the frozen 2025 incumbent baseline; it does not redatum the observations to the comparison year or create a new year ruling."
   },
   {
    "fixture_value": 839379.0,
    "kind": "calibration_drift",
-   "ledger_value": 899534.6666666666,
+   "ledger_value": 826160.8333333334,
    "name": "dwp.uc.households_couple_with_children",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Inherited PR #891 contract: current paid-UC counts use the explicit January-December 2025 source windows on the ec7169 national feed. This compares that declaration with the frozen 2025 incumbent baseline; it does not redatum the observations to the comparison year or create a new year ruling."
   },
   {
    "fixture_value": 2868011.0,
    "kind": "calibration_drift",
-   "ledger_value": 3446962.0,
+   "ledger_value": 2990070.1666666665,
    "name": "dwp.uc.households_single_no_children",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Inherited PR #891 contract: current paid-UC counts use the explicit January-December 2025 source windows on the ec7169 national feed. This compares that declaration with the frozen 2025 incumbent baseline; it does not redatum the observations to the comparison year or create a new year ruling."
   },
   {
    "fixture_value": 2156879.0,
    "kind": "calibration_drift",
-   "ledger_value": 2226220.0,
+   "ledger_value": 2138780.1666666665,
    "name": "dwp.uc.households_single_with_children",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "Inherited PR #891 contract: current paid-UC counts use the explicit January-December 2025 source windows on the ec7169 national feed. This compares that declaration with the frozen 2025 incumbent baseline; it does not redatum the observations to the comparison year or create a new year ruling."
   },
   {
    "fixture_value": 14000.0,
@@ -3090,18 +3104,18 @@
   {
    "fixture_value": 67727478991.59665,
    "kind": "calibration_drift",
-   "ledger_value": 127316000000.0,
+   "ledger_value": 119258000000.0,
    "name": "hmrc.cgt.gains_total",
    "period": 2025,
-   "reason": "Ledger carries the HMRC 2023-24 outturn value GBP 65,937,000,000 and holds it by identity under the current doctrine; the incumbent Fixture B row is GBP 67,727,478,991.60 at 2025 because it carries a forecast/uprated value. Signed as a doctrine consequence, not a binding error."
+   "reason": "PR #889 selects HMRC FY2024-25 individuals-only observed gains of GBP 119,258,000,000, measured in 2024 at calibration index 2025. The frozen incumbent fixture retains its historical forecast/uprated GBP 67,727,478,991.60 value. This explicit observation-year and population-scope change does not rewrite the historical fixture."
   },
   {
    "fixture_value": 378000.0,
    "kind": "calibration_drift",
-   "ledger_value": 584000.0,
+   "ledger_value": 551000.0,
    "name": "hmrc.cgt.taxpayers_total",
    "period": 2025,
-   "reason": "Ledger-compiled value differs from the fixture value at this comparison period."
+   "reason": "PR #889 selects the HMRC FY2024-25 individuals-only observation of 551,000 taxpayers, measured in 2024 at calibration index 2025. The frozen incumbent fixture retains its historical 378,000 count."
   },
   {
    "fixture_value": 1236000000.0,

@@ -395,20 +395,26 @@ def test_committed_target_fit_register_carries_the_signed_deferrals() -> None:
         "dwp.uc.households_children_2@2025",
         "dwp.uc.households_children_5_or_more@2025",
         "hmrc/private_pension_income_count_income_band_100_000_to_150_000@2025",
-        "obr.capital_gains_tax@2025",
     }
-    for name, record in register.items():
+    for record in register.values():
         assert record.approved_by == "juaristi22"
-        if name == "obr.capital_gains_tax@2025":
-            # #834 composition: the 2024-25 forestalling-year gains bound at
-            # the 2025 period (microcosm#875 owns the translation).
-            assert record.adjudication == "microcosm#875"
-            assert record.approved_on == "2026-09-05"
-            assert record.expires_on == "2026-10-05"
-            continue
         assert record.adjudication == "microcosm#796"
         assert record.approved_on == "2026-08-30"
         assert record.expires_on == "2026-09-30"
+
+
+def test_observed_liability_has_no_retired_cash_exemption() -> None:
+    register = uk_default_target_fit_reviewed_exclusions()
+    assert "obr.capital_gains_tax@2025" not in register
+    assert "hmrc.cgt.liability_total@2025" not in register
+    fit = uk_target_fit_gate(
+        {"hmrc.cgt.liability_total@2025": 0.30},
+        reviewed_exclusions=register,
+        now=date(2026, 9, 15),
+    )
+    assert not fit.passed
+    assert fit.details["failing_targets"] == {"hmrc.cgt.liability_total@2025": 0.30}
+    assert "obr.capital_gains_tax@2025" not in fit.details["dormant_exclusions"]
 
 
 def test_ported_june_parity_gates_reject_empty_evidence() -> None:

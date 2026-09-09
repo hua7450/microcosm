@@ -57,11 +57,46 @@ RECEIPTS = (
     ),
 )
 
-_CGT_GAINS_TOTAL_RATIONALE = (
-    "Ledger carries the HMRC 2023-24 outturn value GBP 65,937,000,000 and "
-    "holds it by identity under the current doctrine; the incumbent Fixture B "
-    "row is GBP 67,727,478,991.60 at 2025 because it carries a forecast/uprated "
-    "value. Signed as a doctrine consequence, not a binding error."
+_CGT_OBSERVED_RATIONALES = {
+    "hmrc.cgt.gains_total": (
+        "PR #889 selects HMRC FY2024-25 individuals-only observed gains of "
+        "GBP 119,258,000,000, measured in 2024 at calibration index 2025. "
+        "The frozen incumbent fixture retains its historical forecast/uprated "
+        "GBP 67,727,478,991.60 value. This explicit observation-year and "
+        "population-scope change does not rewrite the historical fixture."
+    ),
+    "hmrc.cgt.taxpayers_total": (
+        "PR #889 selects the HMRC FY2024-25 individuals-only observation of "
+        "551,000 taxpayers, measured in 2024 at calibration index 2025. "
+        "The frozen incumbent fixture retains its historical 378,000 count."
+    ),
+    "hmrc.cgt.liability_total": (
+        "PR #889 adds HMRC FY2024-25 individuals-only liability of "
+        "GBP 22,503,000,000 to the observed-year fit. The historical fixture "
+        "has no equivalent liability row; this is a declared ledger-only "
+        "observation, not a cash-receipts reconciliation."
+    ),
+    "obr.capital_gains_tax": (
+        "PR #889 retains the exact March 2026 OBR FY2025-26 cash forecast "
+        "as diagnostic provenance outside the FY2024-25 observation fit. "
+        "The frozen incumbent fixture keeps its fitted cash row, so it is "
+        "fixture-only on the current surface. This scoped change does not "
+        "settle the general liability-to-cash translation tracked by #875."
+    ),
+}
+
+_UC_PAID_WINDOW_NAMES = frozenset(
+    {"dwp.uc.households"}
+    | {f"dwp.uc.households_children_{i}" for i in (1, 2, 3, 4, "5_or_more")}
+    | {
+        f"dwp.uc.households_{family}"
+        for family in (
+            "couple_no_children",
+            "couple_with_children",
+            "single_no_children",
+            "single_with_children",
+        )
+    }
 )
 
 _ONS_TERMINAL_BAND_RATIONALES = {
@@ -345,14 +380,32 @@ def _add_signed_rationale_notes(
     *,
     fixture_resource: str,
 ) -> None:
-    if fixture_resource != "registry_parity_fixture_2025.json":
+    if fixture_resource not in {
+        "registry_parity_fixture_2025.json",
+        "parity_fixture_production_2023.json",
+    }:
         return
     for row in report.get("differences", ()):
         if not isinstance(row, dict):
             continue
         name = str(row.get("name", ""))
-        if name == "hmrc.cgt.gains_total":
-            row["reason"] = _CGT_GAINS_TOTAL_RATIONALE
+        if name in _UC_PAID_WINDOW_NAMES:
+            baseline = (
+                "2023 production"
+                if fixture_resource == "parity_fixture_production_2023.json"
+                else "2025 incumbent"
+            )
+            row["reason"] = (
+                "Inherited PR #891 contract: current paid-UC counts use the "
+                "explicit January-December 2025 source windows on the ec7169 "
+                f"national feed. This compares that declaration with the frozen {baseline} "
+                "baseline; it does not redatum the observations to the comparison "
+                "year or create a new year ruling."
+            )
+        elif fixture_resource != "registry_parity_fixture_2025.json":
+            continue
+        elif name in _CGT_OBSERVED_RATIONALES:
+            row["reason"] = _CGT_OBSERVED_RATIONALES[name]
         elif name in _ONS_TERMINAL_BAND_RATIONALES:
             row["reason"] = _ONS_TERMINAL_BAND_RATIONALES[name]
 

@@ -1,89 +1,111 @@
 # CGT observation year and individual scope
 
-The UK release retains FRS FY2024–25 observations with `survey_year=2024`,
-`base_year=2024` and exported `time_period=2024`. Calibration uses a 2025 registry
-index. CGT now declares a separate 2024 measurement period, matching the HMRC
-FY2024–25 observations. This release does not require a CGT forecast for 2025.
+The FY2024–25 dataset uses HMRC's three individual observations for that year:
+551,000 taxpayers, £119.258bn gains and £22.503bn liability. Calibration remains
+indexed at 2025 and exported source data remains dated 2024. The contract pins
+exact Chronicle keys, individual scope and `tax_year: 2024`; trust-inclusive
+national totals cannot satisfy these references.
 
-| Date | Meaning |
-| --- | --- |
-| 2024 survey/base/output | FRS FY2024–25 source values and exported dataset |
-| 2025 calibration index | Registry identity and default measurement year for other targets |
-| 2024 CGT observation/measurement | HMRC FY2024–25 individual gains, taxpayers and liability; model gains, tax and annual exempt amount use 2024 |
-| 2025 OBR cash period | FY2025–26 cash forecast, retained as diagnostic provenance outside fitting |
+`measurement_period: 2024` forces the CGT outcome calculation to use 2024 rather
+than the default calibration period, and disables the stored-column shortcut.
+The dated aliases bind a variable and year, refuse a mismatched binding, and may
+not be persisted in the source H5. Gains and the taxpayer proxy share the 2024
+annual exempt amount (£3,000) and gains array. The proxy selects gains above the
+allowance; it does not identify every administrative taxpayer below that
+threshold. The gains input is net of losses before the allowance; the aggregate
+binding makes no additional loss or allowance deduction.
 
-The previous gains and taxpayer targets were already observed FY2024–25 totals,
-but included trusts (£127.316bn and 584,000). Their measurements could mix stored
-base-year gains with model tax in the default 2025 year. The revised contract
-selects the provisional Table 1 **individuals** observations from the pinned
-Chronicle feed: gains £119.258bn, 551,000 taxpayers and liability £22.503bn. All
-three are fitted under registry period 2025 using model measurements in 2024.
+## Observed-year fit and cash diagnostic
 
-Each selector pins its aggregate fact key, source concept, Table 1 dimension,
-source entity label, `tax_year` period type and period value 2024. Chronicle's
-legacy `tax_unit` label is a fact-selector field; the UK engine measures people
-and maps their amounts to households. It does not create a UK tax-unit entity.
-Missing or mismatched observations cannot replace these facts. Generated
-`uprating_from_period`/`uprating_to_period` fields record the registry identity
-hold; they apply no numerical uprating to these observed values.
+For this accepted FY2024–25 deliverable, the three published individual
+observations replace the former trust-inclusive gains/count and OBR cash fit.
+This explicitly supersedes the former FY2025–26 solve disposition described in
+[#875](https://github.com/PolicyEngine/microcosm/issues/875) **for this observed-year
+acceptance unit**. It does not amend or close that issue, invalidate its earlier
+deliverable, or settle the general self-assessment liability-to-cash translation.
+The forward-year reconciliation remains separate work.
 
-`cgt_2024_gains` and `cgt_2024_tax` are transient resolver aliases. They force
-engine calculation at the declared year even when raw `capital_gains` already
-exists in the source. Persisted aliases are rejected to prevent stale values
-from bypassing the engine. The taxpayer proxy and gain aggregate use the 2024
-annual exempt amount and the same gains array. Gains are the model's net-gains
-input; this binding makes no additional deduction for losses or the allowance.
-The taxpayer proxy remains gains above the allowance, so it does not identify
-every administrative case below that threshold.
+The unchanged March 2026 OBR FY2025–26 cash forecast (£21.801546197bn) remains a
+separately pinned diagnostic outside fitting. Its exact key, fiscal year,
+source-projection assertion, value and source survive when the fact is available.
+Absent, incompatible or duplicate diagnostic data produces explicit `unavailable`
+metadata, the expected identity and a reason, with no numeric substitute. It does
+not remove any independently valid HMRC observation. A malformed committed
+cash declaration remains a compilation error; so do missing, duplicate or
+incompatible fitted HMRC observations. No cash row returns to the matrix.
 
-The fitted OBR cash row is replaced by the HMRC individual liability row. The
-unchanged March 2026 OBR FY2025–26 cash forecast (£21.801546197bn) is required by
-the liability compilation as diagnostic metadata, with its exact fact key,
-period, source-projection assertion and provenance. A missing or substituted
-cash fact fails compilation of the liability target. Cash receipts and disposal
-year liabilities have different timing and population scope; this metadata
-does not assert a reconciliation between them.
+The former active `obr.capital_gains_tax@2025` fit exemption is retired because
+that row is no longer fitted. Its exact historical reason, approver,
+adjudication and dates are preserved in the
+[aggregate evidence](evidence/uk-cgt-889/calibration-comparison.json).
+This retirement creates no new human signature, renewal or expiry. All other
+exemptions and gate thresholds are unchanged; HMRC liability has no exemption.
 
-With the committed default exclusions, the roster still has 366 active targets
-and 21 families. Under `family_equal`, OBR has 19 rows instead of 20 and
-`hmrc_cgt` has three instead of two. Each retained OBR row's objective coefficient
-changes from 1/420 to 1/399; CGT gains and count change from 1/42 to 1/63; the
-replacement liability row changes from the old cash row's 1/420 to 1/63. These
-are consequences of family membership, not optimizer tuning. The historical
-OBR exemption remains dormant; the new HMRC liability target has no exemption.
+The default roster remains 366 targets across 21 families. With `family_equal`,
+OBR has 19 rows instead of 20 and `hmrc_cgt` has three instead of two. Each retained
+OBR row changes from weight 1/420 to 1/399; gains/count change from 1/42 to 1/63;
+the replacement tax row changes from 1/420 to 1/63. These 22 changes follow family
+membership. The comparison therefore combines dating, individual scope, liability
+comparator and objective weighting; it is not an isolated causal year effect.
 
-Both national and local calibration resolve the dated CGT arrays before
-fitting, then restore the base-year data columns and export the fitted weights.
-Restoring source values does not reverse the weight fit. Resolver receipts
-record the base period, default calibration period and dated CGT measurements;
-the UC claimant validation and receipts introduced by #883 remain intact. The
-#881 source `year_rule` resolver governs source acquisition separately and is
-unchanged by this CGT contract.
+## Dating, revision and materialization
 
-This correction preserves source Tables 2/3, donor selection, carrier counts,
-gain amounts, age/region assignment, exclusions and release gates. The existing
-Table 3 distribution still represents FY2023–24 and is mapped into the 2024
-source build. Historical source-stage descriptions referring to trust-inclusive
-or two aggregate calibration targets describe the older target surface; the
-current `uk_population_targets.json` is authoritative for the three fitted
-individual observations. Distribution target fences remain in force. Source
-vintage, thin support, allowance-threshold priors and the model's generic CGT
-rate/relief representation can still produce residuals after this year and
-scope correction. Neither unit tests nor a national fit certify a dataset.
+The #881 `year_rule` mechanism resolves release-relative survey/calibration years
+for source construction, policy lookups and predictor materialization. A fixed
+administrative observation must keep its date when the release advances, so its
+`measurement_period` is a separate target contract. A future shared generic
+variable/period resolver may simplify the implementation; automatically replacing
+2024 with the survey year would change the present observation's meaning.
 
-The implementation uses the current main lock (PolicyEngine-UK 2.97.0, Core
-3.31.0). After integration with #891, national targets use the authenticated
-Chronicle `ec7169b5db40b9f54117c80f70f14efc1dd0fedd` artifact declared in
-`uk/national_chronicle_feed.json`. Local targets retain their separate `6fb700e`
-pin. The three individual CGT observations and OBR diagnostic fact are identical
-in both artifacts. The new national contract preserves #891's paid UC source
-windows, family classification and diagnostic receipts.
+The provisional HMRC observations use exact aggregate keys. A different-key
+revision alongside the old observation leaves the old key selected. Removing the
+pinned key or duplicating it fails compilation. The authoring field
+`matched_fact_count_at_or_before_period` is descriptive metadata, not a runtime
+revision guard. A lone altered value under the same key is accepted by the
+compiler if artifact verification is bypassed; immutable facts and manifest
+hashes prevent that alteration in the authenticated build path.
 
-The original national comparison at CGT commit `30479731` used the earlier
-`6fb700e` national feed and UC contract. Its fitted weights and residuals remain
-historical evidence for that comparison; they do not describe a fit under the
-new UC contract. A separate prerequisite added the two FRS person-role inputs
-consumed by the #883 UC capital stage to its graph projection after a clean
-source build demonstrated their omission. That prerequisite was applied to both
-original control and candidate and remains in this patch; it changes no CGT
-imputation.
+To adopt a revision, authenticate a new Chronicle artifact, review its year,
+population and values, deliberately update changed keys and feed hashes, and
+regenerate references, membership, relevant public fixtures and parity receipts.
+Rerun strict-selection, real-feed and dated-export checks; refresh numerical
+evidence if fitted values change. Never loosen selectors to choose the latest
+publication silently.
+
+Both national and local paths resolve the dated arrays before materialization.
+The rowwise builder resolves each block, aligns by entity IDs, injects the alias
+columns and then builds the target matrix. Scoring uses the same resolve/inject
+route. The adapter's refusal of an unresolved alias is intentional. The national
+and local parametrized integration tests exercise the real resolver with distinct
+2024/2025 outcomes, fit weights and restore the original base-year HDF columns;
+a separate UK2.97 engine case verifies the calculation date. The source-column
+restoration does not reverse the fitted weights. These tests do not certify a
+full local calibration.
+
+## Source, dependency and evidence boundary
+
+The lock remains PolicyEngine-UK 2.97.0 / Core 3.31.0. National targets use Chronicle
+`ec7169b5db40b9f54117c80f70f14efc1dd0fedd`; local targets retain the separate `6fb700e`
+artifact. The four CGT/OBR facts are identical across those feeds. Current #891
+paid UC source windows and family classification are preserved.
+
+Source Tables 2/3 remain the 2025 publication's FY2023–24 distribution, mapped into
+the 2024 build. Donor selection, carrier count, gain amounts, ages and geography
+are unchanged. Older source-stage prose describes the preceding two-target or
+trust-inclusive surface; the current target contract controls the three fitted
+individual observations. Distribution fences remain active. No source-vintage,
+tail, age or liability-model repair is implemented here.
+
+The required #883 graph prerequisite declares the two FRS claimant-role inputs
+and updates the graph fixture. While [#892](https://github.com/PolicyEngine/microcosm/pull/892)
+remains open, those inputs stay in this PR; its exact graph regression replaces
+the overlapping test and resolves that duplicated regression. The separate
+exemption-retirement changes still require composition if both PRs land.
+Once upstream includes the prerequisite, rebase and remove the duplicated
+prerequisite commits while retaining the upstream coverage.
+
+The [current matched comparison](../experiments/889-cgt-observation-year.md)
+records the 9b5/ec7 candidate and cc9/ec7 control on the identical source. Its
+£108.032bn gains remain 9.41% below HMRC, despite liability and taxpayer totals
+being close. The older 30479731/6fb comparison is historical. Neither national
+fit, diagnostic export nor unit tests certify a releasable dataset.
