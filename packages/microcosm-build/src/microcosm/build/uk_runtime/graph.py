@@ -797,7 +797,6 @@ def uk_spine_graph(
     *,
     source_mode: str = "bundle",
     sample_fraction: float = 1.0,
-    sample_source_households: int | None = None,
     sample_seed: int = UK_SAMPLE_SEED_DEFAULT,
 ) -> Graph:
     """Return the source-bound graph for the packaged UK FRS spine."""
@@ -810,10 +809,6 @@ def uk_spine_graph(
         raise ValueError("UK graph sample_fraction must be in (0, 1].")
     if sample_seed < 0:
         raise ValueError("UK graph sample_seed must be non-negative.")
-    if isinstance(sample_source_households, bool) or (
-        sample_source_households is not None and sample_source_households < 1
-    ):
-        raise ValueError("UK graph sample_source_households must be positive.")
     resolved = load_country_spec("uk") if spec is None else spec
     stages = _manifest_stages(resolved)
     # The root transform loads the complete national-frame seed schema even
@@ -834,7 +829,6 @@ def uk_spine_graph(
                 "time_period": "2024",
                 "stage_contract_sha256": _stage_contract_sha256(stages[0], resolved),
                 "sample_fraction": float(sample_fraction),
-                "sample_source_households": sample_source_households,
                 "sample_seed": int(sample_seed),
             },
             description="Load the source-bound UK FRS root population.",

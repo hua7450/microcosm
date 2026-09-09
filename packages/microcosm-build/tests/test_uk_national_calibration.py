@@ -355,6 +355,53 @@ def test_uc_calibration_compiles_and_moves_weighted_count_towards_fact() -> None
     assert stage.manifest["solve"]["n_households"] == 4
 
 
+def test_exact_k_calibration_selects_and_refits_exact_household_count() -> None:
+    frame = _frame()
+    stage = UKNationalCalibrationStage(
+        _registry(),
+        band_edge_registry=_registry(),
+        period=2025,
+        doctrine=UKNationalSolveDoctrine(epochs=3, learning_rate=0.02),
+        exact_k=2,
+        exact_k_pi_hi=1.0,
+        exact_k_seed=17,
+    )
+
+    result = stage(frame)
+
+    assert result.n("household") == 2
+    assert result.n("benunit") == 2
+    assert result.n("person") == 2
+    assert result.weights_for("household").kind is WeightKind.CALIBRATED
+    assert set(result.table("household")["household_id"]) <= set(
+        frame.table("household")["household_id"]
+    )
+    exact_k = stage.manifest["exact_k_ladder"]
+    assert exact_k["k"] == 2
+    assert exact_k["seed"] == 17
+    assert exact_k["pool_households"] == 4
+    assert exact_k["realized_households"] == 2
+    assert exact_k["selection_receipt"]["design"] == "sampford"
+    assert exact_k["refit_baseline_diagnostics"]["selected_size"] == 2
+    assert stage.manifest["solve"]["n_households"] == 2
+    validate_uk_national_frame(result)
+
+
+def test_exact_k_calibration_refuses_count_above_input_pool() -> None:
+    stage = UKNationalCalibrationStage(
+        _registry(),
+        band_edge_registry=_registry(),
+        period=2025,
+        doctrine=UKNationalSolveDoctrine(epochs=1),
+        exact_k=5,
+        exact_k_pi_hi=0.95,
+        exact_k_seed=0,
+    )
+
+    with pytest.raises(ValueError, match="k=5 exceeds the pool size 4"):
+        stage(_frame())
+
+
 def test_stage_forwards_solver_progress_and_measure_lifecycle() -> None:
     progress: list[dict[str, object]] = []
     stages: list[tuple[str, str, dict[str, object]]] = []

@@ -263,10 +263,11 @@ def run_uk_calibration(
     release_id: str,
     logbook_prev_row_digest: str | None = None,
     progress_callback: Callable[[dict[str, object]], None] | None = None,
-    event_callback: (
-        Callable[[str, str, Mapping[str, object]], None] | None
-    ) = None,
+    event_callback: (Callable[[str, str, Mapping[str, object]], None] | None) = None,
     staging_delivery: Mapping[str, object] | None = None,
+    exact_k: int | None = None,
+    exact_k_pi_hi: float | None = None,
+    exact_k_seed: int | None = None,
 ) -> UKCalibrationRunResult:
     """Run the UK national calibration seam and write its sidecars."""
 
@@ -298,6 +299,15 @@ def run_uk_calibration(
         # identity digest, the build record and the Logbook row, so the run
         # says which Ledger artifact it was measured against.
         "ledger": _ledger_provenance(ledger_artifact),
+        "exact_k": (
+            None
+            if exact_k is None
+            else {
+                "k": exact_k,
+                "pi_hi": exact_k_pi_hi,
+                "seed": exact_k_seed,
+            }
+        ),
         **dict(run_config_extra),
     }
     run_config["band_edge_register_sha256"] = edge_registry.version
@@ -335,6 +345,9 @@ def run_uk_calibration(
             progress_callback=progress_callback,
             event_callback=event_callback,
             staging_delivery=staging_delivery,
+            exact_k=exact_k,
+            exact_k_pi_hi=exact_k_pi_hi,
+            exact_k_seed=exact_k_seed,
         )
     except BaseException as error:
         # Every terminal disposition records a row — successful, failed, or
@@ -345,7 +358,9 @@ def run_uk_calibration(
             state=state,
             started_at=started_at,
             started_ts=started_ts,
-            seed=getattr(doctrine, "seed", None),
+            seed=(
+                exact_k_seed if exact_k is not None else getattr(doctrine, "seed", None)
+            ),
             code_pin=code_pin,
             predecessor=predecessor,
             receipt_base_dir=paths.staging_h5.parent,
@@ -466,6 +481,9 @@ def _run_uk_calibration_attempt(
     progress_callback: Callable[[dict[str, object]], None] | None,
     event_callback: Callable[[str, str, Mapping[str, object]], None] | None,
     staging_delivery: Mapping[str, object] | None,
+    exact_k: int | None,
+    exact_k_pi_hi: float | None,
+    exact_k_seed: int | None,
 ) -> UKCalibrationRunResult:
     _notify_run_event(event_callback, "input_loading", "started")
     measured_input_sha = _sha256_file(paths.input_h5)
@@ -502,6 +520,9 @@ def _run_uk_calibration_attempt(
         band_edge_registry=band_edge_registry,
         progress_callback=progress_callback,
         stage_callback=event_callback,
+        exact_k=exact_k,
+        exact_k_pi_hi=exact_k_pi_hi,
+        exact_k_seed=exact_k_seed,
     )
     _notify_run_event(event_callback, "calibration", "started")
     calibrated = stage(frame)
@@ -544,6 +565,11 @@ def _run_uk_calibration_attempt(
             spine_sidecar,
         ),
         "score_vs_enhanced_frs": None,
+        "exact_k_ladder": (
+            stage.manifest.get("exact_k_ladder")
+            if isinstance(stage.manifest, Mapping)
+            else None
+        ),
     }
     _notify_run_event(event_callback, "diagnostics", "started")
     write_uk_calibration_diagnostics(
@@ -649,7 +675,7 @@ def _run_uk_calibration_attempt(
         started_ts=started_ts,
         pipeline=_PIPELINE,
         rung="f100",
-        seed=getattr(doctrine, "seed", None),
+        seed=(exact_k_seed if exact_k is not None else getattr(doctrine, "seed", None)),
         code_pin=code_pin,
         disposition="iterating",
         predecessor=predecessor,

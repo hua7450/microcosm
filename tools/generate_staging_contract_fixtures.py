@@ -28,22 +28,6 @@ class FixtureClock:
         return timestamp
 
 
-def _sample(target: int, *, realized_families: int, realized_rows: int) -> dict:
-    return {
-        "mode": "bounded_source_households",
-        "requested_source_households": target,
-        "eligible_source_families": 25,
-        "proportional_request": target,
-        "forced_additions": realized_families - target,
-        "realized_source_families": realized_families,
-        "realized_household_rows": realized_rows,
-        "seed": 42,
-        "receipt_sha256": hashlib.sha256(
-            f"fixture:{target}:{realized_families}:{realized_rows}:42".encode()
-        ).hexdigest(),
-    }
-
-
 def _completed_spine(root: Path) -> None:
     recorder = StagingTelemetryV2(
         run_id="uk-spine-v2-fixture",
@@ -58,9 +42,9 @@ def _completed_spine(root: Path) -> None:
         repo_id=None,
         clock=FixtureClock(2),
     )
-    recorder.set_sample(_sample(5, realized_families=7, realized_rows=9))
+    recorder.set_sample({"mode": "full"})
     recorder.stage("input_verification", event_status="completed", input_count=3)
-    recorder.stage("sampling", event_status="completed", source_families=7)
+    recorder.stage("sampling", event_status="completed", household_rows=9)
     recorder.stage("construction", event_status="completed", produced_columns=12)
     recorder.stage("validation", event_status="completed", household_rows=9)
     recorder.stage("spine_h5_creation", event_status="completed", sha256="a" * 64)
@@ -84,19 +68,7 @@ def _calibration(root: Path) -> None:
         repo_id=None,
         clock=FixtureClock(3),
     )
-    recorder.set_sample(
-        {
-            "mode": "full",
-            "requested_source_households": None,
-            "eligible_source_families": None,
-            "proportional_request": None,
-            "forced_additions": 0,
-            "realized_source_families": None,
-            "realized_household_rows": None,
-            "seed": None,
-            "receipt_sha256": None,
-        }
-    )
+    recorder.set_sample({"mode": "full"})
     recorder.stage("target_compilation", event_status="completed", target_count=2)
     recorder.calibration_progress(
         {

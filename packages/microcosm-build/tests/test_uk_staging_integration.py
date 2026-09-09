@@ -16,16 +16,12 @@ from microcosm.build.staging_v2 import validate_v2_bundle
 from microcosm.build.uk_runtime.graph import UK_SPINE_EXCLUSIONS
 
 ROOT = Path(__file__).resolve().parents[3]
-FIXTURE = (
-    ROOT / "packages/microcosm-graph/tests/fixtures/parity/uk_spine/sources"
-)
+FIXTURE = ROOT / "packages/microcosm-graph/tests/fixtures/parity/uk_spine/sources"
 DRIVER = ROOT / "tools/build_uk_frs_spine.py"
 WORKFLOW = ROOT / ".github/workflows/integration-tests.yml"
 WORKFLOW_SCRIPT = ROOT / "tools/run_integration_tests.sh"
-SOURCE_HOUSEHOLDS = 63
-REALIZED_SOURCE_FAMILIES = 69
 SEED = 42
-RUN_ID = "ci-uk-smoke-h0063-s42"
+RUN_ID = "ci-uk-smoke-full-s42"
 
 
 def test_integration_workflow_runs_without_environment_approval() -> None:
@@ -62,8 +58,8 @@ def _command(tmp_path: Path, *extra: str) -> list[str]:
         str(FIXTURE),
         "--spine-h5",
         str(tmp_path / "uk-smoke.h5"),
-        "--sample-source-households",
-        str(SOURCE_HOUSEHOLDS),
+        "--sample-fraction",
+        "1.0",
         "--sample-seed",
         str(SEED),
         "--smoke",
@@ -100,11 +96,7 @@ def test_uk_staging_smoke_command_runs_every_spine_stage(tmp_path: Path) -> None
         assert data.attrs["populace_release_posture"] == "smoke"
     assert sidecar["non_release"] is True
     assert sidecar["release_posture"] == "non_release_smoke"
-    assert sidecar["sampling"]["requested_source_households"] == SOURCE_HOUSEHOLDS
-    assert (
-        sidecar["sampling"]["realized_source_families"]
-        == REALIZED_SOURCE_FAMILIES
-    )
+    assert sidecar["sampling"] is None
     assert sidecar["synthetic_fixture"]["schema_version"] == (
         "uk-spine-parity-fixture.v1"
     )
@@ -114,10 +106,7 @@ def test_uk_staging_smoke_command_runs_every_spine_stage(tmp_path: Path) -> None
     manifest = bundle["run_manifest"]
     assert manifest["status"] == "completed"
     assert manifest["non_release"] is True
-    assert manifest["sample"]["requested_source_households"] == SOURCE_HOUSEHOLDS
-    assert manifest["sample"]["realized_source_families"] == (
-        REALIZED_SOURCE_FAMILIES
-    )
+    assert manifest["sample"] == {"mode": "full"}
     assert manifest["delivery"]["mode"] == "local_only"
     assert manifest["delivery"]["upload_attempts"] == 0
 
@@ -130,16 +119,13 @@ def test_uk_staging_smoke_command_runs_every_spine_stage(tmp_path: Path) -> None
     events = bundle["events"]
     for stage in expected:
         transitions = [
-            event["status"]
-            for event in events
-            if event["stage_id"] == stage
+            event["status"] for event in events if event["stage_id"] == stage
         ]
         assert transitions == ["started", "completed"], stage
     stage_seconds = {
         event["stage_id"]: event["details"]["elapsed_seconds"]
         for event in events
-        if event["status"] == "completed"
-        and "elapsed_seconds" in event["details"]
+        if event["status"] == "completed" and "elapsed_seconds" in event["details"]
     }
     assert set(stage_seconds) == set(expected)
     print(
@@ -147,8 +133,7 @@ def test_uk_staging_smoke_command_runs_every_spine_stage(tmp_path: Path) -> None
             {
                 "total_seconds": elapsed,
                 "stage_seconds": stage_seconds,
-                "requested_source_households": SOURCE_HOUSEHOLDS,
-                "realized_source_families": REALIZED_SOURCE_FAMILIES,
+                "household_rows": sidecar["entity_row_counts"]["household"],
             },
             sort_keys=True,
         )
@@ -166,5 +151,5 @@ def test_synthetic_smoke_command_refuses_release_options(tmp_path: Path) -> None
     )
 
     assert result.returncode == 2
-    assert "bounded smoke builds refuse --release-candidate" in result.stderr
+    assert "non-release smoke builds refuse --release-candidate" in result.stderr
     assert not (tmp_path / "uk-smoke.h5").exists()

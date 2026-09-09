@@ -33,8 +33,6 @@ shared :mod:`microcosm.build.frame_sampling` core is:
 
 from __future__ import annotations
 
-import hashlib
-import json
 from collections.abc import Mapping
 
 import numpy as np
@@ -237,42 +235,26 @@ def uk_spine_source_family_units(frame: Frame) -> tuple[np.ndarray, np.ndarray]:
 def sample_uk_spine_frame(
     frame: Frame,
     *,
-    fraction: float | None = None,
-    source_households: int | None = None,
+    fraction: float,
     seed: int,
 ) -> tuple[Frame, dict[str, object]]:
     """Sample complete explicit source families from a UK Microcosm spine."""
 
-    if fraction is not None:
-        validate_sample_fraction(fraction, label="UK spine sample")
+    validate_sample_fraction(fraction, label="UK spine sample")
     validate_sample_seed(seed, label="UK spine sample")
     validate_uk_national_frame(frame)
 
     household = frame.table("household")
     units, strata = uk_spine_source_family_units(frame)
-    forced_source_families: tuple[int, ...] = ()
-    if source_households is not None:
-        unit_table = pd.DataFrame({"unit": units, "stratum": strata}).drop_duplicates()
-        forced_source_families = tuple(
-            sorted(
-                {
-                    int(value)
-                    for _stratum, group in unit_table.groupby("stratum", sort=True)
-                    for value in (group["unit"].min(), group["unit"].max())
-                }
-            )
-        )
     pre_counts = pd.Series(units).value_counts(sort=False)
     full_mass = float(frame.weights_for("household").total)
     sampled, core_receipt = sample_frame_households(
         frame,
         fraction=fraction,
-        count=source_households,
         seed=seed,
         source_name="UK spine",
         unit_ids=units,
         unit_strata=strata,
-        forced_unit_ids=forced_source_families,
         unit_noun="source family",
         floor_context="the UK rowwise candidate",
     )
@@ -295,14 +277,10 @@ def sample_uk_spine_frame(
             f"{incomplete[:5]}."
         )
     validate_uk_national_frame(normalized)
-    result = {
-        "fraction": float(fraction) if fraction is not None else None,
+    return normalized, {
+        "fraction": float(fraction),
         "seed": int(seed),
-        "rung_token": (
-            UK_SAMPLE_RUNG_TOKENS.get(float(fraction))
-            if fraction is not None
-            else f"h{source_households:04d}"
-        ),
+        "rung_token": UK_SAMPLE_RUNG_TOKENS.get(float(fraction)),
         "pre_household_count": int(len(household)),
         "post_household_count": int(len(normalized.table("household"))),
         "pre_family_count": int(len(pre_counts)),
@@ -311,25 +289,6 @@ def sample_uk_spine_frame(
         "strata_count": int(len(np.unique(strata))),
         "receipt": dict(core_receipt),
     }
-    if source_households is not None:
-        unit_receipt = dict(core_receipt["sampling_unit"])
-        forced = dict(core_receipt.get("forced_unit_inclusions", {}))
-        result.update(
-            {
-                "sample_mode": "bounded_source_households",
-                "requested_source_households": int(source_households),
-                "eligible_source_families": int(unit_receipt["eligible_unit_count"]),
-                "proportional_request": int(unit_receipt["requested_unit_count"]),
-                "forced_additions": int(forced.get("added_beyond_draw_count", 0)),
-                "realized_source_families": int(unit_receipt["realized_unit_count"]),
-                "realized_household_rows": int(len(normalized.table("household"))),
-            }
-        )
-        digest_payload = json.dumps(
-            result, sort_keys=True, separators=(",", ":"), allow_nan=False
-        ).encode()
-        result["receipt_sha256"] = hashlib.sha256(digest_payload).hexdigest()
-    return normalized, result
 
 
 def uk_source_family_units(

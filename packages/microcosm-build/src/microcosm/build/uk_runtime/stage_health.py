@@ -12,6 +12,7 @@ import numpy as np
 from microcosm.build.gates import GateResult
 
 _UK_PACKAGE = "microcosm.build.uk"
+_FLOAT_RELATIVE_TOLERANCE = 8.0 * np.finfo(np.float64).eps
 
 
 def uk_stage_health_gate(
@@ -264,12 +265,25 @@ def _cgt_incidence_mass_gate(
     )
     denominator = max(abs(original), 1.0)
     imbalance = abs(clone - original) / denominator
+    effective_tolerance = max(tolerance, _FLOAT_RELATIVE_TOLERANCE)
     failures = []
     if original <= 0.0 or clone <= 0.0:
         failures.append(f"{stage}: clone and original mass must both be positive.")
-    if imbalance > tolerance:
-        failures.append(f"{stage}: clone/original mass imbalance {imbalance} exceeds {tolerance}.")
-    details = {"original_mass": original, "clone_mass": clone, "relative_imbalance": imbalance}
+    if imbalance > effective_tolerance:
+        failures.append(
+            f"{stage}: clone/original mass imbalance {imbalance} exceeds "
+            f"effective tolerance {effective_tolerance} (the greater of "
+            f"configured tolerance {tolerance} and floating-point comparison "
+            f"tolerance {_FLOAT_RELATIVE_TOLERANCE})."
+        )
+    details = {
+        "original_mass": original,
+        "clone_mass": clone,
+        "relative_imbalance": imbalance,
+        "configured_relative_tolerance": tolerance,
+        "floating_point_relative_tolerance": _FLOAT_RELATIVE_TOLERANCE,
+        "effective_relative_tolerance": effective_tolerance,
+    }
     return _fail(stage, check, failures, details) if failures else _pass(stage, check, details)
 
 

@@ -58,17 +58,7 @@ class MemoryApi:
 
 
 def _sample() -> dict:
-    return {
-        "mode": "bounded_source_households",
-        "requested_source_households": 5,
-        "eligible_source_families": 20,
-        "proportional_request": 5,
-        "forced_additions": 2,
-        "realized_source_families": 7,
-        "realized_household_rows": 9,
-        "seed": 42,
-        "receipt_sha256": "a" * 64,
-    }
+    return {"mode": "full"}
 
 
 def _recorder(tmp_path, **kwargs) -> StagingTelemetryV2:
@@ -281,9 +271,7 @@ def test_remote_read_back_validates_the_written_run(tmp_path):
     assert "runs/uk-smoke-5-42/run_manifest.json" in api.files
     assert "latest_staging.json" in api.files
     assert "runs.json" in api.files
-    remote_manifest = json.loads(
-        api.files["runs/uk-smoke-5-42/run_manifest.json"]
-    )
+    remote_manifest = json.loads(api.files["runs/uk-smoke-5-42/run_manifest.json"])
     assert remote_manifest["delivery"]["read_back"] == "passed"
 
 
@@ -365,12 +353,8 @@ def test_bundle_validation_checks_reviewed_artifact_digest(tmp_path):
 
 def test_canonical_version_2_fixture_cases_validate():
     v2 = FIXTURE_ROOT / "v2"
-    completed = validate_v2_bundle(
-        v2 / "completed-spine", "uk-spine-v2-fixture"
-    )
-    calibration = validate_v2_bundle(
-        v2 / "calibration", "uk-calibration-v2-fixture"
-    )
+    completed = validate_v2_bundle(v2 / "completed-spine", "uk-spine-v2-fixture")
+    calibration = validate_v2_bundle(v2 / "calibration", "uk-calibration-v2-fixture")
     failed = validate_v2_bundle(v2 / "failed", "uk-failed-v2-fixture")
     cases = json.loads((v2 / "contract-cases.json").read_text())
 
@@ -379,12 +363,11 @@ def test_canonical_version_2_fixture_cases_validate():
     assert failed["progress"]["failure"]["message"] == (
         "The build failed during input_verification."
     )
-    assert validate_staging_delivery(cases["delivery_success"])[
-        "upload_successes"
-    ] == 6
-    assert validate_staging_delivery(cases["delivery_failure"])[
-        "last_error_code"
-    ] == "READ_BACK_FAILED"
+    assert validate_staging_delivery(cases["delivery_success"])["upload_successes"] == 6
+    assert (
+        validate_staging_delivery(cases["delivery_failure"])["last_error_code"]
+        == "READ_BACK_FAILED"
+    )
     assert validate_staging_delivery(cases["deliberate_opt_out"])["enabled"] is False
     with pytest.raises(StagingContractError, match="Unsupported staging schema"):
         validate_v2_document(cases["unknown_version"])
@@ -395,9 +378,9 @@ def test_contract_fixture_checksums_are_pinned(version):
     fixture_dir = FIXTURE_ROOT / version
     for line in (fixture_dir / "SHA256SUMS").read_text().splitlines():
         expected, relative_path = line.split("  ", 1)
-        assert hashlib.sha256((fixture_dir / relative_path).read_bytes()).hexdigest() == (
-            expected
-        )
+        assert hashlib.sha256(
+            (fixture_dir / relative_path).read_bytes()
+        ).hexdigest() == (expected)
 
 
 def test_canonical_version_2_fixtures_are_reproducible():

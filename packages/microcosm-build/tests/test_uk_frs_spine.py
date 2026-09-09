@@ -1533,7 +1533,7 @@ def test_driver_derives_rung_tokens_from_sample_fraction() -> None:
     assert tool.UK_SAMPLE_RUNG_TOKENS[tool._rung_sample_fraction("1.0")] == "f100"
 
 
-def test_driver_accepts_explicit_bounded_smoke_posture(tmp_path: Path) -> None:
+def test_driver_accepts_full_fixture_smoke_posture(tmp_path: Path) -> None:
     tool = _load_tool()
 
     args = tool._parse_args(
@@ -1546,51 +1546,33 @@ def test_driver_accepts_explicit_bounded_smoke_posture(tmp_path: Path) -> None:
             str(tmp_path / "put2223uk.tab"),
             "--hmrc-ods",
             str(tmp_path / "hmrc.ods"),
-            "--sample-source-households",
-            "5",
             "--sample-seed",
             "41",
             "--smoke",
         ]
     )
 
-    assert args.sample_fraction is None
-    assert args.sample_source_households == 5
-    assert tool._sample_token(args) == "h0005-s41"
+    assert args.sample_fraction == 1.0
+    assert tool._sample_token(args) == "f100"
     assert (
-        tool._new_build_id(
-            datetime(2026, 9, 8, tzinfo=UTC),
-            source_households=5,
-            sample_seed=41,
-        )
-        == "uk-frs-spine-h0005-s41-20260908T000000Z"
+        tool._new_build_id(datetime(2026, 9, 8, tzinfo=UTC))
+        == "uk-frs-spine-20260908T000000Z"
     )
 
 
 @pytest.mark.parametrize(
     "extra",
     [
-        ["--sample-source-households", "0", "--smoke"],
-        ["--sample-source-households", "5"],
-        ["--smoke"],
+        ["--smoke", "--release-candidate"],
         [
-            "--sample-source-households",
-            "5",
             "--sample-fraction",
             "0.10",
-            "--smoke",
-        ],
-        ["--sample-source-households", "5", "--smoke", "--release-candidate"],
-        [
-            "--sample-source-households",
-            "5",
-            "--smoke",
             "--checkpoint-dir",
             "checkpoints",
         ],
     ],
 )
-def test_driver_refuses_invalid_bounded_smoke_options(
+def test_driver_refuses_incompatible_smoke_or_sampling_options(
     tmp_path: Path, extra: list[str]
 ) -> None:
     tool = _load_tool()
@@ -1725,7 +1707,7 @@ def test_driver_records_sampled_spine_sidecar(
     assert rows[0].rung == "f010"
 
 
-def test_driver_marks_bounded_smoke_outputs_non_release(
+def test_driver_marks_full_fixture_smoke_outputs_non_release(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     h5py = pytest.importorskip("h5py")
@@ -1739,32 +1721,6 @@ def test_driver_marks_bounded_smoke_outputs_non_release(
     monkeypatch.setattr(tool, "_rules_engine", lambda: _FakeUKEngine())
     _stub_policy_readers(monkeypatch)
     spi_tab, hmrc_ods = _patch_spi_spine_driver_runtime(tool, monkeypatch, tmp_path)
-    sampling = {
-        "fraction": None,
-        "seed": 41,
-        "rung_token": "h0001",
-        "pre_household_count": 2,
-        "post_household_count": 2,
-        "pre_family_count": 2,
-        "post_family_count": 2,
-        "normalization_factor": 1.0,
-        "strata_count": 1,
-        "receipt": {},
-        "sample_mode": "bounded_source_households",
-        "requested_source_households": 1,
-        "eligible_source_families": 2,
-        "proportional_request": 1,
-        "forced_additions": 1,
-        "realized_source_families": 2,
-        "realized_household_rows": 2,
-        "receipt_sha256": "a" * 64,
-    }
-    monkeypatch.setattr(
-        tool,
-        "sample_uk_spine_frame",
-        lambda frame, **kwargs: (frame, sampling),
-    )
-
     assert (
         tool.main(
             [
@@ -1776,14 +1732,12 @@ def test_driver_marks_bounded_smoke_outputs_non_release(
                 str(spi_tab),
                 "--hmrc-ods",
                 str(hmrc_ods),
-                "--sample-source-households",
-                "1",
                 "--sample-seed",
                 "41",
                 "--smoke",
                 "--staging-local-only",
                 "--staging-run-id",
-                "bounded-smoke-test",
+                "full-smoke-test",
                 "--staging-dir",
                 str(tmp_path / "staging"),
             ]
@@ -1794,24 +1748,12 @@ def test_driver_marks_bounded_smoke_outputs_non_release(
     sidecar = json.loads(output.with_suffix(".build.json").read_text())
     assert sidecar["non_release"] is True
     assert sidecar["release_posture"] == "non_release_smoke"
-    assert sidecar["sampling"] == sampling
-    bundle = validate_v2_bundle(tmp_path / "staging", "bounded-smoke-test")
+    assert sidecar["sampling"] is None
+    bundle = validate_v2_bundle(tmp_path / "staging", "full-smoke-test")
     assert bundle["run_manifest"]["non_release"] is True
-    assert bundle["run_manifest"]["sample"] == {
-        "mode": "bounded_source_households",
-        "requested_source_households": 1,
-        "eligible_source_families": 2,
-        "proportional_request": 1,
-        "forced_additions": 1,
-        "realized_source_families": 2,
-        "realized_household_rows": 2,
-        "seed": 41,
-        "receipt_sha256": "a" * 64,
-    }
+    assert bundle["run_manifest"]["sample"] == {"mode": "full"}
     assert sidecar["staging_delivery"] == bundle["run_manifest"]["delivery"]
-    event_pairs = [
-        (event["stage_id"], event["status"]) for event in bundle["events"]
-    ]
+    event_pairs = [(event["stage_id"], event["status"]) for event in bundle["events"]]
     assert ("frs_spine", "started") in event_pairs
     assert ("frs_spine", "completed") in event_pairs
     assert ("sampling", "completed") in event_pairs
@@ -1821,9 +1763,9 @@ def test_driver_marks_bounded_smoke_outputs_non_release(
     with h5py.File(output, mode="r") as file:
         assert bool(file.attrs["populace_non_release"]) is True
         assert file.attrs["populace_release_posture"] == "smoke"
-        assert "h0001-s41" in file.attrs["populace_smoke_build_id"]
+        assert file.attrs["populace_smoke_build_id"].startswith("uk-frs-spine-")
     rows = load_spool_rows(tmp_path / "logbook-spool")
-    assert rows[0].rung == "f001"
+    assert rows[0].rung == "f100"
 
 
 def test_driver_records_sanitized_failed_staging_lifecycle(

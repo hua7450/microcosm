@@ -135,226 +135,64 @@ artifacts are permitted; population H5 files, NumPy archives, source survey
 tables, row-level extracts, archives, credentials, and environment data are
 rejected before remote storage is called.
 
-## Bounded smoke verification
+## Smoke and exact-count verification
 
-The UK spine command accepts a source-family count only with the explicit
-non-release posture:
+The UK spine command keeps fractional input sampling for scale tests. The
+`--smoke` option marks its H5, sidecar, and staging records as non-release. It
+does not invoke national calibration, release certification, release assembly,
+or publication.
 
-```bash
-uv run python tools/build_uk_frs_spine.py \
-  --frs-raw-dir <licensed-frs-directory> \
-  --spi-tab <put2223uk.tab> \
-  --hmrc-ods <hmrc.ods> \
-  --spine-h5 <output-directory>/uk-smoke.h5 \
-  --sample-source-households 100 \
-  --sample-seed 578 \
-  --smoke \
-  --staging-run-id <unique-development-run-id> \
-  --staging-read-back
-```
+Continuous integration runs all current UK spine transformations against the
+complete deterministic synthetic fixture. It does not reduce the fixture by a
+source-family count. Every output stays below the runner's temporary directory,
+and the workflow receives no external writer credential.
 
-This command constructs and enriches the real spine, validates it, writes the
-H5 and sidecar, validates local telemetry, optionally verifies authenticated
-remote reads, and stops. It does not invoke national calibration, release
-certification, release assembly, or publication. The H5 attributes, sidecar,
-and telemetry identify the result as non-release. Release assembly and
-publication refuse that evidence even when remote delivery succeeded.
-
-Continuous integration uses a much smaller deterministic synthetic input and
-`--staging-local-only`. Every output stays below the runner's temporary
-directory, checkout credentials are not persisted, repository permission is
-`contents: read`, and fork-originated pull requests run without secrets. The
-job does not reference the protected GitHub `staging` environment.
-
-The deterministic fixture contains 135 source families and exercises all 28
-current UK spine transformations. Five requested families is valid for the
-sampler, which retains 13 after structural additions, but it cannot reach the
-capital-gains transformation's fixed minimum of 270 candidate households. For
-seed 42, the smallest complete fixture run requests 63 source families. The
-sampler retains 69; the support-channel and capital-gains clone transformations
-then provide enough candidate households for the final donor transformation.
-The fixture also contains positive source evidence for every required retained
-HMRC income field.
-
-Run the exact CI command locally with:
+Run the integration command locally with:
 
 ```bash
 uv run python tools/build_uk_frs_spine.py \
   --synthetic-fixture-dir packages/microcosm-graph/tests/fixtures/parity/uk_spine/sources \
   --spine-h5 <temporary-directory>/uk-smoke.h5 \
-  --sample-source-households 63 \
+  --sample-fraction 1.0 \
   --sample-seed 42 \
   --smoke \
   --staging-local-only \
   --staging-dir <temporary-directory>/staging \
-  --staging-run-id ci-uk-smoke-h0063-s42
+  --staging-run-id ci-uk-smoke-full-s42
 ```
 
-This fixture option refuses licensed input options, remote staging, and any
-non-smoke use. The workflow
-`.github/workflows/integration-tests.yml` runs on manual dispatch and every
-pull request to `main`, without a path filter. Its shell commands live in
-`tools/run_integration_tests.sh`. The test prints total and per-transformation
-elapsed time. A local Apple-silicon run completed the command in approximately
-45 seconds on 2026-09-08; dependency setup and runner variance remain within
-the initial 15-minute workflow timeout.
+The workflow `.github/workflows/integration-tests.yml` runs on manual dispatch
+and every pull request to `main`, without a path filter. Its commands live in
+`tools/run_integration_tests.sh`. The test reports total elapsed time and the
+elapsed time for each transformation.
 
-### Local 100-source-household interface check
-
-On 2026-09-08, the unpushed implementation completed this local-only command
-against the deterministic synthetic input:
+Exact household cardinality belongs to national calibration, after the complete
+spine pool and target matrix exist. Supply all three selection options together:
 
 ```bash
-.venv/bin/python tools/build_uk_frs_spine.py \
-  --synthetic-fixture-dir packages/microcosm-graph/tests/fixtures/parity/uk_spine/sources \
-  --spine-h5 <temporary-directory>/uk-smoke.h5 \
-  --sample-source-households 100 \
-  --sample-seed 42 \
-  --smoke \
-  --staging-local-only \
-  --staging-dir <temporary-directory>/staging \
-  --staging-run-id local-uk-smoke-h0100-s42 \
-  --staging-candidate-id local-uk-smoke-h0100-s42
+uv run python tools/calibrate_uk_national_dataset.py \
+  <required calibration inputs and outputs> \
+  --exact-k <household-count> \
+  --exact-k-pi-hi 0.95 \
+  --exact-k-seed 17
 ```
 
-The version 2 timestamps recorded 104 seconds from run creation to completion.
-The sampler selected 100 of 135 eligible source families with no additions,
-and the completed construction sequence contained 670 household rows and 805
-person rows after support and donor-row creation. The sample receipt digest was
-`41606b401732bfad71a7087f64c5885070882900f95a774f01f7b70c958f5307`;
-the synthetic fixture digest was
-`3e015967d7804a0724f3ae7f263453e3bb66c69c99bc9ef9baf88ecda2568c75`.
-The output H5 digest was
-`e515f20e45cf987995e27854e998965cebeac083915f1fea9f11791a8ec1ee85`,
-and its build-sidecar digest was
-`b2879b04ec4ef8b97f6045de3eb19325eff38eaa430591b7e6d10ebf3d0503cd`.
-Local contract validation accepted the index, latest-run pointer, manifest,
-progress document, and all 67 ordered events. Every output was written beneath
-the temporary directory, and the delivery record reports `local_only`, zero
-upload attempts, and no configured repository.
+For `K` below the input household count, calibration learns inclusion
+probabilities on the complete pool, draws a seeded fixed-size Sampford support,
+normalizes the selected input weights by their inclusion probabilities, and
+refits ordinary calibration on exactly `K` households. For `K` equal to the
+input count, it keeps the full support and still refits the weights. The build
+record includes the requested count, realized count, seed, selection receipt,
+and refit-baseline diagnostics.
 
-This is evidence for the command-line and local telemetry interface only. It
-does not replace the required run against licensed inputs with authenticated
-delivery and read-back from `policyengine/populace-uk-staging`.
-
-### Authenticated 100-source-household verification
-
-On 2026-09-09, the unpushed implementation completed the required non-release
-smoke run against licensed inputs and the private
-`policyengine/populace-uk-staging` repository. The exact command was:
-
-```bash
-.venv/bin/python tools/build_uk_frs_spine.py \
-  --frs-raw-dir /private/tmp/microcosm-uk-smoke-inputs.yNa0nY/extracted/frs \
-  --spine-h5 /private/tmp/microcosm-uk-smoke-inputs.yNa0nY/run/uk-smoke-h0100-s578-20260909T125305Z.h5 \
-  --spi-tab /private/tmp/microcosm-uk-smoke-inputs.yNa0nY/extracted/spi/put2223uk.tab \
-  --hmrc-ods /private/tmp/microcosm-uk-smoke-inputs.yNa0nY/public/Collated_Tables_3_1_to_3_11_2324.ods \
-  --cgt-ods /private/tmp/microcosm-uk-smoke-inputs.yNa0nY/public/Table_3_2025_Size_of_gain_by_income.ods \
-  --was-tab /private/tmp/microcosm-uk-smoke-inputs.yNa0nY/extracted/was/was_round_8_hhold_eul_may_2025_230525.tab \
-  --lcfs-hh-tab /private/tmp/microcosm-uk-smoke-inputs.yNa0nY/extracted/lcfs/dvhh_ukanon_v2_2023.tab \
-  --lcfs-person-tab /private/tmp/microcosm-uk-smoke-inputs.yNa0nY/extracted/lcfs/dvper_ukanon_202324_2023.tab \
-  --etb-tab /private/tmp/microcosm-uk-smoke-inputs.yNa0nY/extracted/etb/householdv2_1977-2024.tab \
-  --sample-source-households 100 \
-  --sample-seed 578 \
-  --smoke \
-  --staging-dir /private/tmp/microcosm-uk-smoke-inputs.yNa0nY/run/staging \
-  --staging-repo-id policyengine/populace-uk-staging \
-  --staging-prefix runs \
-  --staging-run-id uk-smoke-h0100-s578-20260909T125305Z \
-  --staging-candidate-id uk-smoke-h0100-s578-20260909T125305Z \
-  --staging-upload-interval-seconds 30 \
-  --staging-read-back
-```
-
-The run started at `2026-09-09T12:53:50Z` and completed at
-`2026-09-09T12:58:20Z`, for 270 seconds total. The existing monotonic stage
-observer recorded 226.545 seconds inside the 28 transformations; input
-verification, serialization, remote writes, authenticated reads, and other
-command overhead account for the remaining 43.455 seconds. The transformation
-durations were:
-
-| Transformation | Seconds |
-| --- | ---: |
-| `frs_spine` | 7.952 |
-| `age_tail` | 0.005 |
-| `frs_employment` | 4.042 |
-| `frs_council_tax` | 0.929 |
-| `frs_disability` | 0.751 |
-| `frs_education` | 3.689 |
-| `frs_legacy_proxies` | 5.261 |
-| `frs_education_grant_split` | 0.937 |
-| `frs_take_up` | 0.008 |
-| `frs_person_draws` | 0.122 |
-| `frs_household_draws` | 0.003 |
-| `frs_brma` | 0.507 |
-| `was_wealth` | 33.292 |
-| `regional_property_uprating` | 0.014 |
-| `lcfs_consumption` | 46.191 |
-| `etb_vat` | 13.422 |
-| `etb_services` | 24.128 |
-| `frs_hmrc_spine_leaves` | 0.387 |
-| `spi_support_channel` | 0.124 |
-| `hmrc_spi_income_spine` | 82.990 |
-| `uc_reporter_redraw` | 1.243 |
-| `uc_capital_coherence` | 0.007 |
-| `uc_deduction_attributes` | 0.006 |
-| `cgt_incidence_clone` | 0.018 |
-| `cgt_band_donors` | 0.036 |
-| `hmrc_cgt_gains_spine` | 0.212 |
-| `salary_sacrifice` | 0.261 |
-| `student_loans` | 0.009 |
-
-The sampler found 16,288 eligible source families, requested 100, added 24
-families required for structural coverage, and retained 124 source families
-and 124 initial household rows. Its receipt digest was
-`097e41354d4a50ce565cb27d8bfd290fec5634fc9b09537366098bf8d5ef5fe2`.
-Support and donor-row construction produced 670 household rows, 796 benefit-unit
-rows, and 1,421 person rows. The final frame content identity was
-`158b8f3783feeb3b3fcd893d7217dc15b0dedab6adc200ced1c482dbe7947353`,
-and the stochastic contract digest was
-`c0c506e18e8c0537b715a6710a72452ee79116e9f7ec9f915b9e2d101883573b`.
-The pinned version 1 and version 2 telemetry fixture-manifest digests remained
-`165d24caf29b82afdb0ce241b65d088da552abd59d6ddabf4b2183b9a61be75b`
-and `372a1c82e4bafbe636299636f25d51a2edad7d7dc28814cadbddac6f436948f0`.
-
-The local H5 was 4,760,660 bytes with digest
-`dc5d81bdd0ce2fcd7afa23b65c68948c10f87a89456349af07de91962a68706e`.
-The build sidecar digest was
-`095ce3fab51562fe7e797f4ff8e18efd38e359bba162539d0b5cc41202f8211d`.
-Both remained under the operator's temporary directory and were not uploaded.
-The remote repository contained only these five run-contract files:
-
-```text
-latest_staging.json
-runs.json
-runs/uk-smoke-h0100-s578-20260909T125305Z/events.ndjson
-runs/uk-smoke-h0100-s578-20260909T125305Z/progress.json
-runs/uk-smoke-h0100-s578-20260909T125305Z/run_manifest.json
-```
-
-Authenticated read-back passed for the manifest, progress document,
-latest-run pointer, and run index. All declared schema versions were 2, all
-identifiers matched, the event sequence contained 67 contiguous records, and
-the last event reported `complete` with status `completed`. The exact remote
-payload also passed the version-aware parser from
-`PolicyEngine/calibration-diagnostics#181`. No unapproved path existed beneath
-the run directory.
-
-The local and remote latest-run pointer, run index, and event stream were
-byte-identical. The remote manifest and progress document reported 40 upload
-attempts and successes, while the final local copies reported 45. This is the
-expected result of the last five-file synchronization: each remote document
-captures the count before its own upload, and the local bundle is persisted
-again after all five uploads. All other fields were identical.
-
-The staging manifest records `run_kind=smoke`, `non_release=true`, and a null
-`release_id`. The local validation sidecar retained an internal `release_id`
-named `uk-frs-spine-h0100-s578-20260909T125350Z` because that existing report
-schema assigns an identifier to each build; the same report records
-`release_candidate=false` and `shippable=false`. That identifier was not placed
-in staging records or written to a production repository. The command did not
-run calibration, certification, release assembly, or publication, and it did
-not modify any tracked source file.
+An authenticated staging transport check completed on 2026-09-09 using the
+earlier source-family-count interface. It uploaded only the five version 2 JSON
+run records for `uk-smoke-h0100-s578-20260909T125305Z` to
+`policyengine/populace-uk-staging`; it did not upload the H5 dataset. The
+manifest, progress record, latest-run pointer, run index, and event stream all
+passed authenticated read-back and version-aware parsing. That obsolete option
+has since been removed because it selected source families before construction
+and therefore did not guarantee a requested final household count.
 
 ## Monitoring authentication
 

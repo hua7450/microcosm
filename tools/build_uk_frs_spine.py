@@ -98,7 +98,6 @@ from microcosm.build.uk_runtime.national_frame import (
 from microcosm.build.uk_runtime.national_sampling import (
     UK_SAMPLE_RUNG_TOKENS,
     UK_SAMPLE_SEED_DEFAULT,
-    sample_uk_spine_frame,
 )
 from microcosm.build.uk_runtime.regional_uprating import (
     UKRegionalPropertyUpratingStageTransform,
@@ -172,22 +171,6 @@ def _rung_sample_fraction(value: str) -> float:
     return fraction
 
 
-def _positive_source_household_count(value: str) -> int:
-    """Parse the bounded smoke-build source-family target."""
-
-    try:
-        count = int(value)
-    except ValueError as error:
-        raise argparse.ArgumentTypeError(
-            f"source-household count must be an integer; got {value!r}."
-        ) from error
-    if count < 1:
-        raise argparse.ArgumentTypeError(
-            "source-household count must be a positive integer."
-        )
-    return count
-
-
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
@@ -236,33 +219,23 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=Path,
         help="Optional directory for a copy of the completed spine checkpoint.",
     )
-    sampling = parser.add_mutually_exclusive_group()
-    sampling.add_argument(
+    parser.add_argument(
         "--sample-fraction",
         type=_rung_sample_fraction,
-        default=None,
+        default=1.0,
         help=(
             "Scale-ladder rung (#624): 0.01 smoke, 0.10 dev, or 1.0 full. "
             "Below 1.0 the raw FRS spine is sampled immediately after ingest, "
             "renormalized to full household mass, and treated as a receipt."
         ),
     )
-    sampling.add_argument(
-        "--sample-source-households",
-        type=_positive_source_household_count,
-        help=(
-            "Bounded source-FRS-family target for an explicit non-release smoke "
-            "build. Requires --smoke and derives run identity from this count and "
-            "--sample-seed."
-        ),
-    )
     parser.add_argument(
         "--smoke",
         action="store_true",
         help=(
-            "Select the non-release smoke posture. This posture requires "
-            "--sample-source-households and ends after spine and telemetry "
-            "verification."
+            "Mark the output as non-release and stop after spine and telemetry "
+            "verification. Combine with --sample-fraction 0.01 for a small "
+            "licensed-data run, or use the complete synthetic fixture in tests."
         ),
     )
     parser.add_argument(
@@ -313,16 +286,10 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     add_uk_staging_arguments(parser)
     args = parser.parse_args(argv)
-    if args.sample_fraction is None and args.sample_source_households is None:
-        args.sample_fraction = 1.0
     if args.sample_seed < 0:
         parser.error("sample seed must be a non-negative integer.")
-    if args.sample_source_households is not None and not args.smoke:
-        parser.error("--sample-source-households requires the explicit --smoke posture.")
-    if args.smoke and args.sample_source_households is None:
-        parser.error("--smoke requires --sample-source-households.")
-    if args.sample_source_households is not None and args.release_candidate:
-        parser.error("bounded smoke builds refuse --release-candidate.")
+    if args.smoke and args.release_candidate:
+        parser.error("non-release smoke builds refuse --release-candidate.")
     if _is_sampled(args) and args.checkpoint_dir is not None:
         parser.error(
             "sampled spine builds refuse --checkpoint-dir; sampled artifacts "
@@ -338,7 +305,9 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         if missing:
             parser.error(f"production builds require {', '.join(missing)}.")
     else:
-        supplied = [flag for flag, value in production_inputs.items() if value is not None]
+        supplied = [
+            flag for flag, value in production_inputs.items() if value is not None
+        ]
         supplied.extend(
             flag
             for flag, value in (
@@ -364,12 +333,10 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def _is_sampled(args: argparse.Namespace) -> bool:
-    return args.sample_source_households is not None or args.sample_fraction != 1.0
+    return args.sample_fraction != 1.0
 
 
 def _sample_token(args: argparse.Namespace) -> str:
-    if args.sample_source_households is not None:
-        return f"h{args.sample_source_households:04d}-s{args.sample_seed}"
     return UK_SAMPLE_RUNG_TOKENS[args.sample_fraction]
 
 
@@ -912,18 +879,8 @@ def _structural_columns(frame) -> frozenset[str]:
     return frozenset(columns)
 
 
-def _new_build_id(
-    timestamp: datetime,
-    *,
-    source_households: int | None = None,
-    sample_seed: int | None = None,
-) -> str:
-    sample_identity = (
-        f"-h{source_households:04d}-s{sample_seed}"
-        if source_households is not None and sample_seed is not None
-        else ""
-    )
-    return f"uk-frs-spine{sample_identity}-{timestamp.strftime('%Y%m%dT%H%M%SZ')}"
+def _new_build_id(timestamp: datetime) -> str:
+    return f"uk-frs-spine-{timestamp.strftime('%Y%m%dT%H%M%SZ')}"
 
 
 def _record_attempt(
@@ -954,20 +911,11 @@ def _record_attempt(
 def _sample_spine_frame(
     frame,
     *,
-    fraction: float | None,
-    source_households: int | None,
+    fraction: float,
     seed: int,
 ) -> tuple[object, dict[str, object] | None]:
-    if source_households is not None:
-        return sample_uk_spine_frame(
-            frame,
-            source_households=source_households,
-            seed=seed,
-        )
     if fraction == 1.0:
         return frame, None
-    if fraction is None:
-        raise ValueError("A sampled spine requires a fraction or source-family count.")
     household_weight = frame.weights_for("household")
     pre_households = int(len(frame.table("household")))
     sampled, receipt = sample_frame_households(
@@ -999,13 +947,11 @@ class _SampledGraphRootTransform:
         self,
         transform,
         *,
-        fraction: float | None,
-        source_households: int | None,
+        fraction: float,
         seed: int,
     ) -> None:
         self.transform = transform
         self.fraction = fraction
-        self.source_households = source_households
         self.seed = seed
         self.sampling: dict[str, object] | None = None
 
@@ -1013,7 +959,6 @@ class _SampledGraphRootTransform:
         sampled, self.sampling = _sample_spine_frame(
             assembled,
             fraction=self.fraction,
-            source_households=self.source_households,
             seed=self.seed,
         )
         # Graph populations use row positions as their internal alignment
@@ -1024,10 +969,7 @@ class _SampledGraphRootTransform:
             for entity in sampled.entities
         }
         tables.update(
-            {
-                name: sampled.link(name).reset_index(drop=True)
-                for name in sampled.links
-            }
+            {name: sampled.link(name).reset_index(drop=True) for name in sampled.links}
         )
         return Frame(
             tables,
@@ -1042,17 +984,9 @@ class _SampledGraphRootTransform:
         )
 
     def effective_fraction(self) -> float:
-        """Return the realized source-family share after root sampling."""
+        """Return the configured input sampling fraction."""
 
-        if self.source_households is None:
-            return float(self.fraction or 1.0)
-        if self.sampling is None:
-            raise RuntimeError("Source-family sampling has not completed.")
-        eligible = int(self.sampling["eligible_source_families"])
-        realized = int(self.sampling["realized_source_families"])
-        if eligible < 1:
-            raise RuntimeError("Source-family sampling reported no eligible families.")
-        return min(1.0, realized / eligible)
+        return float(self.fraction)
 
     def __call__(self, frame):
         return self._sample(self.transform(frame))
@@ -1266,12 +1200,7 @@ def _rung_abort_receipt(
         "artifact_kind": "uk_frs_spine_rung_abort_receipt",
         "build_kind": "uk_frs_spine",
         "sampling": {
-            "sample_fraction": (
-                None
-                if args.sample_fraction is None
-                else float(args.sample_fraction)
-            ),
-            "sample_source_households": args.sample_source_households,
+            "sample_fraction": float(args.sample_fraction),
             "sample_seed": int(args.sample_seed),
             "rung_token": _sample_token(args),
         },
@@ -1325,32 +1254,8 @@ def _create_staging_telemetry(
 def _telemetry_sample(
     args: argparse.Namespace, sampling: Mapping[str, object] | None
 ) -> dict[str, object] | None:
-    if args.sample_source_households is not None:
-        if sampling is None:
-            raise RuntimeError("Bounded smoke sampling produced no receipt.")
-        return {
-            "mode": "bounded_source_households",
-            "requested_source_households": sampling["requested_source_households"],
-            "eligible_source_families": sampling["eligible_source_families"],
-            "proportional_request": sampling["proportional_request"],
-            "forced_additions": sampling["forced_additions"],
-            "realized_source_families": sampling["realized_source_families"],
-            "realized_household_rows": sampling["realized_household_rows"],
-            "seed": sampling["seed"],
-            "receipt_sha256": sampling["receipt_sha256"],
-        }
     if args.sample_fraction == 1.0:
-        return {
-            "mode": "full",
-            "requested_source_households": None,
-            "eligible_source_families": None,
-            "proportional_request": None,
-            "forced_additions": 0,
-            "realized_source_families": None,
-            "realized_household_rows": None,
-            "seed": None,
-            "receipt_sha256": None,
-        }
+        return {"mode": "full"}
     return None
 
 
@@ -1364,26 +1269,13 @@ def _staging_delivery(
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
-    # The root-journal schema accepts only its fixed fraction categories.
-    # Bounded smoke identity remains exact in the build id and sampling receipt.
-    rung = (
-        UK_SAMPLE_RUNG_TOKENS[args.sample_fraction]
-        if args.sample_source_households is None
-        else UK_SAMPLE_RUNG_TOKENS[0.01]
-    )
-    graph_sample_fraction = (
-        args.sample_fraction if args.sample_fraction is not None else 1.0
-    )
+    rung = UK_SAMPLE_RUNG_TOKENS[args.sample_fraction]
     started_at = time.perf_counter()
     started_ts = datetime.now(UTC)
     predecessor = resolve_predecessor(args.logbook_prev_row_digest)
     digest = preflight_digest(_PIPELINE)
     state = AttemptState(
-        build_id=_new_build_id(
-            started_ts,
-            source_households=args.sample_source_households,
-            sample_seed=args.sample_seed,
-        ),
+        build_id=_new_build_id(started_ts),
         identity_digest=digest,
         input_pins_digest=digest,
         phases_reached=["attempt_started"],
@@ -1417,24 +1309,14 @@ def main(argv: list[str] | None = None) -> int:
             stale.unlink(missing_ok=True)
         telemetry = _create_staging_telemetry(args, state=state)
         if telemetry is not None:
-            initial_sample = (
-                None
-                if args.sample_source_households is not None
-                else _telemetry_sample(args, None)
-            )
+            initial_sample = _telemetry_sample(args, None)
             if initial_sample is not None:
                 telemetry.set_sample(initial_sample)
             telemetry.stage(
                 "configuration",
                 event_status="completed",
                 smoke=args.smoke,
-                sample_mode=(
-                    "bounded_source_households"
-                    if args.sample_source_households is not None
-                    else "fraction"
-                    if args.sample_fraction != 1.0
-                    else "full"
-                ),
+                sample_mode=("fraction" if args.sample_fraction != 1.0 else "full"),
             )
         code_pin = git_code_pin(_REPOSITORY)
         append_phase(state, "configured")
@@ -1445,8 +1327,7 @@ def main(argv: list[str] | None = None) -> int:
         graph = uk_spine_graph(
             spec,
             source_mode="split",
-            sample_fraction=graph_sample_fraction,
-            sample_source_households=args.sample_source_households,
+            sample_fraction=args.sample_fraction,
             sample_seed=args.sample_seed,
         )
         compiled_graph = compile_graph(graph)
@@ -1482,9 +1363,11 @@ def main(argv: list[str] | None = None) -> int:
                     "lcfs_consumption requires caller-supplied private inputs: "
                     f"{', '.join(missing_lcfs)}."
                 )
-        if args.synthetic_fixture_dir is None and (
-            "etb_vat" in stage_names or "etb_services" in stage_names
-        ) and args.etb_tab is None:
+        if (
+            args.synthetic_fixture_dir is None
+            and ("etb_vat" in stage_names or "etb_services" in stage_names)
+            and args.etb_tab is None
+        ):
             raise ValueError(
                 "--etb-tab is required when etb_vat or etb_services is scheduled."
             )
@@ -1638,7 +1521,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         implementations["spi_support_channel"] = UKSPISupportChannelStageTransform(
             stage=stages_by_name["spi_support_channel"],
-            sample_fraction=graph_sample_fraction,
+            sample_fraction=args.sample_fraction,
         )
         implementations["hmrc_spi_income_spine"] = hmrc_spine_transform
         if "uc_reporter_redraw" in stage_names:
@@ -1704,9 +1587,7 @@ def main(argv: list[str] | None = None) -> int:
             fixture_by_name = {stage.stage: stage for stage in fixture_stages}
             implementations["frs_hmrc_spine_leaves"] = (
                 UKFRSHMRCSpineLeavesStageTransform(
-                    _synthetic_fixture_input(
-                        args.synthetic_fixture_dir, "frs_raw"
-                    ),
+                    _synthetic_fixture_input(args.synthetic_fixture_dir, "frs_raw"),
                     stage=fixture_by_name["frs_hmrc_spine_leaves"],
                     sampled_rung=True,
                 )
@@ -1715,23 +1596,9 @@ def main(argv: list[str] | None = None) -> int:
         sampled_root = _SampledGraphRootTransform(
             implementations["frs_spine"],
             fraction=args.sample_fraction,
-            source_households=args.sample_source_households,
             seed=args.sample_seed,
         )
         implementations["frs_spine"] = sampled_root
-        if args.sample_source_households is not None:
-            support_fraction = float(
-                getattr(
-                    implementations["spi_support_channel"],
-                    "sample_fraction",
-                    1.0,
-                )
-            )
-            object.__setattr__(
-                implementations["spi_support_channel"],
-                "sample_fraction_provider",
-                lambda: support_fraction * sampled_root.effective_fraction(),
-            )
         if telemetry is not None:
             implementations = {
                 stage_id: _ObservedGraphTransform(
@@ -1801,12 +1668,6 @@ def main(argv: list[str] | None = None) -> int:
             telemetry.stage(
                 "sampling",
                 event_status="completed",
-                requested_source_households=args.sample_source_households,
-                realized_source_families=(
-                    None
-                    if sampling is None
-                    else sampling.get("realized_source_families")
-                ),
                 realized_household_rows=(
                     len(frame.table("household"))
                     if sampling is None

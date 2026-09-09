@@ -27,15 +27,7 @@
   "run_id": "uk-spine-v2-fixture",
   "run_kind": "smoke",
   "sample": {
-    "eligible_source_families": 25,
-    "forced_additions": 2,
-    "mode": "bounded_source_households",
-    "proportional_request": 5,
-    "realized_household_rows": 9,
-    "realized_source_families": 7,
-    "receipt_sha256": "54dddbf009cba29994aba73df3984b981b696eb3905009245acdfcbcc428961f",
-    "requested_source_households": 5,
-    "seed": 42
+    "mode": "full"
   },
   "schema_name": "microcosm.staging.progress",
   "schema_version": 2,

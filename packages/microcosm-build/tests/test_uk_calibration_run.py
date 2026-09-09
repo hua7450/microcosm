@@ -334,6 +334,57 @@ def test_run_uk_calibration_writes_cross_pinned_outputs(monkeypatch, tmp_path: P
     assert result.logbook_spool.exists()
 
 
+def test_run_uk_calibration_writes_exact_k_candidate_and_receipt(
+    monkeypatch, tmp_path: Path
+) -> None:
+    pytest.importorskip("tables")
+    monkeypatch.setattr(
+        calibration_run,
+        "uk_aggregate_admin_totals",
+        lambda frame, manifest: (_admin_anchor_values(), []),
+    )
+    frame = _frame()
+    paths = _paths(tmp_path)
+    write_uk_national_frame(frame, paths.input_h5)
+    _write_spine_sidecar(paths.input_h5, frame)
+
+    result = run_uk_calibration(
+        paths=paths,
+        input_sha256=_sha(paths.input_h5),
+        ledger_artifact=object(),
+        register_registry=_registry(),
+        band_edge_registry=_registry(),
+        calibration_year=2025,
+        exclusion_receipt={},
+        doctrine=UKNationalSolveDoctrine(epochs=3),
+        doctrine_overrides={},
+        measure_resolver=None,
+        source_pins={
+            "input_h5": {
+                "sha256": _sha(paths.input_h5),
+                "size_bytes": paths.input_h5.stat().st_size,
+            }
+        },
+        run_config_extra={"calibration_year": 2025},
+        release_id="exact-k-integration",
+        exact_k=2,
+        exact_k_pi_hi=1.0,
+        exact_k_seed=17,
+    )
+
+    staged, _ = load_uk_national_frame(paths.staging_h5)
+    assert staged.n("household") == 2
+    assert staged.n("benunit") == 2
+    assert staged.n("person") == 2
+    exact_k = result.build_record["calibration"]["exact_k_ladder"]
+    assert exact_k["k"] == 2
+    assert exact_k["realized_households"] == 2
+    assert exact_k["pool_households"] == 4
+    assert exact_k["selection_receipt"]["design"] == "sampford"
+    diagnostics = json.loads(paths.diagnostics_json.read_text())
+    assert diagnostics["build"]["exact_k_ladder"] == exact_k
+
+
 def test_run_uk_calibration_requires_the_band_edge_register(
     tmp_path: Path,
 ):

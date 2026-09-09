@@ -175,28 +175,8 @@ _SHA256_SCHEMA = {"type": "string", "pattern": _SHA256.pattern}
 
 _SAMPLE_SCHEMA: dict[str, Any] = {
     "type": ["object", "null"],
-    "properties": {
-        "mode": {"enum": ["full", "bounded_source_households"]},
-        "requested_source_households": {"type": ["integer", "null"], "minimum": 1},
-        "eligible_source_families": {"type": ["integer", "null"], "minimum": 0},
-        "proportional_request": {"type": ["integer", "null"], "minimum": 0},
-        "forced_additions": {"type": "integer", "minimum": 0},
-        "realized_source_families": {"type": ["integer", "null"], "minimum": 0},
-        "realized_household_rows": {"type": ["integer", "null"], "minimum": 0},
-        "seed": {"type": ["integer", "null"]},
-        "receipt_sha256": {"anyOf": [_SHA256_SCHEMA, {"type": "null"}]},
-    },
-    "required": [
-        "mode",
-        "requested_source_households",
-        "eligible_source_families",
-        "proportional_request",
-        "forced_additions",
-        "realized_source_families",
-        "realized_household_rows",
-        "seed",
-        "receipt_sha256",
-    ],
+    "properties": {"mode": {"const": "full"}},
+    "required": ["mode"],
     "additionalProperties": False,
 }
 
@@ -269,7 +249,10 @@ _FAILURE_SCHEMA: dict[str, Any] = {
 
 _PIPELINE_SCHEMA: dict[str, Any] = {
     "type": "object",
-    "properties": {"id": _SAFE_ID_SCHEMA, "version": {"type": "string", "minLength": 1}},
+    "properties": {
+        "id": _SAFE_ID_SCHEMA,
+        "version": {"type": "string", "minLength": 1},
+    },
     "required": ["id", "version"],
     "additionalProperties": False,
 }
@@ -485,7 +468,9 @@ def validate_staging_delivery(payload: Mapping[str, Any]) -> dict[str, Any]:
 
     normalized = _jsonable(payload)
     validator = Draft202012Validator(_DELIVERY_SCHEMA)
-    errors = sorted(validator.iter_errors(normalized), key=lambda error: list(error.path))
+    errors = sorted(
+        validator.iter_errors(normalized), key=lambda error: list(error.path)
+    )
     if errors:
         raise StagingContractError(errors[0].message)
     enabled = normalized["enabled"]
@@ -497,9 +482,13 @@ def validate_staging_delivery(payload: Mapping[str, Any]) -> dict[str, Any]:
         raise StagingContractError("upload_successes cannot exceed upload_attempts.")
     if enabled:
         if mode == "disabled" or run_id is None or reason is not None:
-            raise StagingContractError("Enabled staging has contradictory delivery fields.")
+            raise StagingContractError(
+                "Enabled staging has contradictory delivery fields."
+            )
         if mode == "local_and_remote" and not repository:
-            raise StagingContractError("Remote staging requires a configured repository.")
+            raise StagingContractError(
+                "Remote staging requires a configured repository."
+            )
         if mode == "local_only" and repository is not None:
             raise StagingContractError("Local-only staging cannot name a repository.")
     elif (
@@ -510,7 +499,9 @@ def validate_staging_delivery(payload: Mapping[str, Any]) -> dict[str, Any]:
         or normalized["upload_attempts"]
         or normalized["upload_successes"]
     ):
-        raise StagingContractError("Disabled staging has contradictory delivery fields.")
+        raise StagingContractError(
+            "Disabled staging has contradictory delivery fields."
+        )
     return normalized
 
 
@@ -546,7 +537,9 @@ def validate_v2_document(payload: Mapping[str, Any]) -> dict[str, Any]:
             f"Unsupported staging schema identity: {name!r} version {version!r}."
         )
     validator = Draft202012Validator(SCHEMAS[name], format_checker=FormatChecker())
-    errors = sorted(validator.iter_errors(normalized), key=lambda error: list(error.path))
+    errors = sorted(
+        validator.iter_errors(normalized), key=lambda error: list(error.path)
+    )
     if errors:
         path = ".".join(str(part) for part in errors[0].absolute_path)
         label = f" at {path}" if path else ""
@@ -583,18 +576,24 @@ class UKStagingContentPolicy:
         if suffix in _PROHIBITED_SUFFIXES:
             raise StagingContentError(f"Prohibited staging file type: {suffix}.")
         if suffix not in {".json", ".ndjson"}:
-            raise StagingContentError(f"Unapproved staging file type: {suffix or '<none>'}.")
+            raise StagingContentError(
+                f"Unapproved staging file type: {suffix or '<none>'}."
+            )
         if len(data) > self.max_file_bytes:
             raise StagingContentError(
                 f"Staging file exceeds the {self.max_file_bytes}-byte limit."
             )
         try:
             if suffix == ".ndjson":
-                values = [json.loads(line) for line in data.decode().splitlines() if line]
+                values = [
+                    json.loads(line) for line in data.decode().splitlines() if line
+                ]
             else:
                 values = json.loads(data)
         except (UnicodeDecodeError, ValueError) as exc:
-            raise StagingContentError("Staging files must contain valid UTF-8 JSON.") from exc
+            raise StagingContentError(
+                "Staging files must contain valid UTF-8 JSON."
+            ) from exc
         self.validate_payload(values)
 
     def validate_artifact(
@@ -617,7 +616,9 @@ class UKStagingContentPolicy:
         try:
             data = source.read_bytes()
         except OSError as exc:
-            raise StagingContentError("Reviewed staging artifact is not readable.") from exc
+            raise StagingContentError(
+                "Reviewed staging artifact is not readable."
+            ) from exc
         self.validate_remote_file(f"artifacts/{logical_name}.json", data)
         return data
 
@@ -644,7 +645,9 @@ class HuggingFaceDatasetStorage:
 
     def __post_init__(self) -> None:
         if not isinstance(self.repo_id, str) or not self.repo_id.strip():
-            raise StagingContractError("Remote staging requires a repository identifier.")
+            raise StagingContractError(
+                "Remote staging requires a repository identifier."
+            )
         self.repo_id = self.repo_id.strip()
 
     def _api(self) -> Any:
@@ -718,13 +721,17 @@ class StagingTelemetryV2:
                 "Do not construct telemetry for disabled staging; record an opt-out."
             )
         if delivery_mode == "local_and_remote" and not (repo_id or "").strip():
-            raise StagingContractError("Remote staging requires a repository identifier.")
+            raise StagingContractError(
+                "Remote staging requires a repository identifier."
+            )
         if delivery_mode == "local_only" and repo_id not in {None, ""}:
             raise StagingContractError("Local-only staging cannot name a repository.")
         self.country_code = country_code
         self.pipeline_version = pipeline_version.strip()
         self.delivery_mode = delivery_mode
-        self.repo_id = repo_id.strip() if isinstance(repo_id, str) and repo_id.strip() else None
+        self.repo_id = (
+            repo_id.strip() if isinstance(repo_id, str) and repo_id.strip() else None
+        )
         self.path_prefix = _safe_relative_path(path_prefix, label="path_prefix")
         self.local_dir = Path(local_dir)
         self.run_dir = self.local_dir / self.path_prefix / self.run_id
@@ -834,23 +841,13 @@ class StagingTelemetryV2:
     def set_sample(self, sample: Mapping[str, Any]) -> None:
         normalized = _jsonable(sample)
         validator = Draft202012Validator(_SAMPLE_SCHEMA)
-        errors = sorted(validator.iter_errors(normalized), key=lambda error: list(error.path))
+        errors = sorted(
+            validator.iter_errors(normalized), key=lambda error: list(error.path)
+        )
         if errors:
-            raise StagingContractError(f"Invalid sampling evidence: {errors[0].message}")
-        if normalized["mode"] == "bounded_source_households":
-            required = (
-                "requested_source_households",
-                "eligible_source_families",
-                "proportional_request",
-                "realized_source_families",
-                "realized_household_rows",
-                "seed",
-                "receipt_sha256",
+            raise StagingContractError(
+                f"Invalid sampling evidence: {errors[0].message}"
             )
-            if any(normalized[field] is None for field in required):
-                raise StagingContractError(
-                    "Bounded samples require requested, realized, seed, and receipt data."
-                )
         self.sample = normalized
         self._persist_bundle()
 
@@ -1039,14 +1036,18 @@ class StagingTelemetryV2:
             }:
                 raise StagingReadBackError("Remote run identifiers do not match.")
             if not any(row["run_id"] == self.run_id for row in index["runs"]):
-                raise StagingReadBackError("Remote run index does not contain this run.")
+                raise StagingReadBackError(
+                    "Remote run index does not contain this run."
+                )
         except Exception as exc:
             self._delivery["read_back"] = "failed"
             self._delivery["last_error_code"] = "READ_BACK_FAILED"
             self._persist_bundle()
             if isinstance(exc, StagingReadBackError):
                 raise
-            raise StagingReadBackError("Authenticated staging read-back failed.") from exc
+            raise StagingReadBackError(
+                "Authenticated staging read-back failed."
+            ) from exc
         self._delivery["read_back"] = "passed"
         self._delivery["last_error_code"] = None
         self._persist_bundle()
@@ -1056,7 +1057,9 @@ class StagingTelemetryV2:
         self._maybe_upload(force=True)
 
     def validate_local_bundle(self) -> dict[str, Any]:
-        return validate_v2_bundle(self.local_dir, self.run_id, path_prefix=self.path_prefix)
+        return validate_v2_bundle(
+            self.local_dir, self.run_id, path_prefix=self.path_prefix
+        )
 
     def _append_event(
         self,
@@ -1219,7 +1222,10 @@ class StagingTelemetryV2:
 
     def _upload_paths(self) -> list[tuple[Path, str]]:
         paths = [
-            (self.run_dir / "run_manifest.json", f"{self.repo_run_prefix}/run_manifest.json"),
+            (
+                self.run_dir / "run_manifest.json",
+                f"{self.repo_run_prefix}/run_manifest.json",
+            ),
             (self.run_dir / "progress.json", f"{self.repo_run_prefix}/progress.json"),
             (self.run_dir / "events.ndjson", f"{self.repo_run_prefix}/events.ndjson"),
         ]
@@ -1230,7 +1236,9 @@ class StagingTelemetryV2:
             )
         for artifact in self._artifacts:
             relative = artifact["contract_relative_path"]
-            paths.append((self.run_dir / relative, f"{self.repo_run_prefix}/{relative}"))
+            paths.append(
+                (self.run_dir / relative, f"{self.repo_run_prefix}/{relative}")
+            )
         paths.extend(
             [
                 (self.local_dir / LATEST_STAGING_POINTER, LATEST_STAGING_POINTER),
@@ -1297,7 +1305,9 @@ def validate_v2_bundle(
         try:
             payload = validate_v2_document(json.loads(path.read_text()))
         except OSError as exc:
-            raise StagingContractError(f"Missing required staging file: {path}.") from exc
+            raise StagingContractError(
+                f"Missing required staging file: {path}."
+            ) from exc
         if payload["schema_name"] != schema_name:
             raise StagingContractError(f"{path} has the wrong schema identity.")
         documents[label] = payload
@@ -1309,12 +1319,16 @@ def validate_v2_bundle(
             if line
         ]
     except OSError as exc:
-        raise StagingContractError(f"Missing required staging file: {event_path}.") from exc
+        raise StagingContractError(
+            f"Missing required staging file: {event_path}."
+        ) from exc
     if not events:
         raise StagingContractError("A staging run must contain at least one event.")
     sequences = [event["sequence"] for event in events]
     if sequences != list(range(1, len(events) + 1)):
-        raise StagingContractError("Staging event sequence is not contiguous and ordered.")
+        raise StagingContractError(
+            "Staging event sequence is not contiguous and ordered."
+        )
     if any(event["run_id"] != run_id for event in events):
         raise StagingContractError("Staging events identify a different run.")
     for label in ("run_manifest", "progress", "latest"):
@@ -1370,9 +1384,13 @@ def validate_v2_bundle(
                 f"Missing calibration progress file: {root / calibration_path}."
             ) from exc
         if calibration["schema_name"] != CALIBRATION_PROGRESS_SCHEMA:
-            raise StagingContractError("Calibration progress has the wrong schema identity.")
+            raise StagingContractError(
+                "Calibration progress has the wrong schema identity."
+            )
         if calibration["run_id"] != run_id:
-            raise StagingContractError("Calibration progress identifies a different run.")
+            raise StagingContractError(
+                "Calibration progress identifies a different run."
+            )
         if calibration["candidate_id"] != manifest["candidate_id"]:
             raise StagingContractError("Bundle disagrees on candidate_id.")
         documents["calibration_progress"] = calibration

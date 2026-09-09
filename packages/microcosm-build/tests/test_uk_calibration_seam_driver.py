@@ -126,6 +126,67 @@ def test_driver_refuses_bad_sha_and_path_alias(tmp_path: Path):
         driver._parse_args(args)
 
 
+def test_driver_accepts_exact_k_selection_options(tmp_path: Path) -> None:
+    driver = _load_driver_module()
+
+    parsed = driver._parse_args(
+        _args(tmp_path)
+        + [
+            "--exact-k",
+            "2",
+            "--exact-k-pi-hi",
+            "0.95",
+            "--exact-k-seed",
+            "17",
+        ]
+    )
+
+    assert parsed.exact_k == 2
+    assert parsed.exact_k_pi_hi == 0.95
+    assert parsed.exact_k_seed == 17
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        ["--exact-k", "2"],
+        ["--exact-k-pi-hi", "0.95"],
+        ["--exact-k-seed", "17"],
+        [
+            "--exact-k",
+            "0",
+            "--exact-k-pi-hi",
+            "0.95",
+            "--exact-k-seed",
+            "17",
+        ],
+        [
+            "--exact-k",
+            "2",
+            "--exact-k-pi-hi",
+            "1.1",
+            "--exact-k-seed",
+            "17",
+        ],
+        [
+            "--exact-k",
+            "2",
+            "--exact-k-pi-hi",
+            "0.95",
+            "--exact-k-seed",
+            "-1",
+        ],
+    ],
+)
+def test_driver_refuses_incomplete_or_invalid_exact_k_options(
+    tmp_path: Path, extra: list[str]
+) -> None:
+    driver = _load_driver_module()
+
+    with pytest.raises(SystemExit):
+        driver._parse_args(_args(tmp_path) + extra)
+
+
 def test_driver_refuses_feed_outside_the_committed_pin_without_override():
     driver = _load_driver_module()
 
@@ -207,7 +268,20 @@ def test_driver_threads_registry_exclusions_resolver_and_overrides(
         Path(argv[argv.index("--input-h5") + 1])
     )
     extra = ["--allow-unpinned-feed"] if allow_unpinned_feed else []
-    result = driver.main(argv + ["--epochs", "128", *extra])
+    result = driver.main(
+        argv
+        + [
+            "--epochs",
+            "128",
+            "--exact-k",
+            "2",
+            "--exact-k-pi-hi",
+            "0.95",
+            "--exact-k-seed",
+            "17",
+            *extra,
+        ]
+    )
 
     assert result == 0
     call = calls[0]
@@ -244,6 +318,9 @@ def test_driver_threads_registry_exclusions_resolver_and_overrides(
         "last_error_code": None,
         "opt_out_reason": "--no-staging",
     }
+    assert call["exact_k"] == 2
+    assert call["exact_k_pi_hi"] == 0.95
+    assert call["exact_k_seed"] == 17
     assert "uk_target_fit" in capsys.readouterr().out
 
 

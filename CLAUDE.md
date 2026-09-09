@@ -68,9 +68,9 @@ if you touch packaging, build wheels locally before pushing.
 
 The separate `.github/workflows/integration-tests.yml` workflow runs integration
 coverage on every pull request to `main` and on manual dispatch. Its current UK
-job runs the real spine command against the committed synthetic fixture. It
-requests 63 source families with seed 42, uses `--smoke --staging-local-only`,
-writes only under the runner's temporary directory, and is not part of
+job runs the real spine command against the complete committed synthetic fixture
+with seed 42, uses `--smoke --staging-local-only`, writes only under the runner's
+temporary directory, and is not part of
 `ci-ok`. The job has `contents: read`, does not persist checkout credentials,
 does not reference a protected GitHub environment, and receives no external
 writer credential. Fork pull requests run the synthetic test without secrets.
@@ -83,6 +83,11 @@ repository access check with:
 ```bash
 HF_STAGING_READ_TOKEN= bash tools/run_integration_tests.sh
 ```
+
+The spine command's fractional sampler is only for input-scale tests. Exact
+household counts use `tools/calibrate_uk_national_dataset.py --exact-k` after
+the complete spine and target matrix exist; `--exact-k-pi-hi` and
+`--exact-k-seed` are required with it.
 
 ## The PR-CI / certification boundary
 

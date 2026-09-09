@@ -2,12 +2,13 @@
 
 This driver is intentionally thin: it verifies pinned inputs, compiles the
 Ledger target registry, applies the reviewed measure-exclusion register, records
-any explicit doctrine overrides, and delegates the calibration/gate/logbook
-work to :func:`microcosm.build.uk_runtime.calibration_run.run_uk_calibration`.
+any explicit doctrine overrides, and delegates the calibration, validation, and
+logbook work to
+:func:`microcosm.build.uk_runtime.calibration_run.run_uk_calibration`.
 
-Signed deviation for v1: no sampling rungs and no checkpointing. This seam runs
-full-scale only; scale ladders and resumable source-stage checkpoints belong to
-the spine build lane.
+The driver always reads the complete input dataset. Optional exact-K selection
+runs only after target compilation and returns exactly K household records;
+resumable source-stage checkpoints remain part of the spine build.
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import re
 from importlib import metadata
 from itertools import combinations
@@ -163,6 +165,9 @@ def main(argv: list[str] | None = None) -> int:
             ),
             event_callback=event_callback if telemetry is not None else None,
             staging_delivery=_staging_delivery(args, telemetry),
+            exact_k=args.exact_k,
+            exact_k_pi_hi=args.exact_k_pi_hi,
+            exact_k_seed=args.exact_k_seed,
         )
         build_record_sha256 = result.build_record_sha256
         build_record = dict(result.build_record)
@@ -221,6 +226,24 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--target-weight-rule")
     parser.add_argument("--learning-rate", type=float)
     parser.add_argument("--target-loss-cap", type=float)
+    parser.add_argument(
+        "--exact-k",
+        type=int,
+        help=(
+            "Select exactly K households from the complete input pool, then "
+            "refit ordinary calibration weights on that support."
+        ),
+    )
+    parser.add_argument(
+        "--exact-k-pi-hi",
+        type=float,
+        help="Certainty threshold for the fixed-size Sampford selection.",
+    )
+    parser.add_argument(
+        "--exact-k-seed",
+        type=int,
+        help="Explicit non-negative seed for exact-K support selection.",
+    )
     add_uk_staging_arguments(parser)
     args = parser.parse_args(argv)
     args.terminal_gate_json = args.terminal_gate_json or args.staging_h5.with_suffix(
@@ -248,6 +271,21 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
             "certification producer; the seam runs under a staging or dev "
             "release id"
         )
+    exact_k_values = (args.exact_k, args.exact_k_pi_hi, args.exact_k_seed)
+    if any(value is not None for value in exact_k_values):
+        if any(value is None for value in exact_k_values):
+            parser.error(
+                "--exact-k, --exact-k-pi-hi, and --exact-k-seed must be "
+                "provided together"
+            )
+        if args.exact_k < 1:
+            parser.error("--exact-k must be a positive integer")
+        if not math.isfinite(args.exact_k_pi_hi) or not (
+            0.0 <= args.exact_k_pi_hi <= 1.0
+        ):
+            parser.error("--exact-k-pi-hi must be finite and in [0, 1]")
+        if args.exact_k_seed < 0:
+            parser.error("--exact-k-seed must be a non-negative integer")
     _validate_distinct_paths(
         {
             "--input-h5": args.input_h5,
@@ -296,17 +334,7 @@ def _create_staging_telemetry(args: argparse.Namespace) -> StagingTelemetryV2 | 
 
 
 def _full_sample() -> dict[str, object]:
-    return {
-        "mode": "full",
-        "requested_source_households": None,
-        "eligible_source_families": None,
-        "proportional_request": None,
-        "forced_additions": 0,
-        "realized_source_families": None,
-        "realized_household_rows": None,
-        "seed": None,
-        "receipt_sha256": None,
-    }
+    return {"mode": "full"}
 
 
 def _staging_delivery(

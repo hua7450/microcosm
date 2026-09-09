@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
@@ -23,8 +24,17 @@ from microcosm.build.uk_runtime.national_doctrine import (
     UKNationalSolveDoctrine,
     uk_national_target_loss_weights,
 )
+
+# This implementation is country-neutral despite its historical US runtime
+# location. Reusing it keeps UK and US exact-count selection behavior aligned.
+from microcosm.build.us_runtime.exact_k_ladder import (
+    ExactKLadderCalibration,
+    assert_exact_k_realized_count,
+    calibrate_exact_k_ladder,
+)
 from microcosm.calibrate import (
     CalibrationResult,
+    L0RefitResult,
     TargetRegistry,
     calibrate,
     effective_sample_size,
@@ -39,6 +49,9 @@ __all__ = [
     "national_calibration_mass_reason",
     "uk_national_calibration_stage",
 ]
+
+
+UK_EXACT_K_L0_LAMBDA_SHARE = 0.8
 
 
 class UKNationalCalibrationStage:
@@ -56,6 +69,10 @@ class UKNationalCalibrationStage:
         stage_callback: (
             Callable[[str, str, Mapping[str, object]], None] | None
         ) = None,
+        exact_k: int | None = None,
+        exact_k_pi_hi: float | None = None,
+        exact_k_seed: int | None = None,
+        exact_k_l0_lambda_share: float = UK_EXACT_K_L0_LAMBDA_SHARE,
     ) -> None:
         self.compilation = (
             registry
@@ -80,9 +97,36 @@ class UKNationalCalibrationStage:
         self.measure_resolver = measure_resolver
         self.progress_callback = progress_callback
         self.stage_callback = stage_callback
+        exact_k_values = (exact_k, exact_k_pi_hi, exact_k_seed)
+        if any(value is not None for value in exact_k_values) and any(
+            value is None for value in exact_k_values
+        ):
+            raise ValueError(
+                "exact_k, exact_k_pi_hi, and exact_k_seed must be provided together."
+            )
+        if exact_k is not None and (
+            isinstance(exact_k, bool) or not isinstance(exact_k, int) or exact_k < 1
+        ):
+            raise ValueError("exact_k must be a positive integer.")
+        if exact_k_pi_hi is not None and (
+            not math.isfinite(exact_k_pi_hi) or not 0.0 <= exact_k_pi_hi <= 1.0
+        ):
+            raise ValueError("exact_k_pi_hi must be finite and in [0, 1].")
+        if exact_k_seed is not None and (
+            isinstance(exact_k_seed, bool)
+            or not isinstance(exact_k_seed, int)
+            or exact_k_seed < 0
+        ):
+            raise ValueError("exact_k_seed must be a non-negative integer.")
+        if not math.isfinite(exact_k_l0_lambda_share) or exact_k_l0_lambda_share <= 0.0:
+            raise ValueError("exact_k_l0_lambda_share must be positive and finite.")
+        self.exact_k = exact_k
+        self.exact_k_pi_hi = exact_k_pi_hi
+        self.exact_k_seed = exact_k_seed
+        self.exact_k_l0_lambda_share = float(exact_k_l0_lambda_share)
         self.manifest: dict[str, object] | None = None
         self.diagnostics: tuple[dict[str, object], ...] = ()
-        self.solve_result: CalibrationResult | None = None
+        self.solve_result: CalibrationResult | L0RefitResult | None = None
         self.output_content_identity: str | None = None
 
     def __call__(self, frame: Frame) -> Frame:
@@ -143,21 +187,44 @@ class UKNationalCalibrationStage:
             [spec.family for spec in self.registry.specs],
             rule=self.doctrine.target_weight_rule,
         )
-        result = calibrate(
-            prepared,
-            self.registry.to_target_set(),
-            weight_entity="household",
-            epochs=self.doctrine.epochs,
-            learning_rate=self.doctrine.learning_rate,
-            mass=self.doctrine.mass_rule,
-            mass_reason=mass_reason,
-            max_weight_ratio=self.doctrine.max_weight_ratio,
-            seed=self.doctrine.seed,
-            l0_lambda=self.doctrine.l0_lambda,
-            target_loss_cap=self.doctrine.target_loss_cap,
-            target_loss_weights=target_loss_weights,
-            progress_callback=self.progress_callback,
-        )
+        exact_k_outcome: ExactKLadderCalibration | None = None
+        if self.exact_k is None:
+            result: CalibrationResult | L0RefitResult = calibrate(
+                prepared,
+                self.registry.to_target_set(),
+                weight_entity="household",
+                epochs=self.doctrine.epochs,
+                learning_rate=self.doctrine.learning_rate,
+                mass=self.doctrine.mass_rule,
+                mass_reason=mass_reason,
+                max_weight_ratio=self.doctrine.max_weight_ratio,
+                seed=self.doctrine.seed,
+                l0_lambda=self.doctrine.l0_lambda,
+                target_loss_cap=self.doctrine.target_loss_cap,
+                target_loss_weights=target_loss_weights,
+                progress_callback=self.progress_callback,
+            )
+        else:
+            pool_households = int(prepared.n("household"))
+            exact_k_outcome = calibrate_exact_k_ladder(
+                prepared,
+                self.registry.to_target_set(),
+                k=self.exact_k,
+                pi_hi=float(self.exact_k_pi_hi),
+                seed=int(self.exact_k_seed),
+                weight_entity="household",
+                epochs=self.doctrine.epochs,
+                refit_epochs=self.doctrine.epochs,
+                learning_rate=self.doctrine.learning_rate,
+                mass=self.doctrine.mass_rule,
+                max_weight_ratio=self.doctrine.max_weight_ratio,
+                l0_lambda=self.exact_k_l0_lambda_share / pool_households,
+                target_loss_cap=self.doctrine.target_loss_cap,
+                target_loss_weights=target_loss_weights,
+                progress_callback=self.progress_callback,
+            )
+            assert_exact_k_realized_count(exact_k_outcome, self.exact_k)
+            result = exact_k_outcome.result
         if result.skipped or len(result.problem.names) != declared:
             skipped = [item.name for item in result.skipped]
             raise RuntimeError(
@@ -171,6 +238,9 @@ class UKNationalCalibrationStage:
             frame,
             clean_frame,
             before_count=mass_log_records_before_calibration,
+            exact_k_selected=(
+                exact_k_outcome is not None and self.exact_k < prepared.n("household")
+            ),
         )
         self.diagnostics = tuple(
             {
@@ -223,6 +293,20 @@ class UKNationalCalibrationStage:
             },
             "parameters": {"doctrine": _doctrine_bounds(self.doctrine)},
         }
+        if exact_k_outcome is not None:
+            manifest["exact_k_ladder"] = {
+                "k": int(self.exact_k),
+                "seed": int(self.exact_k_seed),
+                "pool_households": int(prepared.n("household")),
+                "realized_households": int(clean_frame.n("household")),
+                "l0_lambda_share": self.exact_k_l0_lambda_share,
+                "l0_lambda": self.exact_k_l0_lambda_share
+                / int(prepared.n("household")),
+                "selection_receipt": dict(exact_k_outcome.selection_receipt),
+                "refit_baseline_diagnostics": dict(
+                    exact_k_outcome.refit_baseline_diagnostics
+                ),
+            }
         if measure_resolution is not None:
             manifest["measure_resolution"] = dict(measure_resolution.receipt)
         self.manifest = manifest
@@ -329,23 +413,30 @@ def _post_solve_calibration_record(
     after: Frame,
     *,
     before_count: int,
+    exact_k_selected: bool = False,
 ):
     if after.weights_for("household").kind is not WeightKind.CALIBRATED:
         raise RuntimeError(
             "UK national calibration returned household weights whose kind is "
             f"{after.weights_for('household').kind.value!r}, not 'calibrated'."
         )
-    if len(after.mass_log) != before_count + 1:
+    expected_records = before_count + (2 if exact_k_selected else 1)
+    if len(after.mass_log) != expected_records:
+        expectation = "exactly two" if exact_k_selected else "exactly one"
         raise RuntimeError(
-            "UK national calibration must append exactly one mass record; "
-            f"before={before_count}, after={len(after.mass_log)}."
+            f"UK national calibration must append {expectation} mass record(s); "
+            f"before={before_count}, expected={expected_records}, "
+            f"after={len(after.mass_log)}."
         )
     if before.mass_log != after.mass_log[:before_count]:
         raise RuntimeError(
             "UK national calibration changed pre-existing mass-log records."
         )
     record = after.mass_log[-1]
-    if record.entity != "household" or "calibration" not in record.reason:
+    calibration_reasons = ("calibration", "calibrated")
+    if record.entity != "household" or not any(
+        term in record.reason.casefold() for term in calibration_reasons
+    ):
         raise RuntimeError(
             "UK national calibration latest mass record is not the calibration "
             f"record: entity={record.entity!r}, reason={record.reason!r}."
@@ -415,8 +506,36 @@ class CalibrationFrameAdapter(UKFrameTargetAdapter):
         )
 
     def restore(self, calibrated: Frame) -> Frame:
-        tables = {name: table.copy() for name, table in self._original_tables.items()}
-        tables.update({name: table.copy() for name, table in self.link_tables.items()})
+        source = self._source_frame
+        calibrated_households = calibrated.table("household")
+        source_households = source.table("household")
+        if len(calibrated_households) == len(source_households):
+            tables = {
+                name: table.copy() for name, table in self._original_tables.items()
+            }
+            tables.update(
+                {name: table.copy() for name, table in self.link_tables.items()}
+            )
+        else:
+            household_ids = calibrated_households[
+                calibrated.schema.entity_id_column("household")
+            ].to_numpy()
+            membership = source.person[
+                source.schema.membership_column("household")
+            ].to_numpy()
+            selected_source = source.select(np.isin(membership, household_ids))
+            restored_household_ids = selected_source.table("household")[
+                source.schema.entity_id_column("household")
+            ].to_numpy()
+            if not np.array_equal(restored_household_ids, household_ids):
+                raise RuntimeError(
+                    "Exact-k calibrated household order differs from the source "
+                    "subset order; weights cannot be restored safely."
+                )
+            tables = {
+                name: selected_source.table(name).copy()
+                for name in selected_source.entities
+            }
         return Frame(
             tables,
             calibrated.schema,

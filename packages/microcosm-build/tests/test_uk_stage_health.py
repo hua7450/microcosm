@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import numpy as np
+
 from microcosm.build.uk_runtime.stage_health import uk_stage_health_gate
 
 
@@ -154,6 +156,28 @@ def test_cgt_incidence_mass_threshold_is_live() -> None:
             "maximum_relative_mass_imbalance": 0.009,
         },
     ).passed
+
+
+def test_cgt_incidence_mass_accepts_float_roundoff_at_zero_policy_tolerance() -> None:
+    original = 100.0
+    clone = np.nextafter(original, np.inf)
+
+    result = uk_stage_health_gate(
+        evidence={
+            "stage": "cgt_incidence_clone",
+            "mass_by_clone_flag": {"false": original, "true": clone},
+        },
+        stage="cgt_incidence_clone",
+        check="cgt_incidence_mass",
+        parameters={
+            "stage": "cgt_incidence_clone",
+            "check": "cgt_incidence_mass",
+            "maximum_relative_mass_imbalance": 0.0,
+        },
+    )
+
+    assert _passed(result)
+    assert result.details["relative_imbalance"] > 0.0
 
 
 def test_spi_support_channel_parameters_are_live() -> None:

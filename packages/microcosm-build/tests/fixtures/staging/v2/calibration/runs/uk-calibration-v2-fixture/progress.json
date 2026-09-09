@@ -27,15 +27,7 @@
   "run_id": "uk-calibration-v2-fixture",
   "run_kind": "calibration",
   "sample": {
-    "eligible_source_families": null,
-    "forced_additions": 0,
-    "mode": "full",
-    "proportional_request": null,
-    "realized_household_rows": null,
-    "realized_source_families": null,
-    "receipt_sha256": null,
-    "requested_source_households": null,
-    "seed": null
+    "mode": "full"
   },
   "schema_name": "microcosm.staging.progress",
   "schema_version": 2,
