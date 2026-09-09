@@ -43,7 +43,6 @@ BINDING_KINDS = {
 PROJECTION_FAMILIES = {"obr", "slc_borrowers", "scotgov_social_security"}
 NATIONAL_SELECTOR_KEYS = {
     "aggregate_fact_key",
-    "period_value",
     "source_name",
     "source_concept",
     "source_measure_id",
