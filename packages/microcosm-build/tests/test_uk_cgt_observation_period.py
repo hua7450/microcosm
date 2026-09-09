@@ -123,6 +123,8 @@ def _assert_export(original, fitted, path):
 def test_dated_cgt_fit_restores_base2024_values_with_fitted_weights(
     monkeypatch, tmp_path, route
 ):
+    pytest.importorskip("tables")
+    pytest.importorskip("h5py")
     original = _frame()
     simulation = _Simulation()
     monkeypatch.setattr(
