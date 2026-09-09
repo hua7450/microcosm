@@ -72,7 +72,18 @@ rate/relief representation can still produce residuals after this year and
 scope correction. Neither unit tests nor a national fit certify a dataset.
 
 The implementation uses the current main lock (PolicyEngine-UK 2.97.0, Core
-3.31.0) and the existing Chronicle 6fb700e feed. A separate prerequisite adds
-the two FRS person-role inputs consumed by the #883 UC capital stage to its
-graph projection. A clean source build demonstrated their omission. The same
-prerequisite is applied to control and candidate; it changes no CGT imputation.
+3.31.0). After integration with #891, national targets use the authenticated
+Chronicle `ec7169b5db40b9f54117c80f70f14efc1dd0fedd` artifact declared in
+`uk/national_chronicle_feed.json`. Local targets retain their separate `6fb700e`
+pin. The three individual CGT observations and OBR diagnostic fact are identical
+in both artifacts. The new national contract preserves #891's paid UC source
+windows, family classification and diagnostic receipts.
+
+The original national comparison at CGT commit `30479731` used the earlier
+`6fb700e` national feed and UC contract. Its fitted weights and residuals remain
+historical evidence for that comparison; they do not describe a fit under the
+new UC contract. A separate prerequisite added the two FRS person-role inputs
+consumed by the #883 UC capital stage to its graph projection after a clean
+source build demonstrated their omission. That prerequisite was applied to both
+original control and candidate and remains in this patch; it changes no CGT
+imputation.
